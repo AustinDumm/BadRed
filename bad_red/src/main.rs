@@ -1,5 +1,6 @@
 use std::{io::{self, Stdout, Write}, iter::Peekable};
 
+use buffer::Update;
 use crossterm::{
     cursor,
     event::{read, Event, KeyCode},
@@ -26,7 +27,10 @@ fn main() -> io::Result<()> {
     loop {
         let update = match read()? {
             Event::Key(event) if event.code == KeyCode::Esc => break,
-            event => println!("EVENT: {:?}", event),
+            event => {
+                editor_state.buffers[editor_state.active_buffer].handle_event(event);
+                Update::All
+            },
         };
 
         render(&mut stdout, &editor_state)?;
@@ -131,7 +135,7 @@ fn render(stdout: &mut Stdout, editor_state: &EditorState) -> io::Result<()> {
                 for _ in buffer_col..size.cols {
                     queue!(stdout, style::Print(" "))?;
                 }
-                queue!(stdout, style::Print("\n"),)?;
+                //queue!(stdout, style::Print("\n"),)?;
                 buffer_row += 1;
                 buffer_col = 0;
             } else {
@@ -145,11 +149,13 @@ fn render(stdout: &mut Stdout, editor_state: &EditorState) -> io::Result<()> {
         }
 
         if let Some(cursor_position) = cursor_position {
-            queue!(stdout, cursor::MoveTo(cursor_position.0, cursor_position.1))?;
+            queue!(stdout, cursor::MoveTo(cursor_position.1, cursor_position.0))?;
+        } else {
+            panic!()
         }
     }
 
-    Ok(())
+    stdout.flush()
 }
 
 fn handle_newline<I>(char: char, char_count: &mut usize, chars: &mut Peekable<I>) -> bool 
