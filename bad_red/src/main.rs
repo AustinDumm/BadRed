@@ -132,10 +132,11 @@ fn render(stdout: &mut Stdout, editor_state: &EditorState) -> io::Result<()> {
             char_count += 1;
             let is_newline = handle_newline(char, &mut char_count, &mut chars);
             if is_newline {
-                for _ in buffer_col..size.cols {
+                queue!(stdout, style::Print(" "))?;
+                for _ in buffer_col..size.cols-2 {
                     queue!(stdout, style::Print(" "))?;
                 }
-                //queue!(stdout, style::Print("\n"),)?;
+                queue!(stdout, style::Print("\n\r"))?;
                 buffer_row += 1;
                 buffer_col = 0;
             } else {
