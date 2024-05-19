@@ -12,8 +12,6 @@ pub struct Split {
     first_char_size: u16,
 }
 
-pub struct LeafPane {}
-
 impl Pane {
     pub fn leaf_and_size_at_path<'a>(
         &'a self,
@@ -57,3 +55,16 @@ impl Pane {
         }
     }
 }
+
+pub struct LeafPane {
+    pub top_line: u16,
+}
+
+impl LeafPane {
+    pub fn new() -> Self {
+        Self {
+            top_line: 0,
+        }
+    }
+}
+

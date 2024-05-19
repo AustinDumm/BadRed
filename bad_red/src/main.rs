@@ -1,8 +1,9 @@
-use std::io::{self, Stdout, Write};
+use std::{io::{self, Stdout, Write}, iter::Peekable};
 
 use crossterm::{
+    cursor,
     event::{read, Event, KeyCode},
-    queue,
+    queue, style,
     terminal::{self, *},
 };
 use editor_state::EditorState;
@@ -27,6 +28,8 @@ fn main() -> io::Result<()> {
             Event::Key(event) if event.code == KeyCode::Esc => break,
             event => println!("EVENT: {:?}", event),
         };
+
+        render(&mut stdout, &editor_state)?;
     }
 
     cleanup_terminal(&mut stdout)
@@ -35,7 +38,7 @@ fn main() -> io::Result<()> {
 #[derive(Clone)]
 pub struct EditorSize {
     pub x_row: u16,
-    pub y_row: u16,
+    pub y_col: u16,
     pub rows: u16,
     pub cols: u16,
 }
@@ -47,9 +50,9 @@ impl EditorSize {
         new
     }
 
-    pub fn with_y_col(&self, y_row: u16) -> Self {
+    pub fn with_y_col(&self, y_col: u16) -> Self {
         let mut new = self.clone();
-        new.y_row = y_row;
+        new.y_col = y_col;
         new
     }
 
@@ -78,11 +81,11 @@ impl EditorSize {
     }
 }
 
-fn render(editor_state: &EditorState) -> io::Result<()> {
+fn render(stdout: &mut Stdout, editor_state: &EditorState) -> io::Result<()> {
     let window_size = terminal::window_size()?;
     let editor_size = EditorSize {
         x_row: 0,
-        y_row: 0,
+        y_col: 0,
         rows: window_size.rows,
         cols: window_size.columns,
     };
@@ -100,12 +103,72 @@ fn render(editor_state: &EditorState) -> io::Result<()> {
             writeln!(io::stderr(), "Failed attempt to find pane by path")?;
             continue;
         };
+
+        queue!(stdout, cursor::MoveTo(size.y_col, size.x_row))?;
+        let mut buffer_row = 0;
+        let mut buffer_col = 0;
+        let mut cursor_position: Option<(u16, u16)> = None;
+        let mut chars = buffer.content.chars().peekable();
+        let mut char_count = 0;
+
+        while let Some(char) = chars.peek() {
+            if buffer_row == pane.top_line {
+                break;
+            }
+
+            if *char == '\n' || *char == '\r' {
+                let char = chars.next().unwrap();
+                if handle_newline(char, &mut char_count, &mut chars) {
+                    buffer_row += 1;
+                }
+            }
+        }
+
+        while let Some(char) = chars.next() {
+            char_count += 1;
+            let is_newline = handle_newline(char, &mut char_count, &mut chars);
+            if is_newline {
+                for _ in buffer_col..size.cols {
+                    queue!(stdout, style::Print(" "))?;
+                }
+                queue!(stdout, style::Print("\n"),)?;
+                buffer_row += 1;
+                buffer_col = 0;
+            } else {
+                queue!(stdout, style::Print(char))?;
+                buffer_col += 1;
+            }
+
+            if char_count == buffer.cursor_index {
+                cursor_position = Some((buffer_row, buffer_col));
+            }
+        }
+
+        if let Some(cursor_position) = cursor_position {
+            queue!(stdout, cursor::MoveTo(cursor_position.0, cursor_position.1))?;
+        }
     }
-    todo!()
+
+    Ok(())
+}
+
+fn handle_newline<I>(char: char, char_count: &mut usize, chars: &mut Peekable<I>) -> bool 
+where I: Iterator<Item = char> {
+    if char == '\r' {
+        if chars.peek() == Some(&'\n') {
+            *char_count += 1;
+            _ = chars.next();
+        }
+        true
+    } else if char == '\n' {
+        true
+    } else {
+        false
+    }
 }
 
 fn setup_terminal(stdout: &mut Stdout) -> io::Result<()> {
-    queue!(stdout, EnterAlternateScreen, SetTitle(TITLE))?;
+    queue!(stdout, EnterAlternateScreen, SetTitle(TITLE), cursor::MoveTo(0, 0))?;
     stdout.flush()?;
 
     enable_raw_mode()
