@@ -149,6 +149,14 @@ fn render(stdout: &mut Stdout, editor_state: &EditorState) -> io::Result<()> {
             }
         }
 
+        for _ in buffer_row..size.rows {
+            for _ in buffer_col..size.cols {
+                queue!(stdout, style::Print(" "))?;
+            }
+            buffer_col = 0;
+        }
+
+
         if let Some(cursor_position) = cursor_position {
             queue!(stdout, cursor::MoveTo(cursor_position.1, cursor_position.0))?;
         } else {
