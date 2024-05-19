@@ -26,7 +26,7 @@ impl Pane {
                     None
                 }
             }
-            Pane::VSplit(split) => {
+            Pane::HSplit(split) => {
                 if (pane_path & 1) == 0 {
                     let child_pane = &split.first;
                     let child_size = editor_size.with_rows(split.first_char_size);
@@ -39,7 +39,7 @@ impl Pane {
                     child_pane.leaf_and_size_at_path(&child_size, pane_path >> 1)
                 }
             }
-            Pane::HSplit(split) => {
+            Pane::VSplit(split) => {
                 if (pane_path & 1) == 0 {
                     let child_pane = &split.first;
                     let child_size = editor_size.with_cols(split.first_char_size);
@@ -54,6 +54,19 @@ impl Pane {
             }
         }
     }
+
+    pub fn leaf_at_path<'a>(&'a self, pane_path: u16) -> Option<&LeafPane> {
+        self.leaf_and_size_at_path(
+            &EditorSize {
+                x_row: 0,
+                y_col: 0,
+                rows: 0,
+                cols: 0,
+            },
+            pane_path,
+        )
+        .map(|(p, _)| p)
+    }
 }
 
 pub struct LeafPane {
@@ -62,9 +75,6 @@ pub struct LeafPane {
 
 impl LeafPane {
     pub fn new() -> Self {
-        Self {
-            top_line: 0,
-        }
+        Self { top_line: 0 }
     }
 }
-

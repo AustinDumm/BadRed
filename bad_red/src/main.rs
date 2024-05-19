@@ -1,4 +1,7 @@
-use std::{io::{self, Stdout, Write}, iter::Peekable};
+use std::{
+    io::{self, Stdout, Write},
+    iter::Peekable,
+};
 
 use buffer::Update;
 use crossterm::{
@@ -8,10 +11,14 @@ use crossterm::{
     terminal::{self, *},
 };
 use editor_state::EditorState;
+use mlua::Lua;
+
+use crate::script_handler::BuiltIn;
 
 mod buffer;
 mod editor_state;
 mod pane;
+mod script_handler;
 
 const TITLE: &str = "BadRed";
 
@@ -24,19 +31,38 @@ fn main() -> io::Result<()> {
     }
 
     let mut editor_state = EditorState::new();
+    let lua = Lua::new();
     loop {
         let update = match read()? {
             Event::Key(event) if event.code == KeyCode::Esc => break,
             event => {
                 editor_state.buffers[editor_state.active_buffer].handle_event(event);
                 Update::All
-            },
+            }
         };
+
+        match update {
+            Update::None => continue,
+            Update::All => (),
+            Update::Command(command_text) => evaluate_command(command_text, &lua, &mut editor_state).unwrap(),
+        }
 
         render(&mut stdout, &editor_state)?;
     }
 
     cleanup_terminal(&mut stdout)
+}
+
+fn evaluate_command(
+    command_text: &str,
+    lua: &Lua,
+    editor_state: &mut EditorState,
+) -> mlua::Result<()> {
+    let chunk = lua.load(command_text);
+    let commands: Vec<BuiltIn> = chunk.call(())?;
+    editor_state.execute_commands(commands);
+
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -133,7 +159,7 @@ fn render(stdout: &mut Stdout, editor_state: &EditorState) -> io::Result<()> {
             let is_newline = handle_newline(char, &mut char_count, &mut chars);
             if is_newline {
                 queue!(stdout, style::Print(" "))?;
-                for _ in buffer_col..size.cols-2 {
+                for _ in buffer_col..size.cols - 2 {
                     queue!(stdout, style::Print(" "))?;
                 }
                 queue!(stdout, style::Print("\n\r"))?;
@@ -156,7 +182,6 @@ fn render(stdout: &mut Stdout, editor_state: &EditorState) -> io::Result<()> {
             buffer_col = 0;
         }
 
-
         if let Some(cursor_position) = cursor_position {
             queue!(stdout, cursor::MoveTo(cursor_position.1, cursor_position.0))?;
         } else {
@@ -167,8 +192,10 @@ fn render(stdout: &mut Stdout, editor_state: &EditorState) -> io::Result<()> {
     stdout.flush()
 }
 
-fn handle_newline<I>(char: char, char_count: &mut usize, chars: &mut Peekable<I>) -> bool 
-where I: Iterator<Item = char> {
+fn handle_newline<I>(char: char, char_count: &mut usize, chars: &mut Peekable<I>) -> bool
+where
+    I: Iterator<Item = char>,
+{
     if char == '\r' {
         if chars.peek() == Some(&'\n') {
             *char_count += 1;
@@ -183,7 +210,12 @@ where I: Iterator<Item = char> {
 }
 
 fn setup_terminal(stdout: &mut Stdout) -> io::Result<()> {
-    queue!(stdout, EnterAlternateScreen, SetTitle(TITLE), cursor::MoveTo(0, 0))?;
+    queue!(
+        stdout,
+        EnterAlternateScreen,
+        SetTitle(TITLE),
+        cursor::MoveTo(0, 0)
+    )?;
     stdout.flush()?;
 
     enable_raw_mode()
