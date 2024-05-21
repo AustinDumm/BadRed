@@ -24,7 +24,7 @@ fn main() -> io::Result<()> {
         let update = match read()? {
             Event::Key(event) if event.code == KeyCode::Esc => break,
             event => {
-                editor_state.buffers[editor_state.active_buffer].handle_event(event);
+                //editor_state.buffers[editor_state.active_buffer].handle_event(event);
                 Update::All
             }
         };
