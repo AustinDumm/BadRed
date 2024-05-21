@@ -7,8 +7,7 @@ use buffer::Update;
 use crossterm::{
     cursor,
     event::{read, Event, KeyCode},
-    queue, style,
-    terminal::{self, *},
+    queue, style, terminal::{self, *},
 };
 use editor_state::EditorState;
 use mlua::Lua;
@@ -20,15 +19,54 @@ mod editor_state;
 mod pane;
 mod script_handler;
 
-const TITLE: &str = "BadRed";
+
+struct Terminal {
+    stdout: Stdout,
+}
+
+impl Terminal {
+    const TITLE: &'static str = "BadRed";
+
+    fn new(stdout: Stdout) -> io::Result<Self> {
+        let mut new = Self { stdout };
+        if let Err(e) = new.setup_terminal() {
+            let _ = new.cleanup_terminal();
+
+            Err(e)
+        } else {
+            Ok(new)
+        }
+    }
+
+    fn setup_terminal(&mut self) -> io::Result<()> {
+        queue!(
+            self.stdout,
+            EnterAlternateScreen,
+            SetTitle(Self::TITLE),
+            cursor::MoveTo(0, 0)
+        )?;
+        self.stdout.flush()?;
+
+        enable_raw_mode()
+    }
+
+    fn cleanup_terminal(&mut self) -> io::Result<()> {
+        queue!(self.stdout, LeaveAlternateScreen)?;
+        self.stdout.flush()?;
+
+        disable_raw_mode()
+    }
+}
+
+impl Drop for Terminal {
+    fn drop(&mut self) {
+        let _ = self.cleanup_terminal();
+    }
+}
 
 fn main() -> io::Result<()> {
-    let mut stdout = io::stdout();
-
-    if let Err(err) = setup_terminal(&mut stdout) {
-        let _ = cleanup_terminal(&mut stdout);
-        return Err(err);
-    }
+    let stdout = io::stdout();
+    let mut terminal = Terminal::new(stdout)?;
 
     let mut editor_state = EditorState::new();
     let lua = Lua::new();
@@ -44,13 +82,15 @@ fn main() -> io::Result<()> {
         match update {
             Update::None => continue,
             Update::All => (),
-            Update::Command(command_text) => evaluate_command(command_text, &lua, &mut editor_state).unwrap(),
+            Update::Command(command_text) => {
+                evaluate_command(command_text, &lua, &mut editor_state).unwrap()
+            }
         }
 
-        render(&mut stdout, &editor_state)?;
+        render(&mut terminal, &editor_state)?;
     }
 
-    cleanup_terminal(&mut stdout)
+    Ok(())
 }
 
 fn evaluate_command(
@@ -111,7 +151,8 @@ impl EditorSize {
     }
 }
 
-fn render(stdout: &mut Stdout, editor_state: &EditorState) -> io::Result<()> {
+fn render(terminal: &mut Terminal, editor_state: &EditorState) -> io::Result<()> {
+    let stdout = &mut terminal.stdout;
     let window_size = terminal::window_size()?;
     let editor_size = EditorSize {
         x_row: 0,
@@ -160,7 +201,7 @@ fn render(stdout: &mut Stdout, editor_state: &EditorState) -> io::Result<()> {
             if is_newline {
                 queue!(stdout, style::Print(" "))?;
                 for _ in buffer_col..size.cols - 2 {
-                    queue!(stdout, style::Print(" "))?;
+                    queue!(stdout, Clear(ClearType::UntilNewLine))?;
                 }
                 queue!(stdout, style::Print("\n\r"))?;
                 buffer_row += 1;
@@ -209,21 +250,3 @@ where
     }
 }
 
-fn setup_terminal(stdout: &mut Stdout) -> io::Result<()> {
-    queue!(
-        stdout,
-        EnterAlternateScreen,
-        SetTitle(TITLE),
-        cursor::MoveTo(0, 0)
-    )?;
-    stdout.flush()?;
-
-    enable_raw_mode()
-}
-
-fn cleanup_terminal(stdout: &mut Stdout) -> io::Result<()> {
-    queue!(stdout, LeaveAlternateScreen)?;
-    stdout.flush()?;
-
-    disable_raw_mode()
-}
