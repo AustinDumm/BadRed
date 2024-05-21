@@ -19,7 +19,7 @@ fn main() -> io::Result<()> {
     let mut editor_state = EditorState::new();
     let lua = Lua::new();
     loop {
-        let update = match read()? {
+        match read()? {
             Event::Key(event) if event.code == KeyCode::Esc => break,
             event => {
                 editor_state
