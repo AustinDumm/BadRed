@@ -1,7 +1,4 @@
-use std::{
-    io::{self, Stdout, Write},
-    iter::Peekable,
-};
+use std::io;
 
 use buffer::Update;
 use crossterm::event::{read, Event, KeyCode};
@@ -12,11 +9,10 @@ use mlua::Lua;
 use crate::script_handler::BuiltIn;
 
 mod buffer;
+mod display;
 mod editor_state;
 mod pane;
 mod script_handler;
-mod display;
-
 
 fn main() -> io::Result<()> {
     let stdout = io::stdout();
@@ -104,6 +100,3 @@ impl EditorSize {
         new
     }
 }
-
-
-
