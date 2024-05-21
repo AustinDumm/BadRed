@@ -8,9 +8,7 @@ use std::{
 };
 
 use crate::{
-    editor_state::EditorState,
-    pane::{Pane, PaneTree},
-    EditorFrame,
+    editor_frame::EditorFrame, editor_state::EditorState, pane::{Pane, PaneTree}
 };
 
 pub struct Display {

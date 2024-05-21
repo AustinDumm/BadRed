@@ -1,4 +1,3 @@
-use crate::EditorFrame;
 
 pub struct Panes {
     pub tree: PaneTree,
