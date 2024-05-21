@@ -1,12 +1,9 @@
 use std::io;
 
-use buffer::Update;
 use crossterm::event::{read, Event, KeyCode};
 use display::Display;
 use editor_state::EditorState;
 use mlua::Lua;
-
-use crate::script_handler::BuiltIn;
 
 mod buffer;
 mod display;
@@ -24,18 +21,11 @@ fn main() -> io::Result<()> {
         let update = match read()? {
             Event::Key(event) if event.code == KeyCode::Esc => break,
             event => {
-                //editor_state.buffers[editor_state.active_buffer].handle_event(event);
-                Update::All
+                editor_state
+                    .dispatch_input(event)
+                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
             }
         };
-
-        match update {
-            Update::None => continue,
-            Update::All => (),
-            Update::Command(command_text) => {
-                evaluate_command(command_text, &lua, &mut editor_state).unwrap()
-            }
-        }
 
         display.render(&editor_state)?;
     }
@@ -48,31 +38,27 @@ fn evaluate_command(
     lua: &Lua,
     editor_state: &mut EditorState,
 ) -> mlua::Result<()> {
-    let chunk = lua.load(command_text);
-    let commands: Vec<BuiltIn> = chunk.call(())?;
-    editor_state.execute_commands(commands);
-
     Ok(())
 }
 
 #[derive(Clone)]
-pub struct EditorSize {
-    pub x_row: u16,
-    pub y_col: u16,
+pub struct EditorFrame {
+    pub x_col: u16,
+    pub y_row: u16,
     pub rows: u16,
     pub cols: u16,
 }
 
-impl EditorSize {
-    pub fn with_x_row(&self, x_row: u16) -> Self {
+impl EditorFrame {
+    pub fn with_x_col(&self, x_col: u16) -> Self {
         let mut new = self.clone();
-        new.x_row = x_row;
+        new.x_col = x_col;
         new
     }
 
-    pub fn with_y_col(&self, y_col: u16) -> Self {
+    pub fn with_y_row(&self, y_row: u16) -> Self {
         let mut new = self.clone();
-        new.y_col = y_col;
+        new.y_row = y_row;
         new
     }
 

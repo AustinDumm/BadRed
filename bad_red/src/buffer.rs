@@ -1,11 +1,5 @@
 use crossterm::event::{self, Event, KeyEvent, KeyModifiers};
 
-pub enum Update<'a> {
-    None,
-    All,
-    Command(&'a str),
-}
-
 pub struct Buffer {
     pub title: String,
     pub cursor_index: usize,
@@ -21,15 +15,15 @@ impl Buffer {
         }
     }
 
-    pub fn handle_event(&mut self, event: Event) -> Update {
+    pub fn handle_event(&mut self, event: Event) {
         match event {
-            Event::FocusGained | Event::FocusLost | Event::Mouse(_) | Event::Resize(_, _) => Update::None,
-            Event::Paste(_) => Update::None,
+            Event::FocusGained | Event::FocusLost | Event::Mouse(_) | Event::Resize(_, _) => (),
+            Event::Paste(_) => (),
             Event::Key(key) => self.handle_key_event(key),
         }
     }
 
-    fn handle_key_event(&mut self, event: KeyEvent) -> Update {
+    fn handle_key_event(&mut self, event: KeyEvent) {
         match event.code {
             event::KeyCode::Backspace => {
                 if self.cursor_index > 0 {
@@ -39,7 +33,7 @@ impl Buffer {
             }
             event::KeyCode::Enter => {
                 if event.modifiers.contains(KeyModifiers::CONTROL) {
-                    return Update::Command(&self.content);
+                    return;
                 } {
                     self.content.insert(self.cursor_index, '\n');
                     self.cursor_index += 1;
@@ -98,6 +92,5 @@ impl Buffer {
             event::KeyCode::Media(_) => (),
             event::KeyCode::Modifier(_) => (),
         }
-        Update::All
     }
 }
