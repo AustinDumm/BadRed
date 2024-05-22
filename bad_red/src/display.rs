@@ -3,12 +3,14 @@ use crossterm::{
     terminal::{self, *},
 };
 use std::{
-    io::{self, Stdout, Write},
+    io::{self, ErrorKind, Stdout, Write},
     iter::Peekable,
 };
 
 use crate::{
-    editor_frame::EditorFrame, editor_state::EditorState, pane::{Pane, PaneTree}
+    editor_frame::EditorFrame,
+    editor_state::EditorState,
+    pane::{Pane, PaneNode, PaneTree},
 };
 
 pub struct Display {
@@ -57,7 +59,7 @@ impl Display {
             cols: window_size.columns,
         };
 
-        self.render_to_pane(editor_state, editor_frame, &editor_state.panes.tree)
+        self.render_to_pane(editor_state, editor_frame, &editor_state.pane_tree, 0)
     }
 
     fn render_to_pane(
@@ -65,44 +67,43 @@ impl Display {
         editor_state: &EditorState,
         editor_frame: EditorFrame,
         pane_tree: &PaneTree,
+        node_index: usize,
     ) -> io::Result<()> {
-        match pane_tree {
-            PaneTree::LeafIndex(pane_index) => {
-                if let Some(pane) = editor_state.panes.panes.get(*pane_index) {
-                    self.render_leaf_pane(pane, editor_state, editor_frame)
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("Failed to find pane by index in pane tree: {}", pane_index),
-                    ))
-                }
-            }
-            PaneTree::VSplit(split) => {
+        match pane_tree.tree.get(node_index).ok_or(io::Error::new(
+            ErrorKind::Other,
+            format!("Failed to find pane at index: {}", node_index),
+        ))? {
+            PaneNode::Leaf(ref pane) => self.render_leaf_pane(pane, editor_state, editor_frame),
+            PaneNode::VSplit(split) => {
                 self.render_to_pane(
                     editor_state,
                     editor_frame.less_cols(split.first_char_size - 1),
-                    &split.first,
+                    pane_tree,
+                    split.first
                 )?;
                 self.render_to_pane(
                     editor_state,
                     editor_frame
                         .with_x_col(split.first_char_size + 1)
                         .less_cols(split.first_char_size),
-                    &split.second,
+                    pane_tree,
+                    split.second,
                 )
             }
-            PaneTree::HSplit(split) => {
+            PaneNode::HSplit(split) => {
                 self.render_to_pane(
                     editor_state,
                     editor_frame.less_rows(split.first_char_size - 1),
-                    &split.first,
+                    pane_tree,
+                    split.first,
                 )?;
                 self.render_to_pane(
                     editor_state,
                     editor_frame
                         .with_y_row(split.first_char_size + 1)
                         .less_rows(split.first_char_size),
-                    &split.second,
+                    pane_tree,
+                    split.second,
                 )
             }
         }
