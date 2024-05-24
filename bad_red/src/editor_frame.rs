@@ -43,4 +43,42 @@ impl EditorFrame {
         new.cols -= cols;
         new
     }
+
+    pub fn percent_rows(&self, percent: f32, shift: i16) -> Self {
+        let mut new = self.clone();
+        let scaled = (percent * self.rows as f32) as u16;
+        new.rows = scaled.saturating_add_signed(shift);
+        new
+    }
+
+    pub fn percent_cols(&self, percent: f32, shift: i16) -> Self {
+        let mut new = self.clone();
+        let scaled = (percent * self.cols as f32) as u16;
+        new.cols = scaled.saturating_add_signed(shift);
+        new
+    }
+
+    pub fn percent_rows_shift(&self, percent: f32, shift: i16) -> Self {
+        let mut new = self.clone();
+        let unfilled_width = (percent * self.rows as f32) as u16;
+        let unfilled_width = unfilled_width.saturating_add_signed(shift);
+
+        let filled_width = (self.rows - unfilled_width).saturating_add_signed(-2 * shift);
+
+        new.x_col = unfilled_width.saturating_add_signed(2 * shift);
+        new.rows = filled_width;
+        new
+    }
+
+    pub fn percent_cols_shift(&self, percent: f32, shift: i16) -> Self {
+        let mut new = self.clone();
+        let unfilled_width = (percent * self.cols as f32) as u16;
+        let unfilled_width = unfilled_width.saturating_add_signed(shift);
+
+        let filled_width = (self.cols - unfilled_width).saturating_add_signed(-2 * shift);
+
+        new.x_col = unfilled_width.saturating_add_signed(2 * shift);
+        new.cols = filled_width;
+        new
+    }
 }

@@ -79,15 +79,14 @@ impl Display {
             PaneNodeType::VSplit(split) => {
                 self.render_to_pane(
                     editor_state,
-                    editor_frame.less_cols(split.first_char_size - 1),
+                    editor_frame.percent_cols(split.first_percent, -1),
                     pane_tree,
                     split.first,
                 )?;
                 self.render_to_pane(
                     editor_state,
                     editor_frame
-                        .with_x_col(split.first_char_size + 1)
-                        .less_cols(split.first_char_size),
+                        .percent_cols_shift(split.first_percent, -1),
                     pane_tree,
                     split.second,
                 )
@@ -95,15 +94,14 @@ impl Display {
             PaneNodeType::HSplit(split) => {
                 self.render_to_pane(
                     editor_state,
-                    editor_frame.less_rows(split.first_char_size - 1),
+                    editor_frame.percent_rows(split.first_percent, -1),
                     pane_tree,
                     split.first,
                 )?;
                 self.render_to_pane(
                     editor_state,
                     editor_frame
-                        .with_y_row(split.first_char_size + 1)
-                        .less_rows(split.first_char_size),
+                        .percent_rows_shift(split.first_percent, -1),
                     pane_tree,
                     split.second,
                 )

@@ -38,11 +38,23 @@ impl ScriptObject for PaneBuiltIn {
                     table.set(
                         Self::V_SPLIT_NAME,
                         lua.create_function(move |_, _: ()| -> mlua::Result<()> {
-                            Ok(())
+                            state.borrow_mut()
+                                .vsplit_active()
+                                .map_err(|e| mlua::Error::RuntimeError(e))
                         })?
                     )?;
                 }
-                PaneBuiltIn::HSplit => todo!(),
+                PaneBuiltIn::HSplit => {
+                    let state = state.clone();
+                    table.set(
+                        Self::H_SPLIT_NAME,
+                        lua.create_function(move |_, _: ()| -> mlua::Result<()> {
+                            state.borrow_mut()
+                                .hsplit_active()
+                                .map_err(|e| mlua::Error::RuntimeError(e))
+                        })?
+                    )?;
+                },
             }
         }
 
@@ -113,30 +125,7 @@ impl ScriptHandler {
     pub fn new(state: Rc<RefCell<EditorState>>) -> mlua::Result<Self> {
         let mut lua = Lua::new();
 
-        register_builtins(&mut lua)?;
-
-        Ok(Self { lua, state })
+        todo!()
     }
 }
 
-fn register_builtins(lua: &mut Lua) -> mlua::Result<()> {
-    let table = lua.create_table()?;
-
-    table.set("pane", pane_builtins(&lua)?)?;
-
-    lua.globals().set("red", table)
-}
-
-fn pane_builtins(lua: &Lua) -> mlua::Result<Table> {
-    let mut pane = lua.create_table()?;
-
-    pane.set(
-        "vsplit",
-        lua.create_function(|_, _: ()| Ok(PaneBuiltIn::VSplit))?,
-    )?;
-    pane.set(
-        "hsplit",
-        lua.create_function(|_, _: ()| Ok(PaneBuiltIn::HSplit))?,
-    )?;
-    Ok(pane)
-}

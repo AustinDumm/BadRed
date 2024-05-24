@@ -1,6 +1,9 @@
 use crossterm::event::Event;
 
-use crate::{buffer::Buffer, pane::PaneTree};
+use crate::{
+    buffer::Buffer,
+    pane::{self, PaneTree},
+};
 
 type Result<T> = std::result::Result<T, String>;
 
@@ -40,5 +43,35 @@ impl EditorState {
 }
 
 impl EditorState {
-    pub fn vsplit_active() {}
+    pub fn vsplit_active(&mut self) -> Result<()> {
+        let active_pane = self.pane_tree
+            .pane_by_index(self.active_pane_index)
+            .ok_or_else(||
+                format!(
+                    "Attempted to split active pane but could not find active pane at index: {}",
+                    self.active_pane_index
+                )
+            )?;
+
+        self.pane_tree.vsplit(
+            self.active_pane_index,
+            active_pane.buffer_id,
+        )
+    }
+
+    pub fn hsplit_active(&mut self) -> Result<()> {
+        let active_pane = self.pane_tree
+            .pane_by_index(self.active_pane_index)
+            .ok_or_else(||
+                format!(
+                    "Attempted to split active pane but could not find active pane at index: {}",
+                    self.active_pane_index
+                )
+            )?;
+
+        self.pane_tree.vsplit(
+            self.active_pane_index,
+            active_pane.buffer_id,
+        )
+    }
 }
