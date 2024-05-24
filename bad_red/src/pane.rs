@@ -9,16 +9,19 @@ pub struct PaneTree {
 impl PaneTree {
     pub fn new(initial_buffer_id: usize) -> Self {
         Self {
-            tree: vec![PaneNode::Leaf(Pane::new(initial_buffer_id))],
+            tree: vec![PaneNode {
+                node_type: PaneNodeType::Leaf(Pane::new(initial_buffer_id)),
+                parent: None,
+            }],
         }
     }
 
     pub fn pane_by_index<'a>(&'a self, pane_index: usize) -> Option<&'a Pane> {
         self.tree.get(pane_index)
-            .map(|node| match node {
-                PaneNode::Leaf(pane) => Some(pane),
-                PaneNode::VSplit(_) |
-                PaneNode::HSplit(_) => None
+            .map(|node| match &node.node_type {
+                PaneNodeType::Leaf(pane) => Some(pane),
+                PaneNodeType::VSplit(_) |
+                PaneNodeType::HSplit(_) => None
             })
             .flatten()
     }
@@ -38,7 +41,12 @@ impl PaneTree {
    // }
 }
 
-pub enum PaneNode {
+pub struct PaneNode {
+    pub node_type: PaneNodeType,
+    pub parent: Option<usize>,
+}
+
+pub enum PaneNodeType {
     Leaf(Pane),
     VSplit(Split),
     HSplit(Split),

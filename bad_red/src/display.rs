@@ -10,7 +10,7 @@ use std::{
 use crate::{
     editor_frame::EditorFrame,
     editor_state::EditorState,
-    pane::{Pane, PaneNode, PaneTree},
+    pane::{Pane, PaneNode, PaneNodeType, PaneTree},
 };
 
 pub struct Display {
@@ -69,17 +69,19 @@ impl Display {
         pane_tree: &PaneTree,
         node_index: usize,
     ) -> io::Result<()> {
-        match pane_tree.tree.get(node_index).ok_or(io::Error::new(
+        let node = pane_tree.tree.get(node_index).ok_or(io::Error::new(
             ErrorKind::Other,
             format!("Failed to find pane at index: {}", node_index),
-        ))? {
-            PaneNode::Leaf(ref pane) => self.render_leaf_pane(pane, editor_state, editor_frame),
-            PaneNode::VSplit(split) => {
+        ))?;
+
+        match &node.node_type {
+            PaneNodeType::Leaf(ref pane) => self.render_leaf_pane(pane, editor_state, editor_frame),
+            PaneNodeType::VSplit(split) => {
                 self.render_to_pane(
                     editor_state,
                     editor_frame.less_cols(split.first_char_size - 1),
                     pane_tree,
-                    split.first
+                    split.first,
                 )?;
                 self.render_to_pane(
                     editor_state,
@@ -90,7 +92,7 @@ impl Display {
                     split.second,
                 )
             }
-            PaneNode::HSplit(split) => {
+            PaneNodeType::HSplit(split) => {
                 self.render_to_pane(
                     editor_state,
                     editor_frame.less_rows(split.first_char_size - 1),
