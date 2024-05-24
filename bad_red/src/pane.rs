@@ -23,7 +23,7 @@ impl PaneTree {
             .flatten()
     }
 
-    pub fn vsplit(&mut self, pane_id: usize, new_pane_buffer: usize) -> Result<()> {
+    pub fn vsplit(&mut self, pane_id: usize, new_pane_buffer: usize) -> Result<usize> {
         self.split(pane_id, new_pane_buffer, |top, bottom, split_percentage| {
             PaneNodeType::VSplit(Split {
                 first: top,
@@ -33,7 +33,7 @@ impl PaneTree {
         })
     }
 
-    pub fn hsplit(&mut self, pane_id: usize, new_pane_buffer: usize) -> Result<()> {
+    pub fn hsplit(&mut self, pane_id: usize, new_pane_buffer: usize) -> Result<usize> {
         self.split(pane_id, new_pane_buffer, |left, right, split_percentage| {
             PaneNodeType::HSplit(Split {
                 first: left,
@@ -48,9 +48,9 @@ impl PaneTree {
         pane_id: usize,
         new_pane_buffer: usize,
         split_constructor: impl FnOnce(usize, usize, f32) -> PaneNodeType,
-    ) -> Result<()> {
-        let moved_content_pane_index = self.tree.len();
-        let new_content_pane_index = self.tree.len() + 1;
+    ) -> Result<usize> {
+        let new_content_pane_index = self.tree.len();
+        let moved_content_pane_index = self.tree.len() + 1;
 
         let new_content_pane = PaneNode {
             node_type: PaneNodeType::Leaf(Pane {
@@ -66,7 +66,7 @@ impl PaneTree {
         self.tree.push(new_split_pane);
         self.tree.swap(pane_id, moved_content_pane_index);
 
-        Ok(())
+        Ok(moved_content_pane_index)
     }
 }
 

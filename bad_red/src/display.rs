@@ -1,5 +1,6 @@
 use crossterm::{
-    cursor, queue, style,
+    cursor, queue,
+    style::{self, Color},
     terminal::{self, *},
 };
 use std::{
@@ -79,34 +80,26 @@ impl Display {
         match &node.node_type {
             PaneNodeType::Leaf(ref pane) => self.render_leaf_pane(pane, editor_state, editor_frame),
             PaneNodeType::VSplit(split) => {
+                let left_frame = editor_frame.percent_cols(split.first_percent, -1);
+                self.render_to_pane(editor_state, left_frame.clone(), pane_tree, split.first)?;
                 self.render_to_pane(
                     editor_state,
-                    editor_frame.percent_cols(split.first_percent, -1),
-                    pane_tree,
-                    split.first,
-                )?;
-                self.render_to_pane(
-                    editor_state,
-                    editor_frame
-                        .percent_cols_shift(split.first_percent, -1),
+                    editor_frame.percent_cols_shift(split.first_percent, -1),
                     pane_tree,
                     split.second,
-                )
+                )?;
+                self.render_frame_v_gap(left_frame)
             }
             PaneNodeType::HSplit(split) => {
+                let top_frame = editor_frame.percent_rows(split.first_percent, -1);
+                self.render_to_pane(editor_state, top_frame.clone(), pane_tree, split.first)?;
                 self.render_to_pane(
                     editor_state,
-                    editor_frame.percent_rows(split.first_percent, -1),
-                    pane_tree,
-                    split.first,
-                )?;
-                self.render_to_pane(
-                    editor_state,
-                    editor_frame
-                        .percent_rows_shift(split.first_percent, -1),
+                    editor_frame.percent_rows_shift(split.first_percent, -1),
                     pane_tree,
                     split.second,
-                )
+                )?;
+                self.render_frame_h_gap(top_frame)
             }
         }
     }
@@ -185,6 +178,44 @@ impl Display {
         }
 
         self.stdout.flush()
+    }
+
+    fn render_frame_v_gap(&mut self, left_frame: EditorFrame) -> io::Result<()> {
+        queue!(
+            self.stdout,
+            cursor::MoveTo(left_frame.y_row, left_frame.x_col + left_frame.cols),
+            style::SetBackgroundColor(Color::DarkGreen),
+        )?;
+        for _ in 0..left_frame.cols {
+            queue!(
+                self.stdout,
+                style::Print(" "),
+                cursor::MoveLeft(1),
+                cursor::MoveDown(1),
+            )?;
+        }
+        queue!(self.stdout, style::ResetColor)?;
+
+        Ok(())
+    }
+
+    fn render_frame_h_gap(&mut self, top_frame: EditorFrame) -> io::Result<()> {
+        queue!(
+            self.stdout,
+            cursor::MoveTo(top_frame.y_row + top_frame.rows, top_frame.x_col),
+            style::SetBackgroundColor(Color::DarkGreen),
+        )?;
+        for _ in 0..top_frame.rows {
+            queue!(
+                self.stdout,
+                style::Print(" "),
+                cursor::MoveRight(1),
+                cursor::MoveUp(1),
+            )?;
+        }
+        queue!(self.stdout, style::ResetColor)?;
+
+        Ok(())
     }
 }
 
