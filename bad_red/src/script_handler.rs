@@ -13,7 +13,7 @@ pub struct ScriptHandler {
 
 trait ScriptObject {
     fn lua_object<'lua>(
-        lua: &'lua mut Lua,
+        lua: &'lua Lua,
         state: &Rc<RefCell<EditorState>>,
     ) -> mlua::Result<Table<'lua>>;
 }
@@ -26,10 +26,10 @@ pub enum PaneBuiltIn {
 
 impl ScriptObject for PaneBuiltIn {
     fn lua_object<'lua>(
-        lua: &'lua mut Lua,
+        lua: &'lua Lua,
         state: &Rc<RefCell<EditorState>>,
     ) -> mlua::Result<Table<'lua>> {
-        let mut table = lua.create_table()?;
+        let table = lua.create_table()?;
 
         for case in Self::iter() {
             match case {
@@ -38,7 +38,8 @@ impl ScriptObject for PaneBuiltIn {
                     table.set(
                         Self::V_SPLIT_NAME,
                         lua.create_function(move |_, _: ()| -> mlua::Result<()> {
-                            state.borrow_mut()
+                            state.try_borrow_mut()
+                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (v_split) attempted without unique access to editor state: {:#?}", e)))?
                                 .vsplit_active()
                                 .map_err(|e| mlua::Error::RuntimeError(e))
                         })?
@@ -49,12 +50,14 @@ impl ScriptObject for PaneBuiltIn {
                     table.set(
                         Self::H_SPLIT_NAME,
                         lua.create_function(move |_, _: ()| -> mlua::Result<()> {
-                            state.borrow_mut()
+                            state
+                                .try_borrow_mut()
+                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (v_split) attempted without unique access to editor state: {:#?}", e)))?
                                 .hsplit_active()
                                 .map_err(|e| mlua::Error::RuntimeError(e))
-                        })?
+                        })?,
                     )?;
-                },
+                }
             }
         }
 
@@ -65,67 +68,26 @@ impl ScriptObject for PaneBuiltIn {
 impl PaneBuiltIn {
     const V_SPLIT_NAME: &'static str = "v_split";
     const H_SPLIT_NAME: &'static str = "h_split";
-    fn type_name(&self) -> &str {
-        match self {
-            PaneBuiltIn::VSplit => Self::V_SPLIT_NAME,
-            PaneBuiltIn::HSplit => Self::H_SPLIT_NAME,
-        }
-    }
-
-    fn from_table(table: &Table) -> Option<Self> {
-        let Ok(type_name): mlua::Result<String> = table.get(String::from("type")) else {
-            return None;
-        };
-        match type_name.as_str() {
-            Self::V_SPLIT_NAME => Some(PaneBuiltIn::VSplit),
-            Self::H_SPLIT_NAME => Some(PaneBuiltIn::HSplit),
-            _ => None,
-        }
-    }
-}
-
-impl<'lua> IntoLua<'lua> for PaneBuiltIn {
-    fn into_lua(self, lua: &'lua Lua) -> mlua::prelude::LuaResult<mlua::prelude::LuaValue<'lua>> {
-        let table = lua.create_table()?;
-        table.set("type", self.type_name())?;
-
-        Ok(Value::Table(table))
-    }
-}
-
-impl<'lua> FromLua<'lua> for PaneBuiltIn {
-    fn from_lua(
-        value: mlua::prelude::LuaValue<'lua>,
-        lua: &'lua Lua,
-    ) -> mlua::prelude::LuaResult<Self> {
-        match value {
-            Value::Table(ref table) => {
-                if let Some(built_in) = PaneBuiltIn::from_table(table) {
-                    Ok(built_in)
-                } else {
-                    Err(mlua::Error::FromLuaConversionError {
-                        from: value.type_name(),
-                        to: "BadRed-PaneBuiltIn",
-                        message: Some(format!("Found unexpected PaneBuiltIn table: {:#?}", table)),
-                    })
-                }
-            }
-            _ => Err(mlua::Error::FromLuaConversionError {
-                from: value.type_name(),
-                to: "BadRed-PaneBuiltIn",
-                message: Some(format!(
-                    "Found non-table type while trying to parse PaneBuiltIn command"
-                )),
-            }),
-        }
-    }
 }
 
 impl ScriptHandler {
-    pub fn new(state: Rc<RefCell<EditorState>>) -> mlua::Result<Self> {
-        let mut lua = Lua::new();
+    pub fn new(state: &Rc<RefCell<EditorState>>) -> mlua::Result<Self> {
+        let lua = Lua::new();
 
-        todo!()
+        let pane_object = PaneBuiltIn::lua_object(&lua, &state)?;
+
+        let red_table = lua.create_table()?;
+        red_table.set("pane", pane_object)?;
+
+        lua.globals().set("red", red_table)?;
+
+        Ok(Self {
+            state: state.clone(),
+            lua,
+        })
+    }
+
+    pub fn run(&self, script: String) -> mlua::Result<()> {
+        self.lua.load(script).exec()
     }
 }
-

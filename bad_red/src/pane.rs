@@ -30,9 +30,7 @@ impl PaneTree {
                 second: bottom,
                 first_percent: split_percentage,
             })
-        });
-
-        Ok(())
+        })
     }
 
     pub fn hsplit(&mut self, pane_id: usize, new_pane_buffer: usize) -> Result<()> {
@@ -42,9 +40,7 @@ impl PaneTree {
                 second: right,
                 first_percent: split_percentage,
             })
-        });
-
-        Ok(())
+        })
     }
 
     fn split(

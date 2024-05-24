@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     editor_frame::EditorFrame,
-    editor_state::EditorState,
+    editor_state::{Editor, EditorState},
     pane::{Pane, PaneNode, PaneNodeType, PaneTree},
 };
 
@@ -45,12 +45,14 @@ impl Display {
 
     fn cleanup_display(&mut self) -> io::Result<()> {
         queue!(self.stdout, LeaveAlternateScreen)?;
-        self.stdout.flush()?;
 
-        disable_raw_mode()
+        disable_raw_mode()?;
+
+        self.stdout.flush()
     }
 
-    pub fn render(&mut self, editor_state: &EditorState) -> io::Result<()> {
+    pub fn render(&mut self, editor: &Editor) -> io::Result<()> {
+        let editor_state = &editor.state.borrow();
         let window_size = terminal::window_size()?;
         let editor_frame = EditorFrame {
             x_col: 0,

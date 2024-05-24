@@ -1,9 +1,9 @@
-use std::io;
+
+use std::{io::{self, Write}, panic};
 
 use crossterm::event::{read, Event, KeyCode};
 use display::Display;
-use editor_state::EditorState;
-use mlua::Lua;
+use editor_state::Editor;
 
 mod buffer;
 mod display;
@@ -13,32 +13,41 @@ mod script_handler;
 mod editor_frame;
 
 fn main() -> io::Result<()> {
-    let stdout = io::stdout();
-    let mut display = Display::new(stdout)?;
+    let result = panic::catch_unwind(|| {
+        let result = run();
+        if let Err(ref error) = result {
+            write!(io::stderr(), "{:#?}", error)?;
+        }
+        result
+    });
 
-    let mut editor_state = EditorState::new();
-    let lua = Lua::new();
-    loop {
-        match read()? {
-            Event::Key(event) if event.code == KeyCode::Esc => break,
-            event => {
-                editor_state
-                    .dispatch_input(event)
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-            }
-        };
-
-        display.render(&editor_state)?;
+    if let Err(panic_err) = result {
+        write!(io::stderr(), "Panic: {:#?}", panic_err)?;
     }
 
     Ok(())
 }
 
-fn evaluate_command(
-    command_text: &str,
-    lua: &Lua,
-    editor_state: &mut EditorState,
-) -> mlua::Result<()> {
+fn run() -> io::Result<()> {
+    let stdout = io::stdout();
+    let mut display = Display::new(stdout)?;
+
+    let mut editor = Editor::new()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    loop {
+        match read()? {
+            Event::Key(event) if event.code == KeyCode::Esc => break,
+            event => {
+                editor
+                    .handle_event(event)
+                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            }
+        };
+
+        display.render(&editor)?;
+    }
+
+    drop(display);
     Ok(())
 }
 

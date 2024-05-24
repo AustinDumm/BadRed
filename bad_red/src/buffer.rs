@@ -1,9 +1,17 @@
+use std::mem;
+
 use crossterm::event::{self, Event, KeyEvent, KeyModifiers};
 
 pub struct Buffer {
     pub title: String,
     pub cursor_index: usize,
     pub content: String,
+}
+
+pub enum BufferUpdate {
+    None,
+    Raw,
+    Command(String),
 }
 
 impl Buffer {
@@ -15,15 +23,15 @@ impl Buffer {
         }
     }
 
-    pub fn handle_event(&mut self, event: Event) {
+    pub fn handle_event(&mut self, event: Event) -> BufferUpdate {
         match event {
-            Event::FocusGained | Event::FocusLost | Event::Mouse(_) | Event::Resize(_, _) => (),
-            Event::Paste(_) => (),
+            Event::FocusGained | Event::FocusLost | Event::Mouse(_) | Event::Resize(_, _) => BufferUpdate::None,
+            Event::Paste(_) => BufferUpdate::None,
             Event::Key(key) => self.handle_key_event(key),
         }
     }
 
-    fn handle_key_event(&mut self, event: KeyEvent) {
+    fn handle_key_event(&mut self, event: KeyEvent) -> BufferUpdate {
         match event.code {
             event::KeyCode::Backspace => {
                 if self.cursor_index > 0 {
@@ -32,12 +40,8 @@ impl Buffer {
                 }
             }
             event::KeyCode::Enter => {
-                if event.modifiers.contains(KeyModifiers::CONTROL) {
-                    return;
-                } {
-                    self.content.insert(self.cursor_index, '\n');
-                    self.cursor_index += 1;
-                }
+                self.content.insert(self.cursor_index, '\n');
+                self.cursor_index += 1;
             }
             event::KeyCode::Left => {
                 self.cursor_index = self.cursor_index.saturating_sub(1);
@@ -67,6 +71,12 @@ impl Buffer {
             event::KeyCode::Insert => (),
             event::KeyCode::F(_) => (),
             event::KeyCode::Char(char) => {
+                if event.modifiers.contains(KeyModifiers::CONTROL) && char == 'e' {
+                    let command = mem::replace(&mut self.content, String::new());
+                    self.cursor_index = 0;
+                    return BufferUpdate::Command(command);
+                }
+
                 let char = if event.modifiers.contains(KeyModifiers::SHIFT) {
                     char.to_ascii_uppercase()
                 } else {
@@ -92,5 +102,7 @@ impl Buffer {
             event::KeyCode::Media(_) => (),
             event::KeyCode::Modifier(_) => (),
         }
+
+        BufferUpdate::Raw
     }
 }
