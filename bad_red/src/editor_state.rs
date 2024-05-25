@@ -111,7 +111,7 @@ impl EditorState {
             })?;
 
         let new_active_index = self.pane_tree
-            .vsplit(self.active_pane_index, active_pane.buffer_id)?;
+            .hsplit(self.active_pane_index, active_pane.buffer_id)?;
 
         self.active_pane_index = new_active_index;
 

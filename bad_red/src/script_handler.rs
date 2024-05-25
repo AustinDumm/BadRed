@@ -52,7 +52,7 @@ impl ScriptObject for PaneBuiltIn {
                         lua.create_function(move |_, _: ()| -> mlua::Result<()> {
                             state
                                 .try_borrow_mut()
-                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (v_split) attempted without unique access to editor state: {:#?}", e)))?
+                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (h_split) attempted without unique access to editor state: {:#?}", e)))?
                                 .hsplit_active()
                                 .map_err(|e| mlua::Error::RuntimeError(e))
                         })?,
