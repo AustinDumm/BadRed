@@ -6,6 +6,8 @@ use crossterm::{
 use std::{
     io::{self, ErrorKind, Stdout, Write},
     iter::Peekable,
+    thread,
+    time::Duration,
 };
 
 use crate::{
@@ -62,13 +64,13 @@ impl Display {
             cols: window_size.columns,
         };
 
-        self.render_to_pane(editor_state, editor_frame, &editor_state.pane_tree, 0)
+        self.render_to_pane(editor_state, &editor_frame, &editor_state.pane_tree, 0)
     }
 
     fn render_to_pane(
         &mut self,
         editor_state: &EditorState,
-        editor_frame: EditorFrame,
+        editor_frame: &EditorFrame,
         pane_tree: &PaneTree,
         node_index: usize,
     ) -> io::Result<()> {
@@ -81,10 +83,15 @@ impl Display {
             PaneNodeType::Leaf(ref pane) => self.render_leaf_pane(pane, editor_state, editor_frame),
             PaneNodeType::VSplit(split) => {
                 let left_frame = editor_frame.percent_cols(split.first_percent, -1);
-                self.render_to_pane(editor_state, left_frame.clone(), pane_tree, split.first)?;
+                self.render_to_pane(editor_state, &left_frame, pane_tree, split.first)?;
+                queue!(
+                    self.stdout,
+                    style::Print(format!("{:?} -> {:?}", editor_frame, left_frame)),
+                    style::SetBackgroundColor(Color::Green),
+                )?;
                 self.render_to_pane(
                     editor_state,
-                    editor_frame.percent_cols_shift(split.first_percent, -1),
+                    &editor_frame.percent_cols_shift(split.first_percent, -1),
                     pane_tree,
                     split.second,
                 )?;
@@ -92,10 +99,10 @@ impl Display {
             }
             PaneNodeType::HSplit(split) => {
                 let top_frame = editor_frame.percent_rows(split.first_percent, -1);
-                self.render_to_pane(editor_state, top_frame.clone(), pane_tree, split.first)?;
+                self.render_to_pane(editor_state, &top_frame, pane_tree, split.first)?;
                 self.render_to_pane(
                     editor_state,
-                    editor_frame.percent_rows_shift(split.first_percent, -1),
+                    &editor_frame.percent_rows_shift(split.first_percent, -1),
                     pane_tree,
                     split.second,
                 )?;
@@ -108,7 +115,7 @@ impl Display {
         &mut self,
         pane: &Pane,
         editor_state: &EditorState,
-        editor_frame: EditorFrame,
+        editor_frame: &EditorFrame,
     ) -> io::Result<()> {
         let Some(buffer) = &editor_state.buffers.get(pane.buffer_id) else {
             return Err(io::Error::new(
@@ -122,7 +129,7 @@ impl Display {
 
         queue!(
             self.stdout,
-            cursor::MoveTo(editor_frame.y_row, editor_frame.x_col)
+            cursor::MoveTo(editor_frame.y_row, editor_frame.x_col),
         )?;
 
         let mut buffer_row = 0;
@@ -150,14 +157,24 @@ impl Display {
             char_count += 1;
             let is_newline = handle_newline(char, &mut char_count, &mut chars);
             if is_newline {
-                queue!(
-                    self.stdout,
-                    style::Print(" "),
-                    Clear(ClearType::UntilNewLine),
-                    style::Print("\n\r"),
-                )?;
+                for _ in buffer_col..editor_frame.cols - 1 {
+                    queue!(self.stdout, style::Print(" "),)?;
+                }
                 buffer_row += 1;
                 buffer_col = 0;
+                queue!(
+                    self.stdout,
+                    cursor::MoveToColumn(editor_frame.x_col),
+                    cursor::MoveDown(1),
+                )?;
+            } else if buffer_col >= editor_frame.cols {
+                buffer_row += 1;
+                buffer_col = 0;
+                queue!(
+                    self.stdout,
+                    cursor::MoveToColumn(editor_frame.x_col),
+                    cursor::MoveDown(1),
+                )?;
             } else {
                 queue!(self.stdout, style::Print(char))?;
                 buffer_col += 1;
@@ -166,9 +183,22 @@ impl Display {
             if char_count == buffer.cursor_index {
                 cursor_position = Some((buffer_row, buffer_col));
             }
+
+            if buffer_row >= editor_frame.rows {
+                break;
+            }
         }
 
-        queue!(self.stdout, Clear(ClearType::FromCursorDown))?;
+        for _ in buffer_row + 1..editor_frame.rows {
+            for _ in buffer_col..editor_frame.cols {
+                queue!(self.stdout, style::Print(" "))?;
+            }
+            queue!(
+                self.stdout,
+                cursor::MoveDown(1),
+                cursor::MoveToColumn(editor_frame.x_col)
+            )?;
+        }
 
         if let Some(cursor_position) = cursor_position {
             queue!(

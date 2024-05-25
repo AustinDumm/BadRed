@@ -1,5 +1,5 @@
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EditorFrame {
     pub x_col: u16,
     pub y_row: u16,
