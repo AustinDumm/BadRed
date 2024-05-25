@@ -24,6 +24,7 @@ pub enum PaneBuiltIn {
     HSplit,
     Up,
     Down,
+    IsFirst,
 }
 
 impl ScriptObject for PaneBuiltIn {
@@ -67,7 +68,7 @@ impl ScriptObject for PaneBuiltIn {
                         lua.create_function(move |_, _: ()| -> mlua::Result<()> {
                             state
                                 .try_borrow_mut()
-                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (up) attempted without uinique access to editor state: {:#?}", e)))?
+                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (up) attempted without unique access to editor state: {:#?}", e)))?
                                 .move_active_up()
                                 .map_err(|e| mlua::Error::RuntimeError(e))
                         })?,
@@ -80,12 +81,25 @@ impl ScriptObject for PaneBuiltIn {
                         lua.create_function(move |_, to_first: bool| -> mlua::Result<()> {
                             state
                                 .try_borrow_mut()
-                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (up) attempted without uinique access to editor state: {:#?}", e)))?
+                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (up) attempted without unique access to editor state: {:#?}", e)))?
                                 .move_down_child(to_first)
                                 .map_err(|e| mlua::Error::RuntimeError(e))
                         })?,
                     )?;
-                }
+                },
+                PaneBuiltIn::IsFirst => {
+                    let state = state.clone();
+                    table.set(
+                        Self::IS_FIRST_NAME,
+                        lua.create_function(move |_, _: ()| -> mlua::Result<Option<bool>> {
+                            state
+                                .try_borrow_mut()
+                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (is_first) attempted without unique access to editor state: {:#?}", e)))?
+                                .is_first_child()
+                                .map_err(|e| mlua::Error::RuntimeError(e))
+                        })?,
+                    )?;
+                },
             }
         }
 
@@ -98,6 +112,7 @@ impl PaneBuiltIn {
     const H_SPLIT_NAME: &'static str = "hsplit";
     const UP_NAME: &'static str = "up";
     const DOWN_NAME: &'static str = "down";
+    const IS_FIRST_NAME: &'static str = "is_first";
 }
 
 impl ScriptHandler {

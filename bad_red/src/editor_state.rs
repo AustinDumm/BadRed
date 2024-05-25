@@ -160,4 +160,39 @@ impl EditorState {
 
         Ok(())
     }
+
+    pub fn is_first_child(&self) -> Result<Option<bool>> {
+        let Some(parent_index) = self
+            .pane_tree
+            .pane_node_by_index(self.active_pane_index)
+            .ok_or_else(|| {
+                format!(
+                    "Attempted to get child parity with no active pane at index: {}",
+                    self.active_pane_index
+                )
+            })?
+            .parent_index else {
+                return Ok(None);
+            };
+
+        let parity = self
+            .pane_tree
+            .pane_node_by_index(parent_index)
+            .map (|parent| match &parent.node_type {
+                pane::PaneNodeType::Leaf(_) => None,
+                pane::PaneNodeType::VSplit(split) |
+                pane::PaneNodeType::HSplit(split) => Some(split),
+            })
+            .flatten()
+            .map(|split| if split.first == self.active_pane_index {
+                Some(true)
+            } else if split.second == self.active_pane_index {
+                Some(false)
+            } else {
+                None
+            })
+            .flatten();
+
+        Ok(parity)
+    }
 }
