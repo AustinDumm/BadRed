@@ -75,7 +75,7 @@ impl EditorFrame {
         let unfilled_width = (percent * self.cols as f32) as u16;
         let unfilled_width = unfilled_width.saturating_add_signed(shift);
 
-        let filled_width = (self.cols - unfilled_width).saturating_add_signed(-2 * shift);
+        let filled_width = (self.cols - unfilled_width).saturating_add_signed(2 * shift);
 
         new.x_col = unfilled_width.saturating_add_signed(2 * shift);
         new.cols = filled_width;

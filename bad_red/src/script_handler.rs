@@ -66,8 +66,8 @@ impl ScriptObject for PaneBuiltIn {
 }
 
 impl PaneBuiltIn {
-    const V_SPLIT_NAME: &'static str = "v_split";
-    const H_SPLIT_NAME: &'static str = "h_split";
+    const V_SPLIT_NAME: &'static str = "vsplit";
+    const H_SPLIT_NAME: &'static str = "hsplit";
 }
 
 impl ScriptHandler {
