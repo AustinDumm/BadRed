@@ -24,20 +24,20 @@ impl PaneTree {
     }
 
     pub fn vsplit(&mut self, pane_id: usize, new_pane_buffer: usize) -> Result<usize> {
-        self.split(pane_id, new_pane_buffer, |top, bottom, split_percentage| {
+        self.split(pane_id, new_pane_buffer, |left, right, split_percentage| {
             PaneNodeType::VSplit(Split {
-                first: top,
-                second: bottom,
+                first: left,
+                second: right,
                 first_percent: split_percentage,
             })
         })
     }
 
     pub fn hsplit(&mut self, pane_id: usize, new_pane_buffer: usize) -> Result<usize> {
-        self.split(pane_id, new_pane_buffer, |left, right, split_percentage| {
+        self.split(pane_id, new_pane_buffer, |top, bottom, split_percentage| {
             PaneNodeType::HSplit(Split {
-                first: left,
-                second: right,
+                first: top,
+                second: bottom,
                 first_percent: split_percentage,
             })
         })

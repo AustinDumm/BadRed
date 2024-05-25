@@ -251,8 +251,6 @@ impl Display {
                 queue!(
                     self.stdout,
                     style::Print(" "),
-                    cursor::MoveRight(1),
-                    cursor::MoveUp(1),
                 )?;
             }
         }
