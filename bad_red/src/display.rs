@@ -84,17 +84,22 @@ impl Display {
             PaneNodeType::VSplit(split) => {
                 let left_frame = editor_frame.percent_cols(split.first_percent, -1);
                 self.render_to_pane(editor_state, &left_frame, pane_tree, split.first)?;
+                let right_frame = &editor_frame.percent_cols_shift(split.first_percent, -1);
                 queue!(
                     self.stdout,
-                    style::Print(format!("{:?} -> {:?}", editor_frame, left_frame)),
                     style::SetBackgroundColor(Color::Green),
                 )?;
                 self.render_to_pane(
                     editor_state,
-                    &editor_frame.percent_cols_shift(split.first_percent, -1),
+                    right_frame,
                     pane_tree,
                     split.second,
                 )?;
+                queue!(
+                    self.stdout,
+                    style::Print(format!("{:?}", right_frame)),
+                )?;
+                return self.stdout.flush();
                 self.render_frame_v_gap(left_frame)
             }
             PaneNodeType::HSplit(split) => {
@@ -190,14 +195,17 @@ impl Display {
         }
 
         for _ in buffer_row + 1..editor_frame.rows {
-            for _ in buffer_col..editor_frame.cols {
-                queue!(self.stdout, style::Print(" "))?;
+            queue!(self.stdout, style::Print(format!("{}", editor_frame.cols)))?;
+            for _ in buffer_col..editor_frame.cols-2 {
+                queue!(self.stdout, style::Print("-"))?;
             }
             queue!(
                 self.stdout,
                 cursor::MoveDown(1),
                 cursor::MoveToColumn(editor_frame.x_col)
             )?;
+            self.stdout.flush()?;
+            thread::sleep(Duration::from_millis(10));
         }
 
         if let Some(cursor_position) = cursor_position {
