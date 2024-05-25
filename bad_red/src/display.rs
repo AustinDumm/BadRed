@@ -96,18 +96,21 @@ impl Display {
             }
             PaneNodeType::VSplit(split) => {
                 let left_frame = editor_frame.percent_cols(split.first_percent, -1);
+                let right_frame = &editor_frame.percent_cols_shift(split.first_percent, -1);
+
                 let left_cursor =
                     self.render_to_pane(editor_state, &left_frame, pane_tree, split.first)?;
-                let right_frame = &editor_frame.percent_cols_shift(split.first_percent, -1);
 
                 let right_cursor =
                     self.render_to_pane(editor_state, right_frame, pane_tree, split.second)?;
-                self.render_frame_v_gap(left_frame)?;
+                self.render_frame_v_gap(&left_frame, &right_frame)?;
 
                 Ok(left_cursor.or(right_cursor))
             }
             PaneNodeType::HSplit(split) => {
                 let top_frame = editor_frame.percent_rows(split.first_percent, -1);
+                let bottom_frame = editor_frame.percent_rows_shift(split.first_percent, -1);
+
                 let top_cursor =
                     self.render_to_pane(editor_state, &top_frame, pane_tree, split.first)?;
                 let bottom_cursor = self.render_to_pane(
@@ -116,7 +119,7 @@ impl Display {
                     pane_tree,
                     split.second,
                 )?;
-                self.render_frame_h_gap(top_frame)?;
+                self.render_frame_h_gap(&top_frame, &bottom_frame)?;
 
                 Ok(top_cursor.or(bottom_cursor))
             }
@@ -157,27 +160,26 @@ impl Display {
             cursor::MoveTo(editor_frame.x_col, editor_frame.y_row),
         )?;
         let mut cursor_position: Option<(u16, u16)> = None;
-        for row in editor_frame.y_row..editor_frame.rows {
+        for row in editor_frame.y_row..(editor_frame.y_row + editor_frame.rows) {
             let mut did_end_line = false;
 
-            'col_loop: for col in editor_frame.x_col..editor_frame.cols {
+            'col_loop: for col in editor_frame.x_col..(editor_frame.x_col + editor_frame.cols) {
                 if char_count == buffer.cursor_index && cursor_position.is_none() {
                     cursor_position = Some((row, col));
                 }
 
                 let Some(char) = chars.peek() else {
-                    for _ in col..editor_frame.cols {
+                    for _ in col..(editor_frame.x_col + editor_frame.cols) {
                         queue!(self.stdout, style::Print(" "),)?;
                     }
                     break 'col_loop;
                 };
                 let char = *char;
 
-
                 let is_newline = handle_newline(char, &mut char_count, &mut chars);
                 if is_newline {
                     did_end_line = true;
-                    for _ in col..editor_frame.cols {
+                    for _ in col..(editor_frame.x_col + editor_frame.cols) {
                         queue!(self.stdout, style::Print(" "),)?;
                     }
                     break 'col_loop;
@@ -207,38 +209,52 @@ impl Display {
         Ok(cursor_position)
     }
 
-    fn render_frame_v_gap(&mut self, left_frame: EditorFrame) -> io::Result<()> {
+    fn render_frame_v_gap(&mut self, left_frame: &EditorFrame, right_frame: &EditorFrame) -> io::Result<()> {
         queue!(
             self.stdout,
-            cursor::MoveTo(left_frame.x_col + left_frame.cols, left_frame.y_row,),
             style::SetBackgroundColor(Color::DarkGreen),
         )?;
-        for _ in 0..left_frame.cols {
+
+        for col in (left_frame.x_col+left_frame.cols)..right_frame.x_col {
             queue!(
                 self.stdout,
-                style::Print(" "),
-                cursor::MoveLeft(1),
-                cursor::MoveDown(1),
+                cursor::MoveTo(col, left_frame.y_row,),
             )?;
+            for _ in left_frame.y_row..(left_frame.y_row + left_frame.rows) {
+                queue!(
+                    self.stdout,
+                    style::Print(" "),
+                    cursor::MoveLeft(1),
+                    cursor::MoveDown(1),
+                )?;
+            }
         }
+
         queue!(self.stdout, style::ResetColor)?;
 
         Ok(())
     }
 
-    fn render_frame_h_gap(&mut self, top_frame: EditorFrame) -> io::Result<()> {
+    fn render_frame_h_gap(&mut self, top_frame: &EditorFrame, bottom_frame: &EditorFrame) -> io::Result<()> {
         queue!(
             self.stdout,
-            cursor::MoveTo(top_frame.x_col, top_frame.y_row + top_frame.rows,),
             style::SetBackgroundColor(Color::DarkGreen),
         )?;
-        for _ in 0..top_frame.rows {
+
+        for row in (top_frame.y_row+top_frame.rows)..bottom_frame.y_row {
             queue!(
                 self.stdout,
-                style::Print(" "),
-                cursor::MoveRight(1),
-                cursor::MoveUp(1),
+                cursor::MoveTo(top_frame.x_col, row),
+                style::SetBackgroundColor(Color::DarkGreen),
             )?;
+            for _ in top_frame.x_col..(top_frame.x_col + top_frame.cols) {
+                queue!(
+                    self.stdout,
+                    style::Print(" "),
+                    cursor::MoveRight(1),
+                    cursor::MoveUp(1),
+                )?;
+            }
         }
         queue!(self.stdout, style::ResetColor)?;
 

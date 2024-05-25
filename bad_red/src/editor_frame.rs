@@ -73,12 +73,11 @@ impl EditorFrame {
     pub fn percent_cols_shift(&self, percent: f32, shift: i16) -> Self {
         let mut new = self.clone();
         let unfilled_width = (percent * self.cols as f32) as u16;
-        let unfilled_width = unfilled_width.saturating_add_signed(shift);
+        let x_col = unfilled_width.saturating_add_signed(-shift) + self.x_col;
+        let cols = self.cols - x_col;
 
-        let filled_width = (self.cols - unfilled_width).saturating_add_signed(2 * shift);
-
-        new.x_col = unfilled_width.saturating_add_signed(2 * shift);
-        new.cols = filled_width;
+        new.x_col = x_col;
+        new.cols = cols;
         new
     }
 }
