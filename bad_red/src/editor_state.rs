@@ -4,7 +4,7 @@ use crossterm::event::Event;
 
 use crate::{
     buffer::{Buffer, BufferUpdate},
-    pane::{self, PaneTree},
+    pane::{self, PaneTree, Split},
     script_handler::ScriptHandler,
 };
 
@@ -91,7 +91,8 @@ impl EditorState {
                 )
             })?;
 
-        let new_active_index = self.pane_tree
+        let new_active_index = self
+            .pane_tree
             .vsplit(self.active_pane_index, active_pane.buffer_id)?;
 
         self.active_pane_index = new_active_index;
@@ -110,10 +111,52 @@ impl EditorState {
                 )
             })?;
 
-        let new_active_index = self.pane_tree
+        let new_active_index = self
+            .pane_tree
             .hsplit(self.active_pane_index, active_pane.buffer_id)?;
 
         self.active_pane_index = new_active_index;
+
+        Ok(())
+    }
+
+    pub fn move_active_up(&mut self) -> Result<()> {
+        let active_pane = self
+            .pane_tree
+            .pane_node_by_index(self.active_pane_index)
+            .ok_or_else(|| {
+                format!(
+                    "Attempted to move up with no active pane at index: {}",
+                    self.active_pane_index
+                )
+            })?;
+        let Some(parent_index) = active_pane.parent_index else {
+            return Ok(());
+        };
+
+        self.active_pane_index = parent_index;
+        Ok(())
+    }
+
+    pub fn move_down_child(&mut self, to_first: bool) -> Result<()> {
+        self.move_down(|split| if to_first { split.first } else { split.second })
+    }
+
+    pub fn move_down(&mut self, get_index: impl FnOnce(&Split) -> usize) -> Result<()> {
+        let active_pane = self
+            .pane_tree
+            .pane_node_by_index(self.active_pane_index)
+            .ok_or_else(|| {
+                format!(
+                    "Attempted to move down first with no active pane at index: {}",
+                    self.active_pane_index
+                )
+            })?;
+        match &active_pane.node_type {
+            pane::PaneNodeType::Leaf(_) => (),
+            pane::PaneNodeType::VSplit(split) |
+            pane::PaneNodeType::HSplit(split) => self.active_pane_index = get_index(split),
+        }
 
         Ok(())
     }

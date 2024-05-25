@@ -6,14 +6,12 @@ use crossterm::{
 use std::{
     io::{self, ErrorKind, Stdout, Write},
     iter::Peekable,
-    thread,
-    time::Duration,
 };
 
 use crate::{
     editor_frame::EditorFrame,
     editor_state::{Editor, EditorState},
-    pane::{Pane, PaneNode, PaneNodeType, PaneTree},
+    pane::{Pane, PaneNodeType, PaneTree},
 };
 
 pub struct Display {

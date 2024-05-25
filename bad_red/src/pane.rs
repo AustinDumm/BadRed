@@ -9,8 +9,13 @@ impl PaneTree {
         Self {
             tree: vec![PaneNode {
                 node_type: PaneNodeType::Leaf(Pane::new(initial_buffer_id)),
+                parent_index: None,
             }],
         }
+    }
+
+    pub fn pane_node_by_index<'a>(&'a self, pane_index: usize) -> Option<&'a PaneNode> {
+        self.tree.get(pane_index)
     }
 
     pub fn pane_by_index<'a>(&'a self, pane_index: usize) -> Option<&'a Pane> {
@@ -52,15 +57,26 @@ impl PaneTree {
         let new_content_pane_index = self.tree.len();
         let moved_content_pane_index = self.tree.len() + 1;
 
+        let mut current = self.tree.get_mut(pane_id).ok_or_else(|| {
+            format!(
+                "Failed to find pane for current id while splitting: {}",
+                pane_id
+            )
+        })?;
+        let current_parent = current.parent_index;
+        current.parent_index = Some(pane_id);
+
         let new_content_pane = PaneNode {
             node_type: PaneNodeType::Leaf(Pane {
                 top_line: 0,
                 buffer_id: new_pane_buffer,
             }),
+            parent_index: Some(pane_id),
         };
 
         let new_split_pane = PaneNode {
             node_type: split_constructor(moved_content_pane_index, new_content_pane_index, 0.5),
+            parent_index: current_parent,
         };
         self.tree.push(new_content_pane);
         self.tree.push(new_split_pane);
@@ -72,6 +88,7 @@ impl PaneTree {
 
 pub struct PaneNode {
     pub node_type: PaneNodeType,
+    pub parent_index: Option<usize>,
 }
 
 pub enum PaneNodeType {

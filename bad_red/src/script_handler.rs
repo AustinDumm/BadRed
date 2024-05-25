@@ -22,6 +22,8 @@ trait ScriptObject {
 pub enum PaneBuiltIn {
     VSplit,
     HSplit,
+    Up,
+    Down,
 }
 
 impl ScriptObject for PaneBuiltIn {
@@ -57,6 +59,32 @@ impl ScriptObject for PaneBuiltIn {
                                 .map_err(|e| mlua::Error::RuntimeError(e))
                         })?,
                     )?;
+                },
+                PaneBuiltIn::Up => {
+                    let state = state.clone();
+                    table.set(
+                        Self::UP_NAME,
+                        lua.create_function(move |_, _: ()| -> mlua::Result<()> {
+                            state
+                                .try_borrow_mut()
+                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (up) attempted without uinique access to editor state: {:#?}", e)))?
+                                .move_active_up()
+                                .map_err(|e| mlua::Error::RuntimeError(e))
+                        })?,
+                    )?;
+                },
+                PaneBuiltIn::Down => {
+                    let state = state.clone();
+                    table.set(
+                        Self::DOWN_NAME,
+                        lua.create_function(move |_, to_first: bool| -> mlua::Result<()> {
+                            state
+                                .try_borrow_mut()
+                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (up) attempted without uinique access to editor state: {:#?}", e)))?
+                                .move_down_child(to_first)
+                                .map_err(|e| mlua::Error::RuntimeError(e))
+                        })?,
+                    )?;
                 }
             }
         }
@@ -68,6 +96,8 @@ impl ScriptObject for PaneBuiltIn {
 impl PaneBuiltIn {
     const V_SPLIT_NAME: &'static str = "vsplit";
     const H_SPLIT_NAME: &'static str = "hsplit";
+    const UP_NAME: &'static str = "up";
+    const DOWN_NAME: &'static str = "down";
 }
 
 impl ScriptHandler {
