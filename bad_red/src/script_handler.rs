@@ -18,6 +18,11 @@ trait ScriptObject {
     ) -> mlua::Result<Table<'lua>>;
 }
 
+pub enum RedCall {
+    End,
+    VSplit(usize),
+}
+
 #[derive(Debug, EnumIter, PartialEq)]
 pub enum PaneBuiltIn {
     VSplit,

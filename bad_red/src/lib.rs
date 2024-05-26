@@ -5,4 +5,5 @@ pub mod editor_state;
 pub mod pane;
 pub mod script_handler;
 pub mod editor_frame;
+pub mod script_runtime;
 
