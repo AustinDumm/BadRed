@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crossterm::event::Event;
 
@@ -8,7 +8,33 @@ use crate::{
     script_handler::ScriptHandler,
 };
 
-type Result<T> = std::result::Result<T, String>;
+type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug)]
+pub enum Error {
+    Unrecoverable(String),
+    Recoverable(String),
+    Script(String),
+}
+
+impl std::error::Error for Error {}
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl From<Error> for mlua::Error {
+    fn from(value: Error) -> Self {
+        mlua::Error::ExternalError(Arc::new(value))
+    }
+}
+
+impl Error {
+    pub fn into_lua(self) -> mlua::Error {
+        mlua::Error::ExternalError(Arc::new(self))
+    }
+}
 
 pub struct Editor {
     pub state: Rc<RefCell<EditorState>>,
@@ -21,15 +47,16 @@ impl Editor {
 
         Ok(Self {
             state: state.clone(),
-            script_handler: ScriptHandler::new(&state)
-                .map_err(|e| format!("Failed to initialize script handler: {}", e))?,
+            script_handler: ScriptHandler::new(&state).map_err(|e| {
+                Error::Unrecoverable(format!("Failed to initialize script handler: {}", e))
+            })?,
         })
     }
 
     pub fn handle_event(&mut self, input_event: Event) -> Result<()> {
         let event_result = self.state
             .try_borrow_mut()
-            .map_err(|e| format!("Attempted to handle editor event without unique mutable access to editor state: {:#?}", e))?
+            .map_err(|e| Error::Unrecoverable(format!("Attempted to handle editor event without unique mutable access to editor state: {:#?}", e)))?
             .handle_event(input_event)?;
 
         match event_result {
@@ -38,7 +65,7 @@ impl Editor {
             BufferUpdate::Command(command) => {
                 self.script_handler
                     .run(command)
-                    .map_err(|e| format!("Lua script error: {}", e))?;
+                    .map_err(|e| Error::Script(format!("Lua script error: {}", e)))?;
             }
         }
 
@@ -63,16 +90,16 @@ impl EditorState {
 
     pub fn handle_event(&mut self, input_event: Event) -> Result<BufferUpdate> {
         let Some(pane) = self.pane_tree.pane_by_index(self.active_pane_index) else {
-            return Err(format!(
+            return Err(Error::Unrecoverable(format!(
                 "Invalid active pane index. No pane at index {}",
                 self.active_pane_index
-            ));
+            )));
         };
         let Some(buffer) = self.buffers.get_mut(pane.buffer_id) else {
-            return Err(format!(
+            return Err(Error::Unrecoverable(format!(
                 "Pane at index {} with invalid buffer id: {}",
                 self.active_pane_index, pane.buffer_id
-            ));
+            )));
         };
 
         Ok(buffer.handle_event(input_event))
@@ -85,15 +112,16 @@ impl EditorState {
             .pane_tree
             .pane_by_index(self.active_pane_index)
             .ok_or_else(|| {
-                format!(
+                Error::Unrecoverable(format!(
                     "Attempted to split active pane but could not find active pane at index: {}",
                     self.active_pane_index
-                )
+                ))
             })?;
 
         let new_active_index = self
             .pane_tree
-            .vsplit(self.active_pane_index, active_pane.buffer_id)?;
+            .vsplit(self.active_pane_index, active_pane.buffer_id)
+                .map_err(|e| Error::Recoverable(e))?;
 
         self.active_pane_index = new_active_index;
 
@@ -105,15 +133,16 @@ impl EditorState {
             .pane_tree
             .pane_by_index(self.active_pane_index)
             .ok_or_else(|| {
-                format!(
+                Error::Unrecoverable(format!(
                     "Attempted to split active pane but could not find active pane at index: {}",
                     self.active_pane_index
-                )
+                ))
             })?;
 
         let new_active_index = self
             .pane_tree
-            .hsplit(self.active_pane_index, active_pane.buffer_id)?;
+            .hsplit(self.active_pane_index, active_pane.buffer_id)
+                .map_err(|e| Error::Recoverable(e))?;
 
         self.active_pane_index = new_active_index;
 
@@ -125,10 +154,10 @@ impl EditorState {
             .pane_tree
             .pane_node_by_index(self.active_pane_index)
             .ok_or_else(|| {
-                format!(
+                Error::Unrecoverable(format!(
                     "Attempted to move up with no active pane at index: {}",
                     self.active_pane_index
-                )
+                ))
             })?;
         let Some(parent_index) = active_pane.parent_index else {
             return Ok(());
@@ -147,15 +176,16 @@ impl EditorState {
             .pane_tree
             .pane_node_by_index(self.active_pane_index)
             .ok_or_else(|| {
-                format!(
+                Error::Unrecoverable(format!(
                     "Attempted to move down first with no active pane at index: {}",
                     self.active_pane_index
-                )
+                ))
             })?;
         match &active_pane.node_type {
             pane::PaneNodeType::Leaf(_) => (),
-            pane::PaneNodeType::VSplit(split) |
-            pane::PaneNodeType::HSplit(split) => self.active_pane_index = get_index(split),
+            pane::PaneNodeType::VSplit(split) | pane::PaneNodeType::HSplit(split) => {
+                self.active_pane_index = get_index(split)
+            }
         }
 
         Ok(())
@@ -166,30 +196,34 @@ impl EditorState {
             .pane_tree
             .pane_node_by_index(self.active_pane_index)
             .ok_or_else(|| {
-                format!(
+                Error::Unrecoverable(format!(
                     "Attempted to get child parity with no active pane at index: {}",
                     self.active_pane_index
-                )
+                ))
             })?
-            .parent_index else {
-                return Ok(None);
-            };
+            .parent_index
+        else {
+            return Ok(None);
+        };
 
         let parity = self
             .pane_tree
             .pane_node_by_index(parent_index)
-            .map (|parent| match &parent.node_type {
+            .map(|parent| match &parent.node_type {
                 pane::PaneNodeType::Leaf(_) => None,
-                pane::PaneNodeType::VSplit(split) |
-                pane::PaneNodeType::HSplit(split) => Some(split),
+                pane::PaneNodeType::VSplit(split) | pane::PaneNodeType::HSplit(split) => {
+                    Some(split)
+                }
             })
             .flatten()
-            .map(|split| if split.first == self.active_pane_index {
-                Some(true)
-            } else if split.second == self.active_pane_index {
-                Some(false)
-            } else {
-                None
+            .map(|split| {
+                if split.first == self.active_pane_index {
+                    Some(true)
+                } else if split.second == self.active_pane_index {
+                    Some(false)
+                } else {
+                    None
+                }
             })
             .flatten();
 

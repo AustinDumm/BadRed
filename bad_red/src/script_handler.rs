@@ -4,7 +4,7 @@ use mlua::{Lua, Table};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::editor_state::EditorState;
+use crate::editor_state::{EditorState, Error};
 
 pub struct ScriptHandler {
     pub state: Rc<RefCell<EditorState>>,
@@ -42,9 +42,9 @@ impl ScriptObject for PaneBuiltIn {
                         Self::V_SPLIT_NAME,
                         lua.create_function(move |_, _: ()| -> mlua::Result<()> {
                             state.try_borrow_mut()
-                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (v_split) attempted without unique access to editor state: {:#?}", e)))?
+                                .map_err(|e| Error::Unrecoverable(format!("Command (v_split) attempted without unique access to editor state: {:#?}", e).into()))?
                                 .vsplit_active()
-                                .map_err(|e| mlua::Error::RuntimeError(e))
+                                .map_err(|e| e.into())
                         })?
                     )?;
                 }
@@ -55,12 +55,12 @@ impl ScriptObject for PaneBuiltIn {
                         lua.create_function(move |_, _: ()| -> mlua::Result<()> {
                             state
                                 .try_borrow_mut()
-                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (h_split) attempted without unique access to editor state: {:#?}", e)))?
+                                .map_err(|e| Error::Unrecoverable(format!("Command (h_split) attempted without unique access to editor state: {:#?}", e)))?
                                 .hsplit_active()
-                                .map_err(|e| mlua::Error::RuntimeError(e))
+                                .map_err(|e| e.into())
                         })?,
                     )?;
-                },
+                }
                 PaneBuiltIn::Up => {
                     let state = state.clone();
                     table.set(
@@ -68,12 +68,12 @@ impl ScriptObject for PaneBuiltIn {
                         lua.create_function(move |_, _: ()| -> mlua::Result<()> {
                             state
                                 .try_borrow_mut()
-                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (up) attempted without unique access to editor state: {:#?}", e)))?
+                                .map_err(|e| Error::Unrecoverable(format!("Command (up) attempted without unique access to editor state: {:#?}", e)).into_lua())?
                                 .move_active_up()
-                                .map_err(|e| mlua::Error::RuntimeError(e))
+                                .map_err(|e| e.into())
                         })?,
                     )?;
-                },
+                }
                 PaneBuiltIn::Down => {
                     let state = state.clone();
                     table.set(
@@ -81,12 +81,12 @@ impl ScriptObject for PaneBuiltIn {
                         lua.create_function(move |_, to_first: bool| -> mlua::Result<()> {
                             state
                                 .try_borrow_mut()
-                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (up) attempted without unique access to editor state: {:#?}", e)))?
+                                .map_err(|e| Error::Unrecoverable(format!("Command (up) attempted without unique access to editor state: {:#?}", e)).into_lua())?
                                 .move_down_child(to_first)
-                                .map_err(|e| mlua::Error::RuntimeError(e))
+                                .map_err(|e| e.into())
                         })?,
                     )?;
-                },
+                }
                 PaneBuiltIn::IsFirst => {
                     let state = state.clone();
                     table.set(
@@ -94,12 +94,12 @@ impl ScriptObject for PaneBuiltIn {
                         lua.create_function(move |_, _: ()| -> mlua::Result<Option<bool>> {
                             state
                                 .try_borrow_mut()
-                                .map_err(|e| mlua::Error::RuntimeError(format!("Command (is_first) attempted without unique access to editor state: {:#?}", e)))?
+                                .map_err(|e| Error::Unrecoverable(format!("Command (is_first) attempted without unique access to editor state: {:#?}", e)).into_lua())?
                                 .is_first_child()
-                                .map_err(|e| mlua::Error::RuntimeError(e))
+                                .map_err(|e| e.into())
                         })?,
                     )?;
-                },
+                }
             }
         }
 
