@@ -57,7 +57,7 @@ impl PaneTree {
         let new_content_pane_index = self.tree.len();
         let moved_content_pane_index = self.tree.len() + 1;
 
-        let mut current = self.tree.get_mut(pane_id).ok_or_else(|| {
+        let current = self.tree.get_mut(pane_id).ok_or_else(|| {
             format!(
                 "Failed to find pane for current id while splitting: {}",
                 pane_id

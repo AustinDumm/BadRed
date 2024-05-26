@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use mlua::{FromLua, IntoLua, Lua, Result, Table, Value};
+use mlua::{Lua, Table};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 

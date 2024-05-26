@@ -3,6 +3,14 @@ name = "bad_red"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "bad_red"
+path = "src/main.rs"
+
+[lib]
+name = "bad_red_lib"
+path = "src/lib.rs"
+
 [dependencies]
 crossterm = "0.27.0"
 strum = "0.26.2"

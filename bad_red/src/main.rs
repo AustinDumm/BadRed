@@ -1,16 +1,8 @@
 
 use std::{io::{self, Write}, panic};
 
+use bad_red_lib::{display::Display, editor_state::Editor};
 use crossterm::event::{read, Event, KeyCode};
-use display::Display;
-use editor_state::Editor;
-
-mod buffer;
-mod display;
-mod editor_state;
-mod pane;
-mod script_handler;
-mod editor_frame;
 
 fn main() -> io::Result<()> {
     let result = panic::catch_unwind(|| {
