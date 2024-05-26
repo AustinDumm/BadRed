@@ -10,7 +10,7 @@ use crate::{
 
 type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Error {
     Unrecoverable(String),
     Recoverable(String),
@@ -60,16 +60,47 @@ impl Editor {
             .handle_event(input_event)?;
 
         match event_result {
-            BufferUpdate::None => (),
-            BufferUpdate::Raw => (),
+            BufferUpdate::None => Ok(()),
+            BufferUpdate::Raw => Ok(()),
             BufferUpdate::Command(command) => {
-                self.script_handler
-                    .run(command)
-                    .map_err(|e| Error::Script(format!("Lua script error: {}", e)))?;
+                let command_result = self.script_handler.run(command);
+                lua_to_editor_result(command_result)
             }
         }
+    }
+}
 
-        Ok(())
+fn lua_to_editor_result(lua_result: mlua::Result<()>) -> Result<()> {
+    match lua_result {
+        Ok(_) => Ok(()),
+        Err(error) => lua_error_to_editor_result(error),
+    }
+}
+
+fn lua_error_to_editor_result(lua_error: mlua::Error) -> Result<()> {
+    match lua_error {
+        mlua::Error::CallbackError {
+            traceback: _,
+            cause: e,
+        } => callback_error_to_editor_result(e),
+        _ => Err(Error::Script(format!("{}", lua_error))),
+    }
+}
+
+fn callback_error_to_editor_result(callback_cause: Arc<mlua::Error>) -> Result<()> {
+    match (*callback_cause).clone() {
+        mlua::Error::ExternalError(editor_error) => {
+            if let Some(editor_error) = editor_error.downcast_ref::<Error>() {
+                match editor_error {
+                    Error::Unrecoverable(_) => Err((*editor_error).clone()),
+                    Error::Recoverable(_) => Ok(()),
+                    Error::Script(_) => Ok(()),
+                }
+            } else {
+                Err(Error::Script(format!("{}", editor_error)))
+            }
+        }
+        other => Err(Error::Script(format!("{}", other))),
     }
 }
 
@@ -121,7 +152,7 @@ impl EditorState {
         let new_active_index = self
             .pane_tree
             .vsplit(self.active_pane_index, active_pane.buffer_id)
-                .map_err(|e| Error::Recoverable(e))?;
+            .map_err(|e| Error::Recoverable(e))?;
 
         self.active_pane_index = new_active_index;
 
@@ -142,7 +173,7 @@ impl EditorState {
         let new_active_index = self
             .pane_tree
             .hsplit(self.active_pane_index, active_pane.buffer_id)
-                .map_err(|e| Error::Recoverable(e))?;
+            .map_err(|e| Error::Recoverable(e))?;
 
         self.active_pane_index = new_active_index;
 
