@@ -53,7 +53,7 @@ impl Display {
     }
 
     pub fn render(&mut self, editor: &Editor) -> io::Result<()> {
-        let editor_state = &editor.state.borrow();
+        let editor_state = &editor.state;
         let window_size = terminal::window_size()?;
         let editor_frame = EditorFrame {
             x_col: 0,

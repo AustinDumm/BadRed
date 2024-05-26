@@ -1,11 +1,12 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crossterm::event::Event;
+use mlua::Lua;
 
 use crate::{
     buffer::{Buffer, BufferUpdate},
     pane::{self, PaneTree, Split},
-    script_handler::ScriptHandler,
+    script_handler::ScriptHandler, script_runtime::ScriptScheduler,
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -36,37 +37,34 @@ impl Error {
     }
 }
 
-pub struct Editor {
-    pub state: Rc<RefCell<EditorState>>,
-    pub script_handler: ScriptHandler,
+pub struct Editor<'a> {
+    pub state: EditorState,
+    pub script_scheduler: ScriptScheduler<'a>,
 }
 
-impl Editor {
-    pub fn new() -> Result<Self> {
-        let state = Rc::new(RefCell::new(EditorState::new()));
-
+impl<'a> Editor<'a> {
+    pub fn new(lua: &'a Lua) -> Result<Self> {
         Ok(Self {
-            state: state.clone(),
-            script_handler: ScriptHandler::new(&state).map_err(|e| {
-                Error::Unrecoverable(format!("Failed to initialize script handler: {}", e))
-            })?,
+            state: EditorState::new(),
+            script_scheduler: ScriptScheduler::new(lua),
         })
     }
 
     pub fn handle_event(&mut self, input_event: Event) -> Result<()> {
         let event_result = self.state
-            .try_borrow_mut()
-            .map_err(|e| Error::Unrecoverable(format!("Attempted to handle editor event without unique mutable access to editor state: {:#?}", e)))?
             .handle_event(input_event)?;
 
         match event_result {
             BufferUpdate::None => Ok(()),
             BufferUpdate::Raw => Ok(()),
             BufferUpdate::Command(command) => {
-                let command_result = self.script_handler.run(command);
-                lua_to_editor_result(command_result)
+                self.script_scheduler.spawn_script(command)
             }
         }
+    }
+
+    pub fn run_scripts(&mut self) -> Result<()> {
+        self.script_scheduler.run_schedule(&mut self.state)
     }
 }
 

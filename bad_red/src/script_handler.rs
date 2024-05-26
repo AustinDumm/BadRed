@@ -7,14 +7,12 @@ use strum_macros::EnumIter;
 use crate::editor_state::{EditorState, Error};
 
 pub struct ScriptHandler {
-    pub state: Rc<RefCell<EditorState>>,
     pub lua: Lua,
 }
 
 trait ScriptObject {
     fn lua_object<'lua>(
         lua: &'lua Lua,
-        state: &Rc<RefCell<EditorState>>,
     ) -> mlua::Result<Table<'lua>>;
 }
 
@@ -74,73 +72,48 @@ pub enum PaneBuiltIn {
 impl ScriptObject for PaneBuiltIn {
     fn lua_object<'lua>(
         lua: &'lua Lua,
-        state: &Rc<RefCell<EditorState>>,
     ) -> mlua::Result<Table<'lua>> {
         let table = lua.create_table()?;
 
         for case in Self::iter() {
             match case {
                 PaneBuiltIn::VSplit => {
-                    let state = state.clone();
                     table.set(
                         Self::V_SPLIT_NAME,
-                        lua.create_function(move |_, _: ()| -> mlua::Result<()> {
-                            state.try_borrow_mut()
-                                .map_err(|e| Error::Unrecoverable(format!("Command (v_split) attempted without unique access to editor state: {:#?}", e).into()))?
-                                .vsplit_active()
-                                .map_err(|e| e.into())
+                        lua.create_function(move |_, index: usize| -> mlua::Result<RedCall> {
+                            Ok(RedCall::VSplit(index))
                         })?
                     )?;
                 }
                 PaneBuiltIn::HSplit => {
-                    let state = state.clone();
                     table.set(
                         Self::H_SPLIT_NAME,
-                        lua.create_function(move |_, _: ()| -> mlua::Result<()> {
-                            state
-                                .try_borrow_mut()
-                                .map_err(|e| Error::Unrecoverable(format!("Command (h_split) attempted without unique access to editor state: {:#?}", e)))?
-                                .hsplit_active()
-                                .map_err(|e| e.into())
+                        lua.create_function(move |_, _: ()| -> mlua::Result<RedCall> {
+                            Ok(RedCall::None)
                         })?,
                     )?;
                 }
                 PaneBuiltIn::Up => {
-                    let state = state.clone();
                     table.set(
                         Self::UP_NAME,
-                        lua.create_function(move |_, _: ()| -> mlua::Result<()> {
-                            state
-                                .try_borrow_mut()
-                                .map_err(|e| Error::Unrecoverable(format!("Command (up) attempted without unique access to editor state: {:#?}", e)).into_lua())?
-                                .move_active_up()
-                                .map_err(|e| e.into())
+                        lua.create_function(move |_, _: ()| -> mlua::Result<RedCall> {
+                            Ok(RedCall::None)
                         })?,
                     )?;
                 }
                 PaneBuiltIn::Down => {
-                    let state = state.clone();
                     table.set(
                         Self::DOWN_NAME,
-                        lua.create_function(move |_, to_first: bool| -> mlua::Result<()> {
-                            state
-                                .try_borrow_mut()
-                                .map_err(|e| Error::Unrecoverable(format!("Command (up) attempted without unique access to editor state: {:#?}", e)).into_lua())?
-                                .move_down_child(to_first)
-                                .map_err(|e| e.into())
+                        lua.create_function(move |_, to_first: bool| -> mlua::Result<RedCall> {
+                            Ok(RedCall::None)
                         })?,
                     )?;
                 }
                 PaneBuiltIn::IsFirst => {
-                    let state = state.clone();
                     table.set(
                         Self::IS_FIRST_NAME,
-                        lua.create_function(move |_, _: ()| -> mlua::Result<Option<bool>> {
-                            state
-                                .try_borrow_mut()
-                                .map_err(|e| Error::Unrecoverable(format!("Command (is_first) attempted without unique access to editor state: {:#?}", e)).into_lua())?
-                                .is_first_child()
-                                .map_err(|e| e.into())
+                        lua.create_function(move |_, _: ()| -> mlua::Result<RedCall> {
+                            Ok(RedCall::None)
                         })?,
                     )?;
                 }
@@ -160,10 +133,10 @@ impl PaneBuiltIn {
 }
 
 impl ScriptHandler {
-    pub fn new(state: &Rc<RefCell<EditorState>>) -> mlua::Result<Self> {
+    pub fn new() -> mlua::Result<Self> {
         let lua = Lua::new();
 
-        let pane_object = PaneBuiltIn::lua_object(&lua, &state)?;
+        let pane_object = PaneBuiltIn::lua_object(&lua)?;
 
         let red_table = lua.create_table()?;
         red_table.set("pane", pane_object)?;
@@ -171,7 +144,6 @@ impl ScriptHandler {
         lua.globals().set("red", red_table)?;
 
         Ok(Self {
-            state: state.clone(),
             lua,
         })
     }

@@ -3,8 +3,9 @@ use std::{
     panic,
 };
 
-use bad_red_lib::{display::Display, editor_state::{self, Editor}};
+use bad_red_lib::{display::Display, editor_state::{self, Editor}, script_handler::ScriptHandler};
 use crossterm::event::{read, Event, KeyCode};
+use mlua::Lua;
 
 fn main() -> io::Result<()> {
     let result = panic::catch_unwind(|| {
@@ -26,7 +27,9 @@ fn run() -> io::Result<()> {
     let stdout = io::stdout();
     let mut display = Display::new(stdout)?;
 
-    let mut editor = Editor::new().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let script_handler = ScriptHandler::new()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to init Lua: {}", e)))?;
+    let mut editor = Editor::new(&script_handler.lua).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     loop {
         match read()? {
             Event::Key(event) if event.code == KeyCode::Esc => break,
@@ -38,12 +41,16 @@ fn run() -> io::Result<()> {
                     Err(e) => match e {
                         editor_state::Error::Unrecoverable(e) =>
                             Err(io::Error::new(io::ErrorKind::Other, format!("Internal unrecoverable error: {}", e))),
+                        e => Err(io::Error::new(io::ErrorKind::Other, format!("{}", e))),
                         editor_state::Error::Recoverable(_) => Ok(()),
                         editor_state::Error::Script(_) => Ok(()),
                     }
-                }?
+                }?;
             }
         };
+
+        editor.run_scripts()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{}", e)))?;
 
         display.render(&editor)?;
     }

@@ -8,29 +8,31 @@ use crate::{
 };
 
 pub struct ScriptScheduler<'lua> {
-    lua: Lua,
+    lua: &'lua Lua,
     active: VecDeque<(Thread<'lua>, RedCall)>,
 }
 
 impl<'a> ScriptScheduler<'a> {
-    pub fn new() -> Self {
+    pub fn new(lua: &'a Lua) -> Self {
         Self {
-            lua: Lua::new(),
+            lua,
             active: VecDeque::new(),
         }
     }
 
-    pub fn spawn_script(&'a mut self, script: String) -> mlua::Result<()> {
+    pub fn spawn_script(&mut self, script: String) -> Result<()> {
         let thread = self
             .lua
-            .create_thread(self.lua.load(script).into_function()?)?;
+            .create_thread(self.lua.load(script).into_function()
+                .map_err(|e| Error::Unrecoverable(format!("Failed to spawn script: {}", e)))?)
+                .map_err(|e| Error::Unrecoverable(format!("Failed to spawn script thread: {}", e)))?;
 
         self.active.push_back((thread, RedCall::None));
 
         Ok(())
     }
 
-    pub fn run_schedule(&'a mut self, editor_state: &mut EditorState) -> Result<()> {
+    pub fn run_schedule(&mut self, editor_state: &mut EditorState) -> Result<()> {
         self.service_suspended()?;
 
         let Some((next, red_call)) = self.active.pop_front() else {
@@ -46,7 +48,7 @@ impl<'a> ScriptScheduler<'a> {
         }
     }
 
-    fn run_script<A>(&'a mut self, thread: Thread<'a>, arg: A) -> Result<()>
+    fn run_script<A>(&mut self, thread: Thread<'a>, arg: A) -> Result<()>
     where
         A: IntoLuaMulti<'a>,
     {
