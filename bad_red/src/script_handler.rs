@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use mlua::{Lua, Table};
+use mlua::{FromLua, IntoLua, Lua, Table, UserData, Value};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -19,8 +19,47 @@ trait ScriptObject {
 }
 
 pub enum RedCall {
-    End,
+    None,
     VSplit(usize),
+}
+
+impl<'lua> FromLua<'lua> for RedCall {
+    fn from_lua(value: Value<'lua>, _lua: &'lua Lua) -> mlua::prelude::LuaResult<Self> {
+        let table = value
+            .as_table()
+            .ok_or(mlua::Error::FromLuaConversionError {
+                from: "Value",
+                to: "RedCall",
+                message: Some(format!("Found non-table value.")),
+            })?;
+
+        match table.get::<&str, String>("type")?.as_str() {
+            "none" => Ok(RedCall::None),
+            "vsplit" => {
+                let index = table.get::<&str, usize>("index")?;
+                Ok(RedCall::VSplit(index))
+            },
+            other_type => Err(mlua::Error::FromLuaConversionError {
+                from: "Value",
+                to: "RedCall",
+                message: Some(format!("Invalid 'type' key found: {}", other_type)),
+            }),
+        }
+    }
+}
+
+impl<'lua> IntoLua<'lua> for RedCall {
+    fn into_lua(self, lua: &'lua Lua) -> mlua::prelude::LuaResult<Value<'lua>> {
+        match self {
+            RedCall::None => lua.create_table_from([("type", "none")])?.into_lua(lua),
+            RedCall::VSplit(index) => {
+                let table = lua.create_table()?;
+                table.set("type", "vsplit")?;
+                table.set("index", index)?;
+                table.into_lua(lua)
+            }
+        }
+    }
 }
 
 #[derive(Debug, EnumIter, PartialEq)]

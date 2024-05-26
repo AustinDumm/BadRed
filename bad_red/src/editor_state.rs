@@ -8,7 +8,7 @@ use crate::{
     script_handler::ScriptHandler,
 };
 
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
 pub enum Error {
@@ -139,9 +139,13 @@ impl EditorState {
 
 impl EditorState {
     pub fn vsplit_active(&mut self) -> Result<()> {
+        self.vsplit(self.active_pane_index)
+    }
+
+    pub fn vsplit(&mut self, index: usize) -> Result<()> {
         let active_pane = self
             .pane_tree
-            .pane_by_index(self.active_pane_index)
+            .pane_by_index(index)
             .ok_or_else(|| {
                 Error::Unrecoverable(format!(
                     "Attempted to split active pane but could not find active pane at index: {}",
