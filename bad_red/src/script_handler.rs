@@ -23,13 +23,9 @@ pub enum RedCall {
 
 impl<'lua> FromLua<'lua> for RedCall {
     fn from_lua(value: Value<'lua>, _lua: &'lua Lua) -> mlua::prelude::LuaResult<Self> {
-        let table = value
-            .as_table()
-            .ok_or(mlua::Error::FromLuaConversionError {
-                from: "Value",
-                to: "RedCall",
-                message: Some(format!("Found non-table value.")),
-            })?;
+        let Some(table) = value.as_table() else {
+            return Ok(RedCall::None);
+        };
 
         match table.get::<&str, String>("type")?.as_str() {
             "none" => Ok(RedCall::None),
