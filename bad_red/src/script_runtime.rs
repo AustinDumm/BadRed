@@ -38,11 +38,53 @@ impl<'a> ScriptScheduler<'a> {
         };
 
         match red_call {
-            RedCall::VSplit(pane_index) => {
+            RedCall::None => self.run_script(next, ()),
+            RedCall::PaneVSplit { index: pane_index } => {
                 editor_state.vsplit(pane_index)?;
                 self.run_script(next, ())
             }
-            RedCall::None => self.run_script(next, ())
+            RedCall::PaneHSplit { index: pane_index } => {
+                editor_state.hsplit(pane_index)?;
+                self.run_script(next, ())
+            }
+            RedCall::ActivePaneIndex => {
+                let active_index = editor_state.active_pane_index;
+                self.run_script(next, active_index)
+            },
+            RedCall::SetActivePane { index } => {
+                if editor_state.pane_tree.tree.len() <= index {
+                    Err(Error::Script(format!("Attempted to set active pane to index out of bounds: {}", index)))
+                } else {
+                    editor_state.active_pane_index = index;
+                    self.run_script(next, ())
+                }
+            },
+            RedCall::PaneIndexUpFrom { index } => {
+                if editor_state.pane_tree.tree.len() <= index {
+                    Err(Error::Script(format!("Attempted to get parent index from pane index out of bounds: {}", index)))
+                } else {
+                    let up_index = editor_state.pane_tree.pane_node_by_index(index)
+                        .map(|node| node.parent_index);
+
+                    self.run_script(next, up_index)
+                }
+            },
+            RedCall::PaneIndexDownTo { index, to_first } => {
+                if editor_state.pane_tree.tree.len() <= index {
+                    Err(Error::Script(format!("Attempted to get child index from pane index out of bounds: {}", index)))
+                } else {
+                    let down_index = editor_state.pane_tree.pane_node_by_index(index)
+                        .map(|node| &node.node_type)
+                        .map(|node_type| match node_type {
+                            crate::pane::PaneNodeType::Leaf(_) => None,
+                            crate::pane::PaneNodeType::VSplit(split) |
+                            crate::pane::PaneNodeType::HSplit(split) =>
+                                if to_first { Some(split.first) } else { Some(split.second) },
+                        });
+
+                    self.run_script(next, down_index)
+                }
+            },
         }
     }
 

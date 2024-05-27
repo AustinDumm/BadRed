@@ -187,13 +187,13 @@ impl EditorState {
         Ok(())
     }
 
-    pub fn hsplit_active(&mut self) -> Result<()> {
+    pub fn hsplit(&mut self, index: usize) -> Result<()> {
         let active_pane = self
             .pane_tree
-            .pane_by_index(self.active_pane_index)
+            .pane_by_index(index)
             .ok_or_else(|| {
                 Error::Unrecoverable(format!(
-                    "Attempted to split active pane but could not find active pane at index: {}",
+                    "Attempted to split pane but could not find pane at index: {}",
                     self.active_pane_index
                 ))
             })?;
