@@ -16,9 +16,15 @@ trait ScriptObject {
     ) -> mlua::Result<Table<'lua>>;
 }
 
+#[derive(Debug, EnumIter, PartialEq)]
 pub enum RedCall {
     None,
     VSplit(usize),
+}
+
+impl RedCall {
+    const YIELD_NAME: &'static str = "yield";
+    const VSPLIT_NAME: &'static str = "vsplit";
 }
 
 impl<'lua> FromLua<'lua> for RedCall {
@@ -56,16 +62,8 @@ impl<'lua> IntoLua<'lua> for RedCall {
     }
 }
 
-#[derive(Debug, EnumIter, PartialEq)]
-pub enum PaneBuiltIn {
-    VSplit,
-    HSplit,
-    Up,
-    Down,
-    IsFirst,
-}
+impl ScriptObject for RedCall {
 
-impl ScriptObject for PaneBuiltIn {
     fn lua_object<'lua>(
         lua: &'lua Lua,
     ) -> mlua::Result<Table<'lua>> {
@@ -73,46 +71,18 @@ impl ScriptObject for PaneBuiltIn {
 
         for case in Self::iter() {
             match case {
-                PaneBuiltIn::VSplit => {
+                RedCall::None => {
                     table.set(
-                        Self::V_SPLIT_NAME,
-                        lua.create_function(move |_, index: usize| -> mlua::Result<RedCall> {
-                            Ok(RedCall::VSplit(index))
-                        })?
+                        Self::YIELD_NAME,
+                        lua.create_function(|_, _: ()| Ok(RedCall::None))?
                     )?;
-                }
-                PaneBuiltIn::HSplit => {
+                },
+                RedCall::VSplit(_) => {
                     table.set(
-                        Self::H_SPLIT_NAME,
-                        lua.create_function(move |_, _: ()| -> mlua::Result<RedCall> {
-                            Ok(RedCall::None)
-                        })?,
+                        Self::VSPLIT_NAME,
+                        lua.create_function(|_, index: usize| Ok(RedCall::VSplit(index)))?
                     )?;
-                }
-                PaneBuiltIn::Up => {
-                    table.set(
-                        Self::UP_NAME,
-                        lua.create_function(move |_, _: ()| -> mlua::Result<RedCall> {
-                            Ok(RedCall::None)
-                        })?,
-                    )?;
-                }
-                PaneBuiltIn::Down => {
-                    table.set(
-                        Self::DOWN_NAME,
-                        lua.create_function(move |_, to_first: bool| -> mlua::Result<RedCall> {
-                            Ok(RedCall::None)
-                        })?,
-                    )?;
-                }
-                PaneBuiltIn::IsFirst => {
-                    table.set(
-                        Self::IS_FIRST_NAME,
-                        lua.create_function(move |_, _: ()| -> mlua::Result<RedCall> {
-                            Ok(RedCall::None)
-                        })?,
-                    )?;
-                }
+                },
             }
         }
 
@@ -120,22 +90,15 @@ impl ScriptObject for PaneBuiltIn {
     }
 }
 
-impl PaneBuiltIn {
-    const V_SPLIT_NAME: &'static str = "vsplit";
-    const H_SPLIT_NAME: &'static str = "hsplit";
-    const UP_NAME: &'static str = "up";
-    const DOWN_NAME: &'static str = "down";
-    const IS_FIRST_NAME: &'static str = "is_first";
-}
 
 impl ScriptHandler {
     pub fn new() -> mlua::Result<Self> {
         let lua = Lua::new();
 
-        let pane_object = PaneBuiltIn::lua_object(&lua)?;
+        let redcall_object = RedCall::lua_object(&lua)?;
 
         let red_table = lua.create_table()?;
-        red_table.set("pane", pane_object)?;
+        red_table.set("call", redcall_object)?;
 
         lua.globals().set("red", red_table)?;
 

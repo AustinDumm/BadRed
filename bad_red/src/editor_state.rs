@@ -150,10 +150,6 @@ impl EditorState {
 }
 
 impl EditorState {
-    pub fn vsplit_active(&mut self) -> Result<()> {
-        self.vsplit(self.active_pane_index)
-    }
-
     pub fn vsplit(&mut self, index: usize) -> Result<()> {
         let active_pane = self.pane_tree.pane_node_by_index(index).ok_or_else(|| {
             Error::Unrecoverable(format!(
