@@ -6,7 +6,8 @@ use mlua::Lua;
 use crate::{
     buffer::{Buffer, BufferUpdate},
     pane::{self, PaneTree, Split},
-    script_handler::ScriptHandler, script_runtime::ScriptScheduler,
+    script_handler::ScriptHandler,
+    script_runtime::ScriptScheduler,
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -51,15 +52,12 @@ impl<'a> Editor<'a> {
     }
 
     pub fn handle_event(&mut self, input_event: Event) -> Result<()> {
-        let event_result = self.state
-            .handle_event(input_event)?;
+        let event_result = self.state.handle_event(input_event)?;
 
         match event_result {
             BufferUpdate::None => Ok(()),
             BufferUpdate::Raw => Ok(()),
-            BufferUpdate::Command(command) => {
-                self.script_scheduler.spawn_script(command)
-            }
+            BufferUpdate::Command(command) => self.script_scheduler.spawn_script(command),
         }
     }
 
@@ -157,24 +155,30 @@ impl EditorState {
     }
 
     pub fn vsplit(&mut self, index: usize) -> Result<()> {
-        let active_pane = self
-            .pane_tree
-            .pane_node_by_index(index)
-            .ok_or_else(|| {
-                Error::Unrecoverable(format!(
-                    "Attempted to split pane but could not find pane at index: {}",
-                    self.active_pane_index
-                ))
-            })?;
+        let active_pane = self.pane_tree.pane_node_by_index(index).ok_or_else(|| {
+            Error::Unrecoverable(format!(
+                "Attempted to split pane but could not find pane at index: {}",
+                self.active_pane_index
+            ))
+        })?;
 
-        let buffer_id = match &active_pane.node_type {
-            pane::PaneNodeType::Leaf(pane) => pane.buffer_id,
-            pane::PaneNodeType::VSplit(_) |
-            pane::PaneNodeType::HSplit(_) => {
-                let id = self.buffers.len();
-                self.buffers.push(Buffer::new("".to_string()));
-                id
-            }
+        let mut current_pane = active_pane;
+
+        let buffer_id = loop {
+            match &current_pane.node_type {
+                pane::PaneNodeType::Leaf(pane) => break pane.buffer_id,
+                pane::PaneNodeType::VSplit(split) | pane::PaneNodeType::HSplit(split) => {
+                    current_pane = self
+                        .pane_tree
+                        .pane_node_by_index(split.first)
+                        .ok_or_else(|| {
+                            Error::Unrecoverable(format!(
+                                "Attemped to find leaf for split pane but pane does not exist at index: {}",
+                                split.first
+                            ))
+                        })?;
+                }
+            };
         };
 
         let new_active_index = self
