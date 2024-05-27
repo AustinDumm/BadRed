@@ -136,8 +136,15 @@ impl EditorState {
         Ok(buffer.handle_event(input_event))
     }
 
+    pub fn push_to_buffer(&mut self, content: String, index: usize) {
+        let Some(ref mut buffer) = &mut self.buffers.get_mut(index) else {
+            return;
+        };
+
+        buffer.content.push_str(&content);
+    }
+
     pub fn clear_dirty(&mut self) {
-        self.pane_tree.clear_dirty();
         for buffer in &mut self.buffers {
             buffer.is_dirty = false;
         }
@@ -152,17 +159,27 @@ impl EditorState {
     pub fn vsplit(&mut self, index: usize) -> Result<()> {
         let active_pane = self
             .pane_tree
-            .pane_by_index(index)
+            .pane_node_by_index(index)
             .ok_or_else(|| {
                 Error::Unrecoverable(format!(
-                    "Attempted to split active pane but could not find active pane at index: {}",
+                    "Attempted to split pane but could not find pane at index: {}",
                     self.active_pane_index
                 ))
             })?;
 
+        let buffer_id = match &active_pane.node_type {
+            pane::PaneNodeType::Leaf(pane) => pane.buffer_id,
+            pane::PaneNodeType::VSplit(_) |
+            pane::PaneNodeType::HSplit(_) => {
+                let id = self.buffers.len();
+                self.buffers.push(Buffer::new("".to_string()));
+                id
+            }
+        };
+
         let new_active_index = self
             .pane_tree
-            .vsplit(self.active_pane_index, active_pane.buffer_id)
+            .vsplit(self.active_pane_index, buffer_id)
             .map_err(|e| Error::Recoverable(e))?;
 
         self.active_pane_index = new_active_index;

@@ -60,7 +60,9 @@ fn run() -> io::Result<()> {
             Ok(_) => (),
             Err(editor_state::Error::Unrecoverable(message)) => 
                 Err(io::Error::new(io::ErrorKind::Other, format!("{:#?}", message)))?,
-            Err(_) => (),
+            Err(e) => {
+                editor.state.push_to_buffer(format!("{}", e), 0);
+            }
         }
 
         display.render(&editor)?;

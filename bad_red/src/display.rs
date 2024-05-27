@@ -62,8 +62,16 @@ impl Display {
             cols: window_size.columns,
         };
 
+        queue!(
+            self.stdout,
+            cursor::SavePosition,
+        )?;
         let cursor =
             self.render_to_pane(editor_state, &editor_frame, &editor_state.pane_tree, 0)?;
+        queue!(
+            self.stdout,
+            cursor::RestorePosition,
+        )?;
         if let Some((row, col)) = cursor {
             queue!(self.stdout, cursor::MoveTo(col, row))?;
         }
@@ -93,8 +101,6 @@ impl Display {
                 }
             }
             PaneNodeType::VSplit(split) => {
-                if !node.is_dirty { return Ok(None) }
-
                 let left_frame = editor_frame.percent_cols(split.first_percent, -1);
                 let right_frame = &editor_frame.percent_cols_shift(split.first_percent, -1);
 
@@ -108,8 +114,6 @@ impl Display {
                 Ok(left_cursor.or(right_cursor))
             }
             PaneNodeType::HSplit(split) => {
-                if !node.is_dirty { return Ok(None) }
-
                 let top_frame = editor_frame.percent_rows(split.first_percent, -1);
                 let bottom_frame = editor_frame.percent_rows_shift(split.first_percent, -1);
 

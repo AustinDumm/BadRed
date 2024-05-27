@@ -10,7 +10,6 @@ impl PaneTree {
             tree: vec![PaneNode {
                 node_type: PaneNodeType::Leaf(Pane::new(initial_buffer_id)),
                 parent_index: None,
-                is_dirty: false,
             }],
         }
     }
@@ -49,12 +48,6 @@ impl PaneTree {
         })
     }
 
-    pub fn clear_dirty(&mut self) {
-        for pane_node in &mut self.tree {
-            pane_node.is_dirty = false;
-        }
-    }
-
     fn split(
         &mut self,
         pane_id: usize,
@@ -70,7 +63,6 @@ impl PaneTree {
                 pane_id
             )
         })?;
-        current.is_dirty = true;
         let current_parent = current.parent_index;
         current.parent_index = Some(pane_id);
 
@@ -80,13 +72,11 @@ impl PaneTree {
                 buffer_id: new_pane_buffer,
             }),
             parent_index: Some(pane_id),
-            is_dirty: true,
         };
 
         let new_split_pane = PaneNode {
             node_type: split_constructor(moved_content_pane_index, new_content_pane_index, 0.5),
             parent_index: current_parent,
-            is_dirty: true,
         };
         self.tree.push(new_content_pane);
         self.tree.push(new_split_pane);
@@ -99,7 +89,6 @@ impl PaneTree {
 pub struct PaneNode {
     pub node_type: PaneNodeType,
     pub parent_index: Option<usize>,
-    pub is_dirty: bool,
 }
 
 pub enum PaneNodeType {
