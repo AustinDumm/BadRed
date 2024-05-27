@@ -6,6 +6,7 @@ pub struct Buffer {
     pub title: String,
     pub cursor_index: usize,
     pub content: String,
+    pub is_dirty: bool,
 }
 
 pub enum BufferUpdate {
@@ -20,6 +21,7 @@ impl Buffer {
             title,
             cursor_index: 0,
             content: String::new(),
+            is_dirty: false,
         }
     }
 
@@ -38,13 +40,16 @@ impl Buffer {
                     self.content.remove(self.cursor_index - 1);
                     self.cursor_index -= 1;
                 }
+                self.is_dirty = true;
             }
             event::KeyCode::Enter => {
                 self.content.insert(self.cursor_index, '\n');
                 self.cursor_index += 1;
+                self.is_dirty = true;
             }
             event::KeyCode::Left => {
                 self.cursor_index = self.cursor_index.saturating_sub(1);
+                self.is_dirty = true;
             }
             event::KeyCode::Right => {
                 self.cursor_index = self.cursor_index.saturating_add(1);
@@ -52,6 +57,7 @@ impl Buffer {
                 if self.cursor_index > char_count {
                     self.cursor_index = char_count;
                 }
+                self.is_dirty = true;
             }
             event::KeyCode::Up => (),
             event::KeyCode::Down => (),
@@ -61,12 +67,14 @@ impl Buffer {
             event::KeyCode::PageDown => (),
             event::KeyCode::Tab => {
                 self.content.insert(self.cursor_index, '\t');
+                self.is_dirty = true;
             },
             event::KeyCode::BackTab => (),
             event::KeyCode::Delete => {
                 if self.cursor_index < self.content.chars().count() {
                     self.content.remove(self.cursor_index);
                 }
+                self.is_dirty = true;
             },
             event::KeyCode::Insert => (),
             event::KeyCode::F(_) => (),
@@ -74,6 +82,7 @@ impl Buffer {
                 if event.modifiers.contains(KeyModifiers::CONTROL) && char == 'e' {
                     let command = mem::replace(&mut self.content, String::new());
                     self.cursor_index = 0;
+                    self.is_dirty = true;
                     return BufferUpdate::Command(command);
                 }
 
@@ -89,6 +98,7 @@ impl Buffer {
                     self.content.insert(self.cursor_index, char);
                 }
                 self.cursor_index += 1;
+                self.is_dirty = true;
             },
             event::KeyCode::Null => (),
             event::KeyCode::Esc => (),

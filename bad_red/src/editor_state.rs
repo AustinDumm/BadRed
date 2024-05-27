@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use crossterm::event::Event;
 use mlua::Lua;
@@ -45,7 +45,7 @@ pub struct Editor<'a> {
 impl<'a> Editor<'a> {
     pub fn new(lua: &'a Lua) -> Result<Self> {
         Ok(Self {
-            state: EditorState::new(),
+            state: EditorState::new(Duration::from_millis(50)),
             script_scheduler: ScriptScheduler::new(lua),
         })
     }
@@ -104,14 +104,16 @@ fn callback_error_to_editor_result(callback_cause: Arc<mlua::Error>) -> Result<(
 
 pub struct EditorState {
     pub active_pane_index: usize,
+    pub input_poll_rate: Duration,
     pub buffers: Vec<Buffer>,
     pub pane_tree: PaneTree,
 }
 
 impl EditorState {
-    pub fn new() -> Self {
+    pub fn new(input_poll_rate: Duration) -> Self {
         Self {
             active_pane_index: 0,
+            input_poll_rate,
             buffers: vec![Buffer::new("root".to_string())],
             pane_tree: PaneTree::new(0),
         }
@@ -132,6 +134,13 @@ impl EditorState {
         };
 
         Ok(buffer.handle_event(input_event))
+    }
+
+    pub fn clear_dirty(&mut self) {
+        self.pane_tree.clear_dirty();
+        for buffer in &mut self.buffers {
+            buffer.is_dirty = false;
+        }
     }
 }
 

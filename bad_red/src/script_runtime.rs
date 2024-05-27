@@ -33,8 +33,6 @@ impl<'a> ScriptScheduler<'a> {
     }
 
     pub fn run_schedule(&mut self, editor_state: &mut EditorState) -> Result<()> {
-        self.service_suspended()?;
-
         let Some((next, red_call)) = self.active.pop_front() else {
             return Ok(());
         };
@@ -67,9 +65,5 @@ impl<'a> ScriptScheduler<'a> {
                 "Erring script attempted to be rewoken by scheduler"
             ))),
         }
-    }
-
-    pub fn service_suspended(&mut self) -> Result<()> {
-        Ok(())
     }
 }

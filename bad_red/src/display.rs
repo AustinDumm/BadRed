@@ -93,6 +93,8 @@ impl Display {
                 }
             }
             PaneNodeType::VSplit(split) => {
+                if !node.is_dirty { return Ok(None) }
+
                 let left_frame = editor_frame.percent_cols(split.first_percent, -1);
                 let right_frame = &editor_frame.percent_cols_shift(split.first_percent, -1);
 
@@ -106,6 +108,8 @@ impl Display {
                 Ok(left_cursor.or(right_cursor))
             }
             PaneNodeType::HSplit(split) => {
+                if !node.is_dirty { return Ok(None) }
+
                 let top_frame = editor_frame.percent_rows(split.first_percent, -1);
                 let bottom_frame = editor_frame.percent_rows_shift(split.first_percent, -1);
 
@@ -139,6 +143,8 @@ impl Display {
                 ),
             ));
         };
+        if !buffer.is_dirty { return Ok(None) }
+
         let mut chars = buffer.content.chars().peekable();
         let mut char_count = 0;
 
