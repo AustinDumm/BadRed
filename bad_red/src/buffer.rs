@@ -27,10 +27,37 @@ impl Buffer {
 
     pub fn handle_event(&mut self, event: Event) -> BufferUpdate {
         match event {
-            Event::FocusGained | Event::FocusLost | Event::Mouse(_) | Event::Resize(_, _) => BufferUpdate::None,
+            Event::FocusGained | Event::FocusLost | Event::Mouse(_) | Event::Resize(_, _) => {
+                BufferUpdate::None
+            }
             Event::Paste(_) => BufferUpdate::None,
             Event::Key(key) => self.handle_key_event(key),
         }
+    }
+
+    pub fn insert_at_cursor(&mut self, content: &str) {
+        if self.cursor_index == self.content.chars().count() {
+            self.content.push_str(content);
+        } else {
+            self.content.insert_str(self.cursor_index, content);
+        }
+        self.cursor_index += 1;
+        self.is_dirty = true;
+    }
+
+    pub fn backspace_at_cursor(&mut self) {
+        if self.cursor_index > 0 {
+            self.content.remove(self.cursor_index - 1);
+            self.cursor_index -= 1;
+        }
+        self.is_dirty = true;
+    }
+
+    pub fn delete_at_cursor(&mut self) {
+        if self.cursor_index < self.content.chars().count() {
+            self.content.remove(self.cursor_index);
+        }
+        self.is_dirty = true;
     }
 
     fn handle_key_event(&mut self, event: KeyEvent) -> BufferUpdate {
@@ -68,14 +95,14 @@ impl Buffer {
             event::KeyCode::Tab => {
                 self.content.insert(self.cursor_index, '\t');
                 self.is_dirty = true;
-            },
+            }
             event::KeyCode::BackTab => (),
             event::KeyCode::Delete => {
                 if self.cursor_index < self.content.chars().count() {
                     self.content.remove(self.cursor_index);
                 }
                 self.is_dirty = true;
-            },
+            }
             event::KeyCode::Insert => (),
             event::KeyCode::F(_) => (),
             event::KeyCode::Char(char) => {
@@ -99,7 +126,7 @@ impl Buffer {
                 }
                 self.cursor_index += 1;
                 self.is_dirty = true;
-            },
+            }
             event::KeyCode::Null => (),
             event::KeyCode::Esc => (),
             event::KeyCode::CapsLock => (),

@@ -1,12 +1,13 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
-use crossterm::event::Event;
+use crossterm::event::{Event, KeyEvent};
 use mlua::Lua;
 
 use crate::{
     buffer::{Buffer, BufferUpdate},
+    keymap::{KeyMap, KeyMapNode, RedKeyEvent},
     pane::{self, PaneTree, Split},
-    script_handler::ScriptHandler,
+    script_handler::{RedCall, ScriptHandler},
     script_runtime::ScriptScheduler,
 };
 
@@ -41,14 +42,41 @@ impl Error {
 pub struct Editor<'a> {
     pub state: EditorState,
     pub script_scheduler: ScriptScheduler<'a>,
+    pub default_keymap: KeyMap<'a>,
 }
 
 impl<'a> Editor<'a> {
     pub fn new(lua: &'a Lua) -> Result<Self> {
+        let state = EditorState::new(Duration::from_millis(50));
         Ok(Self {
-            state: EditorState::new(Duration::from_millis(50)),
+            state,
             script_scheduler: ScriptScheduler::new(lua),
+            default_keymap: KeyMap::new().with_fallback(Some(KeyMapNode::Function(
+                lua.create_function(|_, key_event: RedKeyEvent| {
+                    Ok(RedCall::BufferInsert { key_event })
+                })
+                .map_err(|e| Error::Unrecoverable(format!("Failed to initialize keymap: {}", e)))?,
+            ))),
         })
+    }
+
+    pub fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
+        let red_key_event = RedKeyEvent::from(key_event);
+
+        match self.default_keymap.node_for(&red_key_event) {
+            Some(KeyMapNode::Function(f)) => self.script_scheduler.spawn_function(
+                f.clone(),
+                red_key_event.try_into().map_err(|e| {
+                    Error::Unrecoverable(
+                        format!("Could not convert key event into Lua string: {}", e),
+                    )
+                })?,
+            ),
+            None => Ok(()),
+            Some(KeyMapNode::Map(_)) => Err(Error::Unrecoverable(format!(
+                "Nested keymap not yet supported"
+            ))),
+        }
     }
 
     pub fn handle_event(&mut self, input_event: Event) -> Result<()> {
@@ -142,6 +170,12 @@ impl EditorState {
         buffer.content.push_str(&content);
     }
 
+    pub fn active_buffer(&mut self) -> Option<&mut Buffer> {
+        let pane = self.pane_tree.pane_by_index(self.active_pane_index)?;
+
+        self.buffers.get_mut(pane.buffer_id)
+    }
+
     pub fn clear_dirty(&mut self) {
         for buffer in &mut self.buffers {
             buffer.is_dirty = false;
@@ -188,15 +222,12 @@ impl EditorState {
     }
 
     pub fn hsplit(&mut self, index: usize) -> Result<()> {
-        let active_pane = self
-            .pane_tree
-            .pane_by_index(index)
-            .ok_or_else(|| {
-                Error::Unrecoverable(format!(
-                    "Attempted to split pane but could not find pane at index: {}",
-                    self.active_pane_index
-                ))
-            })?;
+        let active_pane = self.pane_tree.pane_by_index(index).ok_or_else(|| {
+            Error::Unrecoverable(format!(
+                "Attempted to split pane but could not find pane at index: {}",
+                self.active_pane_index
+            ))
+        })?;
 
         let new_active_index = self
             .pane_tree

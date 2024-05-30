@@ -6,6 +6,7 @@ use std::{
 use bad_red_lib::{
     display::Display,
     editor_state::{self, Editor},
+    keymap::KeyMap,
     script_handler::ScriptHandler,
 };
 use crossterm::event::{self, read, Event, KeyCode};
@@ -39,8 +40,8 @@ fn run() -> io::Result<()> {
         if event::poll(editor.state.input_poll_rate)? {
             match event::read()? {
                 Event::Key(event) if event.code == KeyCode::Esc => break,
-                event => {
-                    match editor.handle_event(event) {
+                Event::Key(event) => {
+                    match editor.handle_key_event(event) {
                         Ok(_) => Ok(()),
                         Err(e) => match e {
                             editor_state::Error::Unrecoverable(e) => Err(io::Error::new(
@@ -52,14 +53,30 @@ fn run() -> io::Result<()> {
                         },
                     }?;
                 }
+                _ => ()
+                //event => {
+                //    match editor.handle_event(event) {
+                //        Ok(_) => Ok(()),
+                //        Err(e) => match e {
+                //            editor_state::Error::Unrecoverable(e) => Err(io::Error::new(
+                //                io::ErrorKind::Other,
+                //                format!("Internal unrecoverable error: {}", e),
+                //            )),
+                //            editor_state::Error::Recoverable(_) => Ok(()),
+                //            editor_state::Error::Script(_) => Ok(()),
+                //        },
+                //    }?;
+                //}
             };
         }
 
         let script_result = editor.run_scripts();
         match script_result {
             Ok(_) => (),
-            Err(editor_state::Error::Unrecoverable(message)) => 
-                Err(io::Error::new(io::ErrorKind::Other, format!("{:#?}", message)))?,
+            Err(editor_state::Error::Unrecoverable(message)) => Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("{:#?}", message),
+            ))?,
             Err(e) => {
                 editor.state.push_to_buffer(format!("{}", e), 0);
             }

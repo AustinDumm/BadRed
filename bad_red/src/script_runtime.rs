@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, process};
 
-use mlua::{IntoLuaMulti, Lua, Thread};
+use mlua::{Function, IntoLuaMulti, Lua, Thread};
 
 use crate::{
     editor_state::{EditorState, Error, Result},
@@ -12,12 +12,23 @@ pub struct ScriptScheduler<'lua> {
     active: VecDeque<(Thread<'lua>, RedCall)>,
 }
 
-impl<'a> ScriptScheduler<'a> {
-    pub fn new(lua: &'a Lua) -> Self {
+impl<'lua> ScriptScheduler<'lua> {
+    pub fn new(lua: &'lua Lua) -> Self {
         Self {
             lua,
             active: VecDeque::new(),
         }
+    }
+
+    pub fn spawn_function<'f>(&mut self, function: Function<'f>, arg: String) -> Result<()> {
+        let thread = self
+            .lua
+            .create_thread(function)
+                .map_err(|e| Error::Unrecoverable(format!("Failed to spawn function thread: {}", e)))?;
+
+        self.active.push_back((thread, RedCall::Pass { string: arg }));
+
+        Ok(())
     }
 
     pub fn spawn_script(&mut self, script: String) -> Result<()> {
@@ -39,6 +50,9 @@ impl<'a> ScriptScheduler<'a> {
 
         match red_call {
             RedCall::None => self.run_script(next, ()),
+            RedCall::Pass { string } => {
+                self.run_script(next, string)
+            },
             RedCall::PaneVSplit { index: pane_index } => {
                 editor_state.vsplit(pane_index)?;
                 self.run_script(next, ())
@@ -85,12 +99,21 @@ impl<'a> ScriptScheduler<'a> {
                     self.run_script(next, down_index)
                 }
             },
+            RedCall::BufferInsert { key_event } => {
+                let string: String = key_event.try_into()
+                    .map_err(|e| Error::Recoverable(e))?;
+
+                let Some(buffer) = editor_state.active_buffer() else { return Ok(()) };
+                buffer.insert_at_cursor(&string);
+
+                Ok(())
+            },
         }
     }
 
-    fn run_script<A>(&mut self, thread: Thread<'a>, arg: A) -> Result<()>
+    fn run_script<A>(&mut self, thread: Thread<'lua>, arg: A) -> Result<()>
     where
-        A: IntoLuaMulti<'a>,
+        A: IntoLuaMulti<'lua>,
     {
         match thread.status() {
             mlua::ThreadStatus::Resumable => {

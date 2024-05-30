@@ -1,8 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use mlua::{FromLua, IntoLua, UserData, Value};
 
+#[derive(Debug, Hash, PartialEq, Eq)]
 pub struct RedKeyEvent {
     pub code: KeyCode,
     pub modifiers: KeyModifiers,
@@ -41,11 +42,28 @@ impl RedKeyEvent {
     pub const FUNCTION_KEY_PREFIX: &'static str = "F";
 }
 
-impl<'lua> IntoLua<'lua> for RedKeyEvent {
-    fn into_lua(
-        self,
-        lua: &'lua mlua::prelude::Lua,
-    ) -> mlua::prelude::LuaResult<mlua::prelude::LuaValue<'lua>> {
+impl Default for RedKeyEvent {
+    fn default() -> Self {
+        Self {
+            code: KeyCode::Null,
+            modifiers: KeyModifiers::NONE,
+        }
+    }
+}
+
+impl From<KeyEvent> for RedKeyEvent {
+    fn from(value: KeyEvent) -> Self {
+        Self {
+            code: value.code,
+            modifiers: value.modifiers,
+        }
+    }
+}
+
+impl TryInto<String> for RedKeyEvent {
+    type Error = String;
+
+    fn try_into(self) -> Result<String, Self::Error> {
         let key_component = match self.code {
             KeyCode::Backspace => Self::BACKSPACE_NAME.to_string(),
             KeyCode::Enter => Self::ENTER_NAME.to_string(),
@@ -80,24 +98,16 @@ impl<'lua> IntoLua<'lua> for RedKeyEvent {
             KeyCode::Menu => Self::MENU_NAME.to_string(),
             KeyCode::KeypadBegin => Self::KEYPAD_BEGIN_NAME.to_string(),
             KeyCode::Media(key) => {
-                return Err(mlua::Error::ToLuaConversionError {
-                    from: "RedKeyEvent",
-                    to: "String",
-                    message: Some(format!(
-                        "Unexpected KeyCode type for Lua conversion: Media({:#?})",
-                        key
-                    )),
-                })
+                return Ok(format!(
+                    "Unexpected KeyCode type for Lua conversion: Media({:#?})",
+                    key
+                ))
             }
             KeyCode::Modifier(modifier) => {
-                return Err(mlua::Error::ToLuaConversionError {
-                    from: "RedKeyEvent",
-                    to: "String",
-                    message: Some(format!(
-                        "Unepxectged KeyCode type for Lua conversion: Modifier({:#?})",
-                        modifier
-                    )),
-                })
+                return Ok(format!(
+                    "Unexpected KeyCode type for Lua conversion: Modifier({:#?})",
+                    modifier
+                ))
             }
         };
 
@@ -118,8 +128,24 @@ impl<'lua> IntoLua<'lua> for RedKeyEvent {
             modifier_component += Self::META_PREFIX
         };
 
-        lua.create_string(format!("{}{}", modifier_component, key_component))?
-            .into_lua(lua)
+        Ok(format!("{}{}", modifier_component, key_component))
+    }
+}
+
+impl<'lua> IntoLua<'lua> for RedKeyEvent {
+    fn into_lua(
+        self,
+        lua: &'lua mlua::prelude::Lua,
+    ) -> mlua::prelude::LuaResult<mlua::prelude::LuaValue<'lua>> {
+        let string: String = self
+            .try_into()
+            .map_err(|e| mlua::Error::ToLuaConversionError {
+                from: "RedKeyEvent",
+                to: "String",
+                message: Some(e),
+            })?;
+
+        lua.create_string(string)?.into_lua(lua)
     }
 }
 
@@ -140,6 +166,18 @@ impl<'lua> FromLua<'lua> for RedKeyEvent {
         };
         let key_string = key_string.to_str()?;
 
+        RedKeyEvent::try_from(key_string).map_err(|e| mlua::Error::FromLuaConversionError {
+            from: "String",
+            to: "RedKeyEvent",
+            message: Some(e),
+        })
+    }
+}
+
+impl TryFrom<&str> for RedKeyEvent {
+    type Error = String;
+
+    fn try_from(key_string: &str) -> Result<Self, Self::Error> {
         let mut modifiers = KeyModifiers::NONE;
         if key_string.contains(Self::CONTROL_PREFIX) {
             modifiers.insert(KeyModifiers::CONTROL)
@@ -159,8 +197,8 @@ impl<'lua> FromLua<'lua> for RedKeyEvent {
 
         let raw_key_code = key_string
             .split('+')
-            .next_back() 
-            .ok_or_else(|| mlua::Error::FromLuaConversionError { from: "String", to: "RedKeyEvent", message: Some(format!("Could not find key code for RedKeyEvent: {}", key_string)) })?;
+            .next_back()
+            .ok_or_else(|| format!("Could not find key code for RedKeyEvent: {}", key_string))?;
 
         let code = match raw_key_code {
             Self::BACKSPACE_NAME => KeyCode::Backspace,
@@ -186,30 +224,36 @@ impl<'lua> FromLua<'lua> for RedKeyEvent {
             Self::PAUSE_NAME => KeyCode::Pause,
             Self::MENU_NAME => KeyCode::Menu,
             Self::KEYPAD_BEGIN_NAME => KeyCode::KeypadBegin,
-            raw_key_code if let Some(index) = raw_key_code.strip_prefix(Self::FUNCTION_KEY_PREFIX) => {
-                KeyCode::F(u8::from_str_radix(index, 10)
-                    .map_err(|e| mlua::Error::FromLuaConversionError { from: "String", to: "RedKeyEvent", message: Some(format!("Failed to convert Function key index to number. Found: F{}. Reason: {}", index, e)) })?)
-            },
+            raw_key_code
+                if let Some(index) = raw_key_code.strip_prefix(Self::FUNCTION_KEY_PREFIX) =>
+            {
+                KeyCode::F(u8::from_str_radix(index, 10).map_err(|e| {
+                    format!(
+                        "Failed to convert Function key index to number. Found: F{}. Reason: {}",
+                        index, e
+                    )
+                })?)
+            }
             key => {
                 let mut chars = key.chars();
                 let char = chars
                     .next()
-                    .ok_or_else(|| mlua::Error::FromLuaConversionError { from: "String", to: "RedKeyEvent", message: Some(format!("Found a key string without any key code")) })?;
+                    .ok_or_else(|| format!("Found a key string without any key code"))?;
                 if chars.clone().count() != 0 {
-                    Err(mlua::Error::FromLuaConversionError { from: "String", to: "RedKeyEvent", message: Some(format!("Found an unexpected key string with more than one character: {}", chars.collect::<String>())) })?
+                    Err(format!(
+                        "Found an unexpected key string with more than one character: {}",
+                        chars.collect::<String>()
+                    ))?
                 } else {
                     if char.is_ascii_uppercase() {
                         modifiers.insert(KeyModifiers::SHIFT);
                     }
                     KeyCode::Char(char)
                 }
-            },
+            }
         };
 
-        Ok(Self {
-            code,
-            modifiers,
-        })
+        Ok(Self { code, modifiers })
     }
 }
 
@@ -219,11 +263,26 @@ pub enum KeyMapNode<'lua> {
 }
 
 pub struct KeyMap<'lua> {
-    pub map: HashMap<RedKeyEvent, KeyMapNode<'lua>>,
+    map: HashMap<RedKeyEvent, KeyMapNode<'lua>>,
+    pub fallback: Option<KeyMapNode<'lua>>,
 }
 
-impl UserData for KeyMap<'_> {
-    fn add_fields<'lua, F: mlua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {}
+impl<'lua> KeyMap<'lua> {
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+            fallback: None,
+        }
+    }
 
-    fn add_methods<'lua, M: mlua::prelude::LuaUserDataMethods<'lua, Self>>(methods: &mut M) {}
+    pub fn with_fallback(mut self, fallback: Option<KeyMapNode<'lua>>) -> Self {
+        self.fallback = fallback;
+        self
+    }
+}
+
+impl KeyMap<'_> {
+    pub fn node_for(&self, event: &RedKeyEvent) -> Option<&KeyMapNode> {
+        self.map.get(&event).or(self.fallback.as_ref())
+    }
 }

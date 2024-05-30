@@ -4,7 +4,10 @@ use mlua::{FromLua, IntoLua, Lua, Table, UserData, Value};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::editor_state::{EditorState, Error};
+use crate::{
+    editor_state::{EditorState, Error},
+    keymap::RedKeyEvent,
+};
 
 pub struct ScriptHandler {
     pub lua: Lua,
@@ -17,22 +20,26 @@ trait ScriptObject {
 #[derive(Debug, EnumIter, PartialEq)]
 pub enum RedCall {
     None,
+    Pass { string: String },
     PaneVSplit { index: usize },
     PaneHSplit { index: usize },
     ActivePaneIndex,
     SetActivePane { index: usize },
     PaneIndexUpFrom { index: usize },
     PaneIndexDownTo { index: usize, to_first: bool },
+    BufferInsert { key_event: RedKeyEvent },
 }
 
 impl RedCall {
     const YIELD_NAME: &'static str = "yield";
+    const PASS_NAME: &'static str = "pass";
     const VSPLIT_NAME: &'static str = "pane_vsplit";
     const HSPLIT_NAME: &'static str = "pane_hsplit";
     const ACTIVE_PANE_NAME: &'static str = "active_pane_index";
     const SET_ACTIVE_PANE_NAME: &'static str = "set_active_pane_index";
     const PANE_INDEX_UP_NAME: &'static str = "pane_index_up_from";
     const PANE_INDEX_DOWN_NAME: &'static str = "pane_index_down_to";
+    const BUFFER_INSERT_NAME: &'static str = "buffer_insert";
 }
 
 impl<'lua> FromLua<'lua> for RedCall {
@@ -43,6 +50,10 @@ impl<'lua> FromLua<'lua> for RedCall {
 
         match table.get::<&str, String>("type")?.as_str() {
             "none" => Ok(RedCall::None),
+            Self::PASS_NAME => {
+                let string = table.get::<&str, String>("string")?;
+                Ok(RedCall::Pass { string })
+            }
             Self::VSPLIT_NAME => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::PaneVSplit { index })
@@ -65,6 +76,20 @@ impl<'lua> FromLua<'lua> for RedCall {
                 let to_first = table.get::<&str, bool>("to_first")?;
                 Ok(RedCall::PaneIndexDownTo { index, to_first })
             }
+            Self::BUFFER_INSERT_NAME => {
+                let raw_key_event = table.get::<&str, String>("key_event")?;
+                let key_event = RedKeyEvent::try_from(raw_key_event.as_str()).map_err(|e| {
+                    mlua::Error::FromLuaConversionError {
+                        from: "Value",
+                        to: "RedCall::BufferInsert",
+                        message: Some(format!(
+                            "Failed to convert raw key event into red key event: {}",
+                            e
+                        )),
+                    }
+                })?;
+                Ok(RedCall::BufferInsert { key_event })
+            }
             other_type => Err(mlua::Error::FromLuaConversionError {
                 from: "Value",
                 to: "RedCall",
@@ -78,6 +103,12 @@ impl<'lua> IntoLua<'lua> for RedCall {
     fn into_lua(self, lua: &'lua Lua) -> mlua::prelude::LuaResult<Value<'lua>> {
         match self {
             RedCall::None => lua.create_table_from([("type", "none")])?.into_lua(lua),
+            RedCall::Pass { string } => {
+                let table = lua.create_table()?;
+                table.set("type", Self::PASS_NAME)?;
+                table.set("string", string)?;
+                table.into_lua(lua)
+            }
             RedCall::PaneVSplit { index } => {
                 let table = lua.create_table()?;
                 table.set("type", Self::VSPLIT_NAME)?;
@@ -112,6 +143,12 @@ impl<'lua> IntoLua<'lua> for RedCall {
                 table.set("to_first", to_first)?;
                 table.into_lua(lua)
             }
+            RedCall::BufferInsert { key_event } => {
+                let table = lua.create_table()?;
+                table.set("type", Self::BUFFER_INSERT_NAME)?;
+                table.set("key_event", key_event)?;
+                table.into_lua(lua)
+            }
         }
     }
 }
@@ -128,6 +165,7 @@ impl ScriptObject for RedCall {
                         lua.create_function(|_, _: ()| Ok(RedCall::None))?,
                     )?;
                 }
+                RedCall::Pass { .. } => { /* Pass is only used by the editor, not for Lua use */ }
                 RedCall::PaneVSplit { .. } => {
                     table.set(
                         Self::VSPLIT_NAME,
@@ -167,6 +205,14 @@ impl ScriptObject for RedCall {
                         Self::PANE_INDEX_DOWN_NAME,
                         lua.create_function(|_, (index, to_first): (usize, bool)| {
                             Ok(RedCall::PaneIndexDownTo { index, to_first })
+                        })?,
+                    )?;
+                }
+                RedCall::BufferInsert { .. } => {
+                    table.set(
+                        Self::BUFFER_INSERT_NAME,
+                        lua.create_function(|_, key_event: RedKeyEvent| {
+                            Ok(RedCall::BufferInsert { key_event })
                         })?,
                     )?;
                 }
