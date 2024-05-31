@@ -48,10 +48,14 @@ impl<'lua> ScriptScheduler<'lua> {
         Ok(())
     }
 
-    pub fn run_schedule(&mut self, editor_state: &mut EditorState) -> Result<()> {
+    pub fn run_schedule(&mut self, editor_state: &mut EditorState) -> Result<bool> {
+        if self.active.len() == 0 {
+            return Ok(false)
+        }
+
         for _ in 0..(self.active.len()) {
             let Some((next, red_call)) = self.active.pop_front() else {
-                return Ok(());
+                return Ok(true);
             };
 
             match red_call {
@@ -125,7 +129,7 @@ impl<'lua> ScriptScheduler<'lua> {
                     let string: String = key_event.try_into().map_err(|e| Error::Recoverable(e))?;
 
                     let Some(buffer) = editor_state.active_buffer() else {
-                        return Ok(());
+                        return Ok(true);
                     };
                     buffer.insert_at_cursor(&string);
 
@@ -134,7 +138,7 @@ impl<'lua> ScriptScheduler<'lua> {
             }?
         }
 
-        Ok(())
+        Ok(true)
     }
 
     fn run_script<A>(&mut self, thread: Thread<'lua>, arg: A) -> Result<()>

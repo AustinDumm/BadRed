@@ -89,7 +89,7 @@ impl<'a> Editor<'a> {
         }
     }
 
-    pub fn run_scripts(&mut self) -> Result<()> {
+    pub fn run_scripts(&mut self) -> Result<bool> {
         self.script_scheduler.run_schedule(&mut self.state)
     }
 }

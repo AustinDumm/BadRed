@@ -1,6 +1,7 @@
 use std::{
     io::{self, Write},
-    panic, time::Duration,
+    panic,
+    time::Duration,
 };
 
 use bad_red_lib::{
@@ -37,7 +38,9 @@ fn run() -> io::Result<()> {
     let mut editor =
         Editor::new(&script_handler.lua).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     'editor_loop: loop {
+        let mut did_input = false;
         if event::poll(editor.state.input_poll_rate)? {
+            did_input = true;
             for _ in 0..10 {
                 match event::read()? {
                     Event::Key(event) if event.code == KeyCode::Esc => break 'editor_loop,
@@ -54,19 +57,7 @@ fn run() -> io::Result<()> {
                             },
                         }?;
                     }
-                    _ => (), //event => {
-                             //    match editor.handle_event(event) {
-                             //        Ok(_) => Ok(()),
-                             //        Err(e) => match e {
-                             //            editor_state::Error::Unrecoverable(e) => Err(io::Error::new(
-                             //                io::ErrorKind::Other,
-                             //                format!("Internal unrecoverable error: {}", e),
-                             //            )),
-                             //            editor_state::Error::Recoverable(_) => Ok(()),
-                             //            editor_state::Error::Script(_) => Ok(()),
-                             //        },
-                             //    }?;
-                             //}
+                    _ => (),
                 };
 
                 if !event::poll(Duration::from_secs(0))? {
@@ -76,18 +67,24 @@ fn run() -> io::Result<()> {
         }
 
         let script_result = editor.run_scripts();
-        match script_result {
-            Ok(_) => (),
-            Err(editor_state::Error::Unrecoverable(message)) => Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("{:#?}", message),
-            ))?,
+        let did_run_script = match script_result {
+            Ok(did_run) => did_run,
+            Err(editor_state::Error::Unrecoverable(message)) => {
+                Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("{:#?}", message),
+                ))?;
+                false
+            }
             Err(e) => {
                 editor.state.push_to_buffer(format!("{}", e), 0);
+                false
             }
-        }
+        };
 
-        display.render(&editor)?;
+        if did_input || did_run_script {
+            display.render(&editor)?;
+        }
 
         editor.state.clear_dirty();
     }

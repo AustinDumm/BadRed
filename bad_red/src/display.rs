@@ -45,7 +45,7 @@ impl Display {
     }
 
     fn cleanup_display(&mut self) -> io::Result<()> {
-        queue!(self.stdout, LeaveAlternateScreen)?;
+        queue!(self.stdout, LeaveAlternateScreen, cursor::Show)?;
 
         disable_raw_mode()?;
 
@@ -62,18 +62,12 @@ impl Display {
             cols: window_size.columns,
         };
 
-        queue!(
-            self.stdout,
-            cursor::SavePosition,
-        )?;
+        queue!(self.stdout, cursor::Hide, cursor::SavePosition,)?;
         let cursor =
             self.render_to_pane(editor_state, &editor_frame, &editor_state.pane_tree, 0)?;
-        queue!(
-            self.stdout,
-            cursor::RestorePosition,
-        )?;
+        queue!(self.stdout, cursor::RestorePosition,)?;
         if let Some((row, col)) = cursor {
-            queue!(self.stdout, cursor::MoveTo(col, row))?;
+            queue!(self.stdout, cursor::MoveTo(col, row), cursor::Show,)?;
         }
 
         self.stdout.flush()
@@ -147,7 +141,9 @@ impl Display {
                 ),
             ));
         };
-        if !buffer.is_dirty { return Ok(None) }
+        if !buffer.is_dirty {
+            return Ok(None);
+        }
 
         let mut chars = buffer.content.chars().peekable();
         let mut char_count = 0;
@@ -217,17 +213,15 @@ impl Display {
         Ok(cursor_position)
     }
 
-    fn render_frame_v_gap(&mut self, left_frame: &EditorFrame, right_frame: &EditorFrame) -> io::Result<()> {
-        queue!(
-            self.stdout,
-            style::SetBackgroundColor(Color::DarkGreen),
-        )?;
+    fn render_frame_v_gap(
+        &mut self,
+        left_frame: &EditorFrame,
+        right_frame: &EditorFrame,
+    ) -> io::Result<()> {
+        queue!(self.stdout, style::SetBackgroundColor(Color::DarkGreen),)?;
 
-        for col in (left_frame.x_col+left_frame.cols)..right_frame.x_col {
-            queue!(
-                self.stdout,
-                cursor::MoveTo(col, left_frame.y_row,),
-            )?;
+        for col in (left_frame.x_col + left_frame.cols)..right_frame.x_col {
+            queue!(self.stdout, cursor::MoveTo(col, left_frame.y_row,),)?;
             for _ in left_frame.y_row..(left_frame.y_row + left_frame.rows) {
                 queue!(
                     self.stdout,
@@ -243,23 +237,21 @@ impl Display {
         Ok(())
     }
 
-    fn render_frame_h_gap(&mut self, top_frame: &EditorFrame, bottom_frame: &EditorFrame) -> io::Result<()> {
-        queue!(
-            self.stdout,
-            style::SetBackgroundColor(Color::DarkGreen),
-        )?;
+    fn render_frame_h_gap(
+        &mut self,
+        top_frame: &EditorFrame,
+        bottom_frame: &EditorFrame,
+    ) -> io::Result<()> {
+        queue!(self.stdout, style::SetBackgroundColor(Color::DarkGreen),)?;
 
-        for row in (top_frame.y_row+top_frame.rows)..bottom_frame.y_row {
+        for row in (top_frame.y_row + top_frame.rows)..bottom_frame.y_row {
             queue!(
                 self.stdout,
                 cursor::MoveTo(top_frame.x_col, row),
                 style::SetBackgroundColor(Color::DarkGreen),
             )?;
             for _ in top_frame.x_col..(top_frame.x_col + top_frame.cols) {
-                queue!(
-                    self.stdout,
-                    style::Print(" "),
-                )?;
+                queue!(self.stdout, style::Print(" "),)?;
             }
         }
         queue!(self.stdout, style::ResetColor)?;
