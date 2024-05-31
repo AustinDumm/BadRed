@@ -41,7 +41,7 @@ impl Buffer {
         } else {
             self.content.insert_str(self.cursor_index, content);
         }
-        self.cursor_index += 1;
+        self.cursor_index += content.len();
         self.is_dirty = true;
     }
 
