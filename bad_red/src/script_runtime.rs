@@ -53,7 +53,7 @@ impl<'lua> ScriptScheduler<'lua> {
             return Ok(false)
         }
 
-        for _ in 0..(self.active.len()) {
+        for _ in 0..(self.active.len().min(10)) {
             let Some((next, red_call)) = self.active.pop_front() else {
                 return Ok(true);
             };
