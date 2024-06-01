@@ -7,11 +7,10 @@ use std::{
 use bad_red_lib::{
     display::Display,
     editor_state::{self, Editor},
-    keymap::KeyMap,
     script_handler::ScriptHandler,
 };
-use crossterm::event::{self, read, Event, KeyCode};
-use mlua::Lua;
+use crossterm::event::{self, Event, KeyCode};
+
 
 fn main() -> io::Result<()> {
     let result = panic::catch_unwind(|| {
