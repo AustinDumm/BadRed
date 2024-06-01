@@ -4,10 +4,7 @@ use mlua::{FromLua, Function, IntoLua, Lua, Table, Value};
 use strum::IntoEnumIterator;
 use strum_macros::{EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
-use crate::{
-    hook_map::{Hook, HookName},
-    keymap::RedKeyEvent,
-};
+use crate::hook_map::{Hook, HookName};
 
 pub struct ScriptHandler {
     pub lua: Lua,
@@ -51,8 +48,9 @@ pub enum RedCall<'lua> {
     },
 
     CurrentBufferId,
-    CurrentBufferInsert {
-        key_event: RedKeyEvent,
+    BufferInsert {
+        buffer_id: usize,
+        content: String,
     },
 }
 
@@ -109,19 +107,10 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
             },
 
             RedCallName::CurrentBufferId => Ok(RedCall::CurrentBufferId),
-            RedCallName::CurrentBufferInsert => {
-                let raw_key_event = table.get::<&str, String>("key_event")?;
-                let key_event = RedKeyEvent::try_from(raw_key_event.as_str()).map_err(|e| {
-                    mlua::Error::FromLuaConversionError {
-                        from: "Value",
-                        to: "RedCall::BufferInsert",
-                        message: Some(format!(
-                            "Failed to convert raw key event into red key event: {}",
-                            e
-                        )),
-                    }
-                })?;
-                Ok(RedCall::CurrentBufferInsert { key_event })
+            RedCallName::BufferInsert => {
+                let buffer_id = table.get::<&str, usize>("buffer_id")?;
+                let content = table.get::<&str, String>("content")?;
+                Ok(RedCall::BufferInsert { buffer_id, content })
             },
         }
     }
@@ -150,8 +139,9 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
                 table.set("index", index)?;
                 table.set("to_first", to_first)?;
             },
-            RedCall::CurrentBufferInsert { key_event } => {
-                table.set("key_event", key_event)?;
+            RedCall::BufferInsert { buffer_id, content } => {
+                table.set("buffer_id", buffer_id)?;
+                table.set("content", content)?;
             },
             RedCall::CurrentBufferId => (),
             RedCall::SetHook { hook_name, function } => {
@@ -183,13 +173,13 @@ impl ScriptObject for RedCall<'_> {
                         lua.create_function(|_, _: ()| Ok(RedCall::None))?,
                     )?;
                 }
-                RedCallName::PaneVSplit { .. } => {
+                RedCallName::PaneVSplit => {
                     table.set(
                         Into::<&'static str>::into(case),
                         lua.create_function(|_, index: usize| Ok(RedCall::PaneVSplit { index }))?,
                     )?;
                 }
-                RedCallName::PaneHSplit { .. } => {
+                RedCallName::PaneHSplit => {
                     table.set(
                         Into::<&'static str>::into(case),
                         lua.create_function(|_, index: usize| Ok(RedCall::PaneHSplit { index }))?,
@@ -201,7 +191,7 @@ impl ScriptObject for RedCall<'_> {
                         lua.create_function(|_, _: ()| Ok(RedCall::ActivePaneIndex))?,
                     )?;
                 }
-                RedCallName::SetActivePane { .. } => {
+                RedCallName::SetActivePane => {
                     table.set(
                         Into::<&'static str>::into(case),
                         lua.create_function(|_, index: usize| {
@@ -209,7 +199,7 @@ impl ScriptObject for RedCall<'_> {
                         })?,
                     )?;
                 }
-                RedCallName::PaneIndexUpFrom { .. } => {
+                RedCallName::PaneIndexUpFrom => {
                     table.set(
                         Into::<&'static str>::into(case),
                         lua.create_function(|_, index: usize| {
@@ -217,7 +207,7 @@ impl ScriptObject for RedCall<'_> {
                         })?,
                     )?;
                 }
-                RedCallName::PaneIndexDownTo { .. } => {
+                RedCallName::PaneIndexDownTo => {
                     table.set(
                         Into::<&'static str>::into(case),
                         lua.create_function(|_, (index, to_first): (usize, bool)| {
@@ -225,11 +215,11 @@ impl ScriptObject for RedCall<'_> {
                         })?,
                     )?;
                 }
-                RedCallName::CurrentBufferInsert { .. } => {
+                RedCallName::BufferInsert => {
                     table.set(
                         Into::<&'static str>::into(case),
-                        lua.create_function(|_, key_event: RedKeyEvent| {
-                            Ok(RedCall::CurrentBufferInsert { key_event })
+                        lua.create_function(|_, (buffer_id, content): (usize, String)| {
+                            Ok(RedCall::BufferInsert { buffer_id, content })
                         })?,
                     )?;
                 }

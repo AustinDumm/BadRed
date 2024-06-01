@@ -131,13 +131,11 @@ impl<'lua> ScriptScheduler<'lua> {
                         self.run_script(next, down_index)
                     }
                 }
-                RedCall::CurrentBufferInsert { key_event } => {
-                    let string: String = key_event.try_into().map_err(|e| Error::Recoverable(e))?;
-
-                    let Some(buffer) = editor_state.active_buffer() else {
+                RedCall::BufferInsert { buffer_id, content } => {
+                    let Some(buffer) = editor_state.buffer_by_id(buffer_id) else {
                         return Ok(true);
                     };
-                    buffer.insert_at_cursor(&string);
+                    buffer.insert_at_cursor(&content);
 
                     Ok(())
                 }

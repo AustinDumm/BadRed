@@ -94,6 +94,10 @@ impl EditorState {
         buffer.content.push_str(&content);
     }
 
+    pub fn buffer_by_id(&mut self, id: usize) -> Option<&mut Buffer> {
+        self.buffers.get_mut(id)
+    }
+
     pub fn active_buffer(&mut self) -> Option<&mut Buffer> {
         let pane = self.pane_tree.pane_by_index(self.active_pane_index)?;
 

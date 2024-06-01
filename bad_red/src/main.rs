@@ -89,8 +89,7 @@ fn run(init_path: String) -> io::Result<()> {
                 false
             }
             Err(e) => {
-                editor.state.push_to_buffer(format!("{}", e), 0);
-                false
+                editor.state.push_to_buffer(format!("{}", e), 0); false
             }
         };
 
