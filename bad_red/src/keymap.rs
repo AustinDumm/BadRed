@@ -152,7 +152,7 @@ impl<'lua> IntoLua<'lua> for RedKeyEvent {
 impl<'lua> FromLua<'lua> for RedKeyEvent {
     fn from_lua(
         value: mlua::prelude::LuaValue<'lua>,
-        lua: &'lua mlua::prelude::Lua,
+        _lua: &'lua mlua::prelude::Lua,
     ) -> mlua::prelude::LuaResult<Self> {
         let Value::String(key_string) = value else {
             return Err(mlua::Error::FromLuaConversionError {

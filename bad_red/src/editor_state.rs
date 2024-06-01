@@ -4,7 +4,7 @@ use crossterm::event::{Event, KeyEvent};
 use mlua::Lua;
 
 use crate::{
-    buffer::{Buffer, BufferUpdate}, hook_map::{Hook, HookMap, HookName}, keymap::{RedKeyEvent}, pane::{self, PaneTree, Split}, script_runtime::ScriptScheduler
+    buffer::{Buffer, BufferUpdate}, hook_map::{Hook, HookMap, HookName}, keymap::RedKeyEvent, pane::{self, PaneTree, Split}, script_runtime::ScriptScheduler
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -73,40 +73,6 @@ impl<'a> Editor<'a> {
 
     pub fn run_scripts(&mut self) -> Result<bool> {
         self.script_scheduler.run_schedule(&mut self.state, &mut self.hook_map)
-    }
-}
-
-fn lua_to_editor_result(lua_result: mlua::Result<()>) -> Result<()> {
-    match lua_result {
-        Ok(_) => Ok(()),
-        Err(error) => lua_error_to_editor_result(error),
-    }
-}
-
-fn lua_error_to_editor_result(lua_error: mlua::Error) -> Result<()> {
-    match lua_error {
-        mlua::Error::CallbackError {
-            traceback: _,
-            cause: e,
-        } => callback_error_to_editor_result(e),
-        _ => Err(Error::Script(format!("{}", lua_error))),
-    }
-}
-
-fn callback_error_to_editor_result(callback_cause: Arc<mlua::Error>) -> Result<()> {
-    match (*callback_cause).clone() {
-        mlua::Error::ExternalError(editor_error) => {
-            if let Some(editor_error) = editor_error.downcast_ref::<Error>() {
-                match editor_error {
-                    Error::Unrecoverable(_) => Err((*editor_error).clone()),
-                    Error::Recoverable(_) => Ok(()),
-                    Error::Script(_) => Ok(()),
-                }
-            } else {
-                Err(Error::Script(format!("{}", editor_error)))
-            }
-        }
-        other => Err(Error::Script(format!("{}", other))),
     }
 }
 

@@ -1,4 +1,4 @@
-use std::{collections::VecDeque};
+use std::collections::VecDeque;
 
 use mlua::{Function, IntoLuaMulti, Lua, Thread};
 
@@ -30,15 +30,6 @@ impl<'lua> ScriptScheduler<'lua> {
         self.active.push_back(
             (thread, RedCall::RunHook { hook })
         );
-
-        Ok(())
-    }
-
-    pub fn spawn_function<'f>(&mut self, function: Function<'f>, arg: String) -> Result<()> {
-        let thread = self
-            .lua
-            .create_thread(function)
-            .map_err(|e| Error::Unrecoverable(format!("Failed to spawn function thread: {}", e)))?;
 
         Ok(())
     }
