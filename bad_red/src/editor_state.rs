@@ -1,10 +1,10 @@
 use std::{sync::Arc, time::Duration};
 
-use crossterm::event::{Event, KeyEvent};
+use crossterm::event::KeyEvent;
 use mlua::Lua;
 
 use crate::{
-    buffer::{Buffer, BufferUpdate}, hook_map::{Hook, HookMap, HookName}, keymap::RedKeyEvent, pane::{self, PaneTree, Split}, script_runtime::ScriptScheduler
+    buffer::Buffer, hook_map::{Hook, HookMap, HookName}, keymap::RedKeyEvent, pane::{self, PaneTree, Split}, script_runtime::ScriptScheduler
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -42,11 +42,14 @@ pub struct Editor<'a> {
 }
 
 impl<'a> Editor<'a> {
-    pub fn new(lua: &'a Lua) -> Result<Self> {
-        let state = EditorState::new(Duration::from_millis(50));
+    pub fn new(lua: &'a Lua, init_script: String) -> Result<Self> {
+        let init_function = lua.load(init_script).into_function()
+            .map_err(|e| Error::Unrecoverable(format!("Failed to load init script: {}", e)))?;
+
+        let state = EditorState::new(Duration::from_millis(10));
         Ok(Self {
             state,
-            script_scheduler: ScriptScheduler::new(lua),
+            script_scheduler: ScriptScheduler::new(lua, init_function)?,
             hook_map: HookMap::new(),
         })
     }
@@ -59,16 +62,6 @@ impl<'a> Editor<'a> {
             self.script_scheduler.spawn_hook(hook_function.clone(), Hook::KeyEvent(red_key_event.clone()))?;
         }
         Ok(())
-    }
-
-    pub fn handle_event(&mut self, input_event: Event) -> Result<()> {
-        let event_result = self.state.handle_event(input_event)?;
-
-        match event_result {
-            BufferUpdate::None => Ok(()),
-            BufferUpdate::Raw => Ok(()),
-            BufferUpdate::Command(command) => self.script_scheduler.spawn_script(command),
-        }
     }
 
     pub fn run_scripts(&mut self) -> Result<bool> {
@@ -91,23 +84,6 @@ impl EditorState {
             buffers: vec![Buffer::new("root".to_string())],
             pane_tree: PaneTree::new(0),
         }
-    }
-
-    pub fn handle_event(&mut self, input_event: Event) -> Result<BufferUpdate> {
-        let Some(pane) = self.pane_tree.pane_by_index(self.active_pane_index) else {
-            return Err(Error::Unrecoverable(format!(
-                "Invalid active pane index. No pane at index {}",
-                self.active_pane_index
-            )));
-        };
-        let Some(buffer) = self.buffers.get_mut(pane.buffer_id) else {
-            return Err(Error::Unrecoverable(format!(
-                "Pane at index {} with invalid buffer id: {}",
-                self.active_pane_index, pane.buffer_id
-            )));
-        };
-
-        Ok(buffer.handle_event(input_event))
     }
 
     pub fn push_to_buffer(&mut self, content: String, index: usize) {

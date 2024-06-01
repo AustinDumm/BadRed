@@ -14,11 +14,16 @@ pub struct ScriptScheduler<'lua> {
 }
 
 impl<'lua> ScriptScheduler<'lua> {
-    pub fn new(lua: &'lua Lua) -> Self {
-        Self {
+    pub fn new(lua: &'lua Lua, init: Function<'lua>) -> Result<Self> {
+        let thread = lua.create_thread(init)
+            .map_err(|e| Error::Unrecoverable(format!("Failed to initialize init thread: {}", e)))?;
+        let mut active = VecDeque::new();
+        active.push_back((thread, RedCall::None));
+
+        Ok(Self {
             lua,
-            active: VecDeque::new(),
-        }
+            active,
+        })
     }
 
     pub fn spawn_hook<'f>(&mut self, function: Function<'f>, hook: Hook) -> Result<()> {

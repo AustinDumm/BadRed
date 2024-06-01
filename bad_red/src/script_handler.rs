@@ -1,4 +1,4 @@
-use std::{str::FromStr};
+use std::str::FromStr;
 
 use mlua::{FromLua, Function, IntoLua, Lua, Table, Value};
 use strum::IntoEnumIterator;
@@ -20,6 +20,7 @@ trait ScriptObject {
 #[derive(EnumDiscriminants)]
 #[strum(serialize_all = "snake_case")]
 #[strum_discriminants(derive(IntoStaticStr, EnumString, EnumIter))]
+#[strum_discriminants(strum(serialize_all = "snake_case"))]
 #[strum_discriminants(name(RedCallName))]
 pub enum RedCall<'lua> {
     None,

@@ -11,10 +11,22 @@ use bad_red_lib::{
 };
 use crossterm::event::{self, Event, KeyCode};
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(name = "init", short, long)]
+    init_path: Option<String>,
+}
+
+const DEFAULT_INIT_PATH: &'static str = "../bad_red_lib/init.lua";
 
 fn main() -> io::Result<()> {
+    let args = Args::parse();
+
     let result = panic::catch_unwind(|| {
-        let result = run();
+        let result = run(args.init_path.unwrap_or(DEFAULT_INIT_PATH.to_string()));
         if let Err(ref error) = result {
             write!(io::stderr(), "{:?}", error)?;
         }
@@ -28,14 +40,15 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn run() -> io::Result<()> {
+fn run(init_path: String) -> io::Result<()> {
     let stdout = io::stdout();
+    let init_script = load_init_script(init_path)?;
     let mut display = Display::new(stdout)?;
 
     let script_handler = ScriptHandler::new()
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to init Lua: {}", e)))?;
-    let mut editor =
-        Editor::new(&script_handler.lua).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let mut editor = Editor::new(&script_handler.lua, init_script)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     'editor_loop: loop {
         let mut did_input = false;
         if event::poll(editor.state.input_poll_rate)? {
@@ -90,4 +103,8 @@ fn run() -> io::Result<()> {
 
     drop(display);
     Ok(())
+}
+
+fn load_init_script(init_path: String) -> io::Result<String> {
+    std::fs::read_to_string(init_path)
 }

@@ -7,7 +7,9 @@ use strum_macros::{EnumDiscriminants, EnumString, IntoStaticStr};
 use crate::keymap::RedKeyEvent;
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug, EnumString, IntoStaticStr, EnumDiscriminants)]
+#[strum(serialize_all = "snake_case")]
 #[strum_discriminants(derive(Hash, EnumString, IntoStaticStr))]
+#[strum_discriminants(strum(serialize_all = "snake_case"))]
 #[strum_discriminants(name(HookName))]
 pub enum Hook {
     KeyEvent(RedKeyEvent),

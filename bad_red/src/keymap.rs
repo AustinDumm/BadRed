@@ -39,7 +39,7 @@ impl RedKeyEvent {
     pub const PAUSE_NAME: &'static str = "Pause";
     pub const MENU_NAME: &'static str = "Menu";
     pub const KEYPAD_BEGIN_NAME: &'static str = "KeypadBegin";
-    pub const FUNCTION_KEY_PREFIX: &'static str = "F";
+    pub const FUNCTION_KEY_PREFIX: &'static str = "\\F";
 }
 
 impl Default for RedKeyEvent {
