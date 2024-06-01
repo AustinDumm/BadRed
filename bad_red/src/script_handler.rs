@@ -27,7 +27,9 @@ pub enum RedCall {
     SetActivePane { index: usize },
     PaneIndexUpFrom { index: usize },
     PaneIndexDownTo { index: usize, to_first: bool },
-    BufferInsert { key_event: RedKeyEvent },
+
+    CurrentBufferId,
+    CurrentBufferInsert { key_event: RedKeyEvent },
 }
 
 impl RedCall {
@@ -39,7 +41,8 @@ impl RedCall {
     const SET_ACTIVE_PANE_NAME: &'static str = "set_active_pane_index";
     const PANE_INDEX_UP_NAME: &'static str = "pane_index_up_from";
     const PANE_INDEX_DOWN_NAME: &'static str = "pane_index_down_to";
-    const BUFFER_INSERT_NAME: &'static str = "buffer_insert";
+    const CURRENT_BUFFER_INSERT_NAME: &'static str = "current_buffer_insert";
+    const CURRENT_BUFFER_ID_NAME: &'static str = "current_buffer_id";
 }
 
 impl<'lua> FromLua<'lua> for RedCall {
@@ -76,7 +79,7 @@ impl<'lua> FromLua<'lua> for RedCall {
                 let to_first = table.get::<&str, bool>("to_first")?;
                 Ok(RedCall::PaneIndexDownTo { index, to_first })
             }
-            Self::BUFFER_INSERT_NAME => {
+            Self::CURRENT_BUFFER_INSERT_NAME => {
                 let raw_key_event = table.get::<&str, String>("key_event")?;
                 let key_event = RedKeyEvent::try_from(raw_key_event.as_str()).map_err(|e| {
                     mlua::Error::FromLuaConversionError {
@@ -88,7 +91,7 @@ impl<'lua> FromLua<'lua> for RedCall {
                         )),
                     }
                 })?;
-                Ok(RedCall::BufferInsert { key_event })
+                Ok(RedCall::CurrentBufferInsert { key_event })
             }
             other_type => Err(mlua::Error::FromLuaConversionError {
                 from: "Value",
@@ -143,12 +146,15 @@ impl<'lua> IntoLua<'lua> for RedCall {
                 table.set("to_first", to_first)?;
                 table.into_lua(lua)
             }
-            RedCall::BufferInsert { key_event } => {
+            RedCall::CurrentBufferInsert { key_event } => {
                 let table = lua.create_table()?;
-                table.set("type", Self::BUFFER_INSERT_NAME)?;
+                table.set("type", Self::CURRENT_BUFFER_INSERT_NAME)?;
                 table.set("key_event", key_event)?;
                 table.into_lua(lua)
             }
+            RedCall::CurrentBufferId => lua
+                .create_table_from([("type", Self::CURRENT_BUFFER_ID_NAME)])?
+                .into_lua(lua),
         }
     }
 }
@@ -208,11 +214,19 @@ impl ScriptObject for RedCall {
                         })?,
                     )?;
                 }
-                RedCall::BufferInsert { .. } => {
+                RedCall::CurrentBufferInsert { .. } => {
                     table.set(
-                        Self::BUFFER_INSERT_NAME,
+                        Self::CURRENT_BUFFER_INSERT_NAME,
                         lua.create_function(|_, key_event: RedKeyEvent| {
-                            Ok(RedCall::BufferInsert { key_event })
+                            Ok(RedCall::CurrentBufferInsert { key_event })
+                        })?,
+                    )?;
+                }
+                RedCall::CurrentBufferId => {
+                    table.set(
+                        Self::CURRENT_BUFFER_ID_NAME,
+                        lua.create_function(|_, _: ()| {
+                            Ok(RedCall::CurrentBufferId)
                         })?,
                     )?;
                 }

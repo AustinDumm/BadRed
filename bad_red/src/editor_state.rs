@@ -53,7 +53,7 @@ impl<'a> Editor<'a> {
             script_scheduler: ScriptScheduler::new(lua),
             default_keymap: KeyMap::new().with_fallback(Some(KeyMapNode::Function(
                 lua.create_function(|_, key_event: RedKeyEvent| {
-                    Ok(RedCall::BufferInsert { key_event })
+                    Ok(RedCall::CurrentBufferInsert { key_event })
                 })
                 .map_err(|e| Error::Unrecoverable(format!("Failed to initialize keymap: {}", e)))?,
             ))),

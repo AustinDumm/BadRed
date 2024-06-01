@@ -50,7 +50,7 @@ impl<'lua> ScriptScheduler<'lua> {
 
     pub fn run_schedule(&mut self, editor_state: &mut EditorState) -> Result<bool> {
         if self.active.len() == 0 {
-            return Ok(false)
+            return Ok(false);
         }
 
         for _ in 0..(self.active.len().min(10)) {
@@ -125,7 +125,7 @@ impl<'lua> ScriptScheduler<'lua> {
                         self.run_script(next, down_index)
                     }
                 }
-                RedCall::BufferInsert { key_event } => {
+                RedCall::CurrentBufferInsert { key_event } => {
                     let string: String = key_event.try_into().map_err(|e| Error::Recoverable(e))?;
 
                     let Some(buffer) = editor_state.active_buffer() else {
@@ -134,6 +134,18 @@ impl<'lua> ScriptScheduler<'lua> {
                     buffer.insert_at_cursor(&string);
 
                     Ok(())
+                }
+                RedCall::CurrentBufferId => {
+                    let pane = editor_state
+                        .pane_tree
+                        .pane_by_index(editor_state.active_pane_index)
+                        .ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted to find active buffer id without active pane"
+                            ))
+                        })?;
+
+                    self.run_script(next, pane.buffer_id)
                 }
             }?
         }
