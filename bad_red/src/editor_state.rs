@@ -4,11 +4,7 @@ use crossterm::event::{Event, KeyEvent};
 use mlua::Lua;
 
 use crate::{
-    buffer::{Buffer, BufferUpdate},
-    keymap::{KeyMap, KeyMapNode, RedKeyEvent},
-    pane::{self, PaneTree, Split},
-    script_handler::{RedCall, ScriptHandler},
-    script_runtime::ScriptScheduler,
+    buffer::{Buffer, BufferUpdate}, hook_map::{Hook, HookMap, HookName}, keymap::{KeyMap, KeyMapNode, RedKeyEvent}, pane::{self, PaneTree, Split}, script_handler::{RedCall, ScriptHandler}, script_runtime::ScriptScheduler
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -42,7 +38,7 @@ impl Error {
 pub struct Editor<'a> {
     pub state: EditorState,
     pub script_scheduler: ScriptScheduler<'a>,
-    pub default_keymap: KeyMap<'a>,
+    pub hook_map: HookMap<'a>,
 }
 
 impl<'a> Editor<'a> {
@@ -51,32 +47,18 @@ impl<'a> Editor<'a> {
         Ok(Self {
             state,
             script_scheduler: ScriptScheduler::new(lua),
-            default_keymap: KeyMap::new().with_fallback(Some(KeyMapNode::Function(
-                lua.create_function(|_, key_event: RedKeyEvent| {
-                    Ok(RedCall::CurrentBufferInsert { key_event })
-                })
-                .map_err(|e| Error::Unrecoverable(format!("Failed to initialize keymap: {}", e)))?,
-            ))),
+            hook_map: HookMap::new(),
         })
     }
 
     pub fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         let red_key_event = RedKeyEvent::from(key_event);
+        let Some(function_iter) = self.hook_map.function_iter(HookName::KeyEvent) else { return Ok(()); };
 
-        match self.default_keymap.node_for(&red_key_event) {
-            Some(KeyMapNode::Function(f)) => self.script_scheduler.spawn_function(
-                f.clone(),
-                red_key_event.try_into().map_err(|e| {
-                    Error::Unrecoverable(
-                        format!("Could not convert key event into Lua string: {}", e),
-                    )
-                })?,
-            ),
-            None => Ok(()),
-            Some(KeyMapNode::Map(_)) => Err(Error::Unrecoverable(format!(
-                "Nested keymap not yet supported"
-            ))),
+        for hook_function in function_iter {
+            self.script_scheduler.spawn_hook(hook_function.clone(), Hook::KeyEvent(red_key_event.clone()))?;
         }
+        Ok(())
     }
 
     pub fn handle_event(&mut self, input_event: Event) -> Result<()> {
@@ -90,7 +72,7 @@ impl<'a> Editor<'a> {
     }
 
     pub fn run_scripts(&mut self) -> Result<bool> {
-        self.script_scheduler.run_schedule(&mut self.state)
+        self.script_scheduler.run_schedule(&mut self.state, &mut self.hook_map)
     }
 }
 

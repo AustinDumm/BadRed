@@ -3,7 +3,8 @@ use std::{collections::VecDeque, process};
 use mlua::{Function, IntoLuaMulti, Lua, Thread};
 
 use crate::{
-    editor_state::{EditorState, Error, Result},
+    editor_state::{Editor, EditorState, Error, Result},
+    hook_map::{Hook, HookMap},
     script_handler::RedCall,
 };
 
@@ -20,14 +21,24 @@ impl<'lua> ScriptScheduler<'lua> {
         }
     }
 
-    pub fn spawn_function<'f>(&mut self, function: Function<'f>, arg: String) -> Result<()> {
+    pub fn spawn_hook<'f>(&mut self, function: Function<'f>, hook: Hook) -> Result<()> {
         let thread = self
             .lua
             .create_thread(function)
             .map_err(|e| Error::Unrecoverable(format!("Failed to spawn function thread: {}", e)))?;
 
-        self.active
-            .push_back((thread, RedCall::Pass { string: arg }));
+        self.active.push_back(
+            (thread, RedCall::RunHook { hook })
+        );
+
+        Ok(())
+    }
+
+    pub fn spawn_function<'f>(&mut self, function: Function<'f>, arg: String) -> Result<()> {
+        let thread = self
+            .lua
+            .create_thread(function)
+            .map_err(|e| Error::Unrecoverable(format!("Failed to spawn function thread: {}", e)))?;
 
         Ok(())
     }
@@ -48,7 +59,7 @@ impl<'lua> ScriptScheduler<'lua> {
         Ok(())
     }
 
-    pub fn run_schedule(&mut self, editor_state: &mut EditorState) -> Result<bool> {
+    pub fn run_schedule(&mut self, editor_state: &mut EditorState, hook_map: &mut HookMap<'lua>) -> Result<bool> {
         if self.active.len() == 0 {
             return Ok(false);
         }
@@ -60,7 +71,6 @@ impl<'lua> ScriptScheduler<'lua> {
 
             match red_call {
                 RedCall::None => self.run_script(next, ()),
-                RedCall::Pass { string } => self.run_script(next, string),
                 RedCall::PaneVSplit { index: pane_index } => {
                     editor_state.vsplit(pane_index)?;
                     self.run_script(next, ())
@@ -147,7 +157,17 @@ impl<'lua> ScriptScheduler<'lua> {
 
                     self.run_script(next, pane.buffer_id)
                 }
-                RedCall::SetHook { hook, function } => todo!(),
+                RedCall::SetHook {
+                    hook_name,
+                    function,
+                } => {
+                    hook_map.add_hook(hook_name, function);
+
+                    self.run_script(next, ())
+                }
+                RedCall::RunHook { hook } => match hook {
+                    Hook::KeyEvent(event) => self.run_script(next, event),
+                },
             }?
         }
 

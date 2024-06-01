@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use mlua::{FromLua, IntoLua, UserData, Value};
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct RedKeyEvent {
     pub code: KeyCode,
     pub modifiers: KeyModifiers,

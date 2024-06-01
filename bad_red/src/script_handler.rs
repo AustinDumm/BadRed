@@ -6,7 +6,7 @@ use strum_macros::{EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 use crate::{
     editor_state::{EditorState, Error},
-    hook_map::Hook,
+    hook_map::{Hook, HookName},
     keymap::RedKeyEvent,
 };
 
@@ -18,15 +18,12 @@ trait ScriptObject {
     fn lua_object<'lua>(lua: &'lua Lua) -> mlua::Result<Table<'lua>>;
 }
 
-#[derive(Debug, PartialEq, EnumDiscriminants)]
+#[derive(EnumDiscriminants)]
 #[strum(serialize_all = "snake_case")]
 #[strum_discriminants(derive(IntoStaticStr, EnumString, EnumIter))]
 #[strum_discriminants(name(RedCallName))]
 pub enum RedCall<'lua> {
     None,
-    Pass {
-        string: String,
-    },
     PaneVSplit {
         index: usize,
     },
@@ -46,8 +43,11 @@ pub enum RedCall<'lua> {
     },
 
     SetHook {
-        hook: Hook,
+        hook_name: HookName,
         function: Function<'lua>,
+    },
+    RunHook {
+        hook: Hook,
     },
 
     CurrentBufferId,
@@ -72,10 +72,6 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
 
         match call_name {
             RedCallName::None => Ok(RedCall::None),
-            RedCallName::Pass => {
-                let string = table.get::<&str, String>("string")?;
-                Ok(RedCall::Pass { string })
-            },
             RedCallName::PaneVSplit => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::PaneVSplit { index })
@@ -97,12 +93,21 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
                 let index = table.get::<&str, usize>("index")?;
                 let to_first = table.get::<&str, bool>("to_first")?;
                 Ok(RedCall::PaneIndexDownTo { index, to_first })
-            },
+            }
+
             RedCallName::SetHook => {
-                let hook = table.get::<&str, Hook>("hook")?.clone();
-                let function = table.get::<&str, Function<'_>>("function")?.clone();
-                Ok(RedCall::SetHook { hook, function })
+                let hook_name = table.get::<&str, HookName>("hook_name")?;
+                let function = table.get::<&str, Function<'_>>("function")?;
+                Ok(RedCall::SetHook { hook_name, function })
             },
+            RedCallName::RunHook => {
+                Err(mlua::Error::FromLuaConversionError {
+                    from: "Table",
+                    to: "RedCall::RunHook",
+                    message: Some(format!("RunHook cannot be converted between Rust and Lua"))
+                })
+            },
+
             RedCallName::CurrentBufferId => Ok(RedCall::CurrentBufferId),
             RedCallName::CurrentBufferInsert => {
                 let raw_key_event = table.get::<&str, String>("key_event")?;
@@ -128,9 +133,6 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
         let table = lua.create_table_from([("type", type_name)])?;
         match self {
             RedCall::None => (),
-            RedCall::Pass { string } => {
-                table.set("string", string)?;
-            },
             RedCall::PaneVSplit { index } => {
                 table.set("index", index)?;
             },
@@ -152,9 +154,16 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
                 table.set("key_event", key_event)?;
             },
             RedCall::CurrentBufferId => (),
-            RedCall::SetHook { hook, function } => {
-                table.set("hook", hook)?;
+            RedCall::SetHook { hook_name, function } => {
+                table.set("hook_name", hook_name)?;
                 table.set("function", function)?;
+            },
+            RedCall::RunHook { .. } => {
+                Err(mlua::Error::ToLuaConversionError {
+                    from: "RedCall::RunHook",
+                    to: "Table",
+                    message: Some(format!("RedCall::RunHook cannot be converted between Rust and Lua"))
+                })?;
             },
         }
 
@@ -174,7 +183,6 @@ impl ScriptObject for RedCall<'_> {
                         lua.create_function(|_, _: ()| Ok(RedCall::None))?,
                     )?;
                 }
-                RedCallName::Pass { .. } => { /* Pass is only used by the editor, not for Lua use */ }
                 RedCallName::PaneVSplit { .. } => {
                     table.set(
                         Into::<&'static str>::into(case),
@@ -236,11 +244,12 @@ impl ScriptObject for RedCall<'_> {
                 RedCallName::SetHook => {
                     table.set(
                         Into::<&'static str>::into(case),
-                        lua.create_function(|_, (hook, function): (Hook, Function<'lua>)| {
-                            Ok(RedCall::SetHook { hook, function })
+                        lua.create_function(|_, (hook_name, function): (HookName, Function<'lua>)| {
+                            Ok(RedCall::SetHook { hook_name, function })
                         })?,
                     )?;
                 }
+                RedCallName::RunHook => { /* RunHook not intended to be a Lua-accessible call */ },
             }
         }
 
