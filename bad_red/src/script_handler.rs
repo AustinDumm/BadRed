@@ -1,11 +1,12 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, str::FromStr};
 
-use mlua::{FromLua, IntoLua, Lua, Table, UserData, Value};
+use mlua::{FromLua, Function, IntoLua, Lua, Table, UserData, Value};
 use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
+use strum_macros::{EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 use crate::{
     editor_state::{EditorState, Error},
+    hook_map::Hook,
     keymap::RedKeyEvent,
 };
 
@@ -17,69 +18,93 @@ trait ScriptObject {
     fn lua_object<'lua>(lua: &'lua Lua) -> mlua::Result<Table<'lua>>;
 }
 
-#[derive(Debug, EnumIter, PartialEq)]
-pub enum RedCall {
+#[derive(Debug, PartialEq, EnumDiscriminants)]
+#[strum(serialize_all = "snake_case")]
+#[strum_discriminants(derive(IntoStaticStr, EnumString, EnumIter))]
+#[strum_discriminants(name(RedCallName))]
+pub enum RedCall<'lua> {
     None,
-    Pass { string: String },
-    PaneVSplit { index: usize },
-    PaneHSplit { index: usize },
+    Pass {
+        string: String,
+    },
+    PaneVSplit {
+        index: usize,
+    },
+    PaneHSplit {
+        index: usize,
+    },
     ActivePaneIndex,
-    SetActivePane { index: usize },
-    PaneIndexUpFrom { index: usize },
-    PaneIndexDownTo { index: usize, to_first: bool },
+    SetActivePane {
+        index: usize,
+    },
+    PaneIndexUpFrom {
+        index: usize,
+    },
+    PaneIndexDownTo {
+        index: usize,
+        to_first: bool,
+    },
+
+    SetHook {
+        hook: Hook,
+        function: Function<'lua>,
+    },
 
     CurrentBufferId,
-    CurrentBufferInsert { key_event: RedKeyEvent },
+    CurrentBufferInsert {
+        key_event: RedKeyEvent,
+    },
 }
 
-impl RedCall {
-    const YIELD_NAME: &'static str = "yield";
-    const PASS_NAME: &'static str = "pass";
-    const VSPLIT_NAME: &'static str = "pane_vsplit";
-    const HSPLIT_NAME: &'static str = "pane_hsplit";
-    const ACTIVE_PANE_NAME: &'static str = "active_pane_index";
-    const SET_ACTIVE_PANE_NAME: &'static str = "set_active_pane_index";
-    const PANE_INDEX_UP_NAME: &'static str = "pane_index_up_from";
-    const PANE_INDEX_DOWN_NAME: &'static str = "pane_index_down_to";
-    const CURRENT_BUFFER_INSERT_NAME: &'static str = "current_buffer_insert";
-    const CURRENT_BUFFER_ID_NAME: &'static str = "current_buffer_id";
-}
-
-impl<'lua> FromLua<'lua> for RedCall {
+impl<'lua> FromLua<'lua> for RedCall<'lua> {
     fn from_lua(value: Value<'lua>, _lua: &'lua Lua) -> mlua::prelude::LuaResult<Self> {
-        let Some(table) = value.as_table() else {
-            return Ok(RedCall::None);
+        let table = match value {
+            Value::Table(table) => table,
+            _ => return Ok(RedCall::None),
         };
 
-        match table.get::<&str, String>("type")?.as_str() {
-            "none" => Ok(RedCall::None),
-            Self::PASS_NAME => {
+        let call_name = RedCallName::from_str(table.get::<&str, String>("type")?.as_str())
+            .map_err(|e| mlua::Error::FromLuaConversionError {
+                from: "Table",
+                to: "RedCall",
+                message: Some(format!("Failed to convert 'type' field to valid RedCall name: {:?}", e))
+            })?;
+
+        match call_name {
+            RedCallName::None => Ok(RedCall::None),
+            RedCallName::Pass => {
                 let string = table.get::<&str, String>("string")?;
                 Ok(RedCall::Pass { string })
-            }
-            Self::VSPLIT_NAME => {
+            },
+            RedCallName::PaneVSplit => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::PaneVSplit { index })
-            }
-            Self::HSPLIT_NAME => {
+            },
+            RedCallName::PaneHSplit => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::PaneHSplit { index })
-            }
-            Self::ACTIVE_PANE_NAME => Ok(RedCall::ActivePaneIndex),
-            Self::SET_ACTIVE_PANE_NAME => {
+            },
+            RedCallName::ActivePaneIndex => Ok(RedCall::ActivePaneIndex),
+            RedCallName::SetActivePane => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::SetActivePane { index })
-            }
-            Self::PANE_INDEX_UP_NAME => {
+            },
+            RedCallName::PaneIndexUpFrom => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::PaneIndexUpFrom { index })
-            }
-            Self::PANE_INDEX_DOWN_NAME => {
+            },
+            RedCallName::PaneIndexDownTo => {
                 let index = table.get::<&str, usize>("index")?;
                 let to_first = table.get::<&str, bool>("to_first")?;
                 Ok(RedCall::PaneIndexDownTo { index, to_first })
-            }
-            Self::CURRENT_BUFFER_INSERT_NAME => {
+            },
+            RedCallName::SetHook => {
+                let hook = table.get::<&str, Hook>("hook")?.clone();
+                let function = table.get::<&str, Function<'_>>("function")?.clone();
+                Ok(RedCall::SetHook { hook, function })
+            },
+            RedCallName::CurrentBufferId => Ok(RedCall::CurrentBufferId),
+            RedCallName::CurrentBufferInsert => {
                 let raw_key_event = table.get::<&str, String>("key_event")?;
                 let key_event = RedKeyEvent::try_from(raw_key_event.as_str()).map_err(|e| {
                     mlua::Error::FromLuaConversionError {
@@ -92,141 +117,127 @@ impl<'lua> FromLua<'lua> for RedCall {
                     }
                 })?;
                 Ok(RedCall::CurrentBufferInsert { key_event })
-            }
-            other_type => Err(mlua::Error::FromLuaConversionError {
-                from: "Value",
-                to: "RedCall",
-                message: Some(format!("Invalid 'type' key found: {}", other_type)),
-            }),
+            },
         }
     }
 }
 
-impl<'lua> IntoLua<'lua> for RedCall {
+impl<'lua> IntoLua<'lua> for RedCall<'_> {
     fn into_lua(self, lua: &'lua Lua) -> mlua::prelude::LuaResult<Value<'lua>> {
+        let type_name: &'static str = RedCallName::from(&self).into();
+        let table = lua.create_table_from([("type", type_name)])?;
         match self {
-            RedCall::None => lua.create_table_from([("type", "none")])?.into_lua(lua),
+            RedCall::None => (),
             RedCall::Pass { string } => {
-                let table = lua.create_table()?;
-                table.set("type", Self::PASS_NAME)?;
                 table.set("string", string)?;
-                table.into_lua(lua)
-            }
+            },
             RedCall::PaneVSplit { index } => {
-                let table = lua.create_table()?;
-                table.set("type", Self::VSPLIT_NAME)?;
                 table.set("index", index)?;
-                table.into_lua(lua)
-            }
+            },
             RedCall::PaneHSplit { index } => {
-                let table = lua.create_table()?;
-                table.set("type", Self::HSPLIT_NAME)?;
                 table.set("index", index)?;
-                table.into_lua(lua)
-            }
-            RedCall::ActivePaneIndex => lua
-                .create_table_from([("type", Self::ACTIVE_PANE_NAME)])?
-                .into_lua(lua),
+            },
+            RedCall::ActivePaneIndex => (),
             RedCall::SetActivePane { index } => {
-                let table = lua.create_table()?;
-                table.set("type", Self::SET_ACTIVE_PANE_NAME)?;
                 table.set("index", index)?;
-                table.into_lua(lua)
-            }
+            },
             RedCall::PaneIndexUpFrom { index } => {
-                let table = lua.create_table()?;
-                table.set("type", Self::PANE_INDEX_UP_NAME)?;
                 table.set("index", index)?;
-                table.into_lua(lua)
-            }
+            },
             RedCall::PaneIndexDownTo { index, to_first } => {
-                let table = lua.create_table()?;
-                table.set("type", Self::PANE_INDEX_UP_NAME)?;
                 table.set("index", index)?;
                 table.set("to_first", to_first)?;
-                table.into_lua(lua)
-            }
+            },
             RedCall::CurrentBufferInsert { key_event } => {
-                let table = lua.create_table()?;
-                table.set("type", Self::CURRENT_BUFFER_INSERT_NAME)?;
                 table.set("key_event", key_event)?;
-                table.into_lua(lua)
-            }
-            RedCall::CurrentBufferId => lua
-                .create_table_from([("type", Self::CURRENT_BUFFER_ID_NAME)])?
-                .into_lua(lua),
+            },
+            RedCall::CurrentBufferId => (),
+            RedCall::SetHook { hook, function } => {
+                table.set("hook", hook)?;
+                table.set("function", function)?;
+            },
         }
+
+        table.into_lua(lua)
     }
 }
 
-impl ScriptObject for RedCall {
+impl ScriptObject for RedCall<'_> {
     fn lua_object<'lua>(lua: &'lua Lua) -> mlua::Result<Table<'lua>> {
         let table = lua.create_table()?;
 
-        for case in Self::iter() {
+        for case in RedCallName::iter() {
             match case {
-                RedCall::None => {
+                RedCallName::None => {
                     table.set(
-                        Self::YIELD_NAME,
+                        Into::<&'static str>::into(case),
                         lua.create_function(|_, _: ()| Ok(RedCall::None))?,
                     )?;
                 }
-                RedCall::Pass { .. } => { /* Pass is only used by the editor, not for Lua use */ }
-                RedCall::PaneVSplit { .. } => {
+                RedCallName::Pass { .. } => { /* Pass is only used by the editor, not for Lua use */ }
+                RedCallName::PaneVSplit { .. } => {
                     table.set(
-                        Self::VSPLIT_NAME,
+                        Into::<&'static str>::into(case),
                         lua.create_function(|_, index: usize| Ok(RedCall::PaneVSplit { index }))?,
                     )?;
                 }
-                RedCall::PaneHSplit { .. } => {
+                RedCallName::PaneHSplit { .. } => {
                     table.set(
-                        Self::HSPLIT_NAME,
+                        Into::<&'static str>::into(case),
                         lua.create_function(|_, index: usize| Ok(RedCall::PaneHSplit { index }))?,
                     )?;
                 }
-                RedCall::ActivePaneIndex => {
+                RedCallName::ActivePaneIndex => {
                     table.set(
-                        Self::ACTIVE_PANE_NAME,
+                        Into::<&'static str>::into(case),
                         lua.create_function(|_, _: ()| Ok(RedCall::ActivePaneIndex))?,
                     )?;
                 }
-                RedCall::SetActivePane { .. } => {
+                RedCallName::SetActivePane { .. } => {
                     table.set(
-                        Self::SET_ACTIVE_PANE_NAME,
+                        Into::<&'static str>::into(case),
                         lua.create_function(|_, index: usize| {
                             Ok(RedCall::SetActivePane { index })
                         })?,
                     )?;
                 }
-                RedCall::PaneIndexUpFrom { .. } => {
+                RedCallName::PaneIndexUpFrom { .. } => {
                     table.set(
-                        Self::PANE_INDEX_UP_NAME,
+                        Into::<&'static str>::into(case),
                         lua.create_function(|_, index: usize| {
                             Ok(RedCall::PaneIndexUpFrom { index })
                         })?,
                     )?;
                 }
-                RedCall::PaneIndexDownTo { .. } => {
+                RedCallName::PaneIndexDownTo { .. } => {
                     table.set(
-                        Self::PANE_INDEX_DOWN_NAME,
+                        Into::<&'static str>::into(case),
                         lua.create_function(|_, (index, to_first): (usize, bool)| {
                             Ok(RedCall::PaneIndexDownTo { index, to_first })
                         })?,
                     )?;
                 }
-                RedCall::CurrentBufferInsert { .. } => {
+                RedCallName::CurrentBufferInsert { .. } => {
                     table.set(
-                        Self::CURRENT_BUFFER_INSERT_NAME,
+                        Into::<&'static str>::into(case),
                         lua.create_function(|_, key_event: RedKeyEvent| {
                             Ok(RedCall::CurrentBufferInsert { key_event })
                         })?,
                     )?;
                 }
-                RedCall::CurrentBufferId => {
+                RedCallName::CurrentBufferId => {
                     table.set(
-                        Self::CURRENT_BUFFER_ID_NAME,
+                        Into::<&'static str>::into(case),
                         lua.create_function(|_, _: ()| {
                             Ok(RedCall::CurrentBufferId)
+                        })?,
+                    )?;
+                }
+                RedCallName::SetHook => {
+                    table.set(
+                        Into::<&'static str>::into(case),
+                        lua.create_function(|_, (hook, function): (Hook, Function<'lua>)| {
+                            Ok(RedCall::SetHook { hook, function })
                         })?,
                     )?;
                 }

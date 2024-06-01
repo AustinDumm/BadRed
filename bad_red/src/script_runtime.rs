@@ -9,7 +9,7 @@ use crate::{
 
 pub struct ScriptScheduler<'lua> {
     lua: &'lua Lua,
-    active: VecDeque<(Thread<'lua>, RedCall)>,
+    active: VecDeque<(Thread<'lua>, RedCall<'lua>)>,
 }
 
 impl<'lua> ScriptScheduler<'lua> {
@@ -147,6 +147,7 @@ impl<'lua> ScriptScheduler<'lua> {
 
                     self.run_script(next, pane.buffer_id)
                 }
+                RedCall::SetHook { hook, function } => todo!(),
             }?
         }
 

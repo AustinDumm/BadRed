@@ -17,13 +17,13 @@ fn main() -> io::Result<()> {
     let result = panic::catch_unwind(|| {
         let result = run();
         if let Err(ref error) = result {
-            write!(io::stderr(), "{:#?}", error)?;
+            write!(io::stderr(), "{:?}", error)?;
         }
         result
     });
 
     if let Err(panic_err) = result {
-        write!(io::stderr(), "Panic: {:#?}", panic_err)?;
+        write!(io::stderr(), "Panic: {:?}", panic_err)?;
     }
 
     Ok(())
