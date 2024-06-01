@@ -65,7 +65,10 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
             .map_err(|e| mlua::Error::FromLuaConversionError {
                 from: "Table",
                 to: "RedCall",
-                message: Some(format!("Failed to convert 'type' field to valid RedCall name: {:?}", e))
+                message: Some(format!(
+                    "Failed to convert 'type' field to valid RedCall name: {:?}",
+                    e
+                )),
             })?;
 
         match call_name {
@@ -73,20 +76,20 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
             RedCallName::PaneVSplit => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::PaneVSplit { index })
-            },
+            }
             RedCallName::PaneHSplit => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::PaneHSplit { index })
-            },
+            }
             RedCallName::ActivePaneIndex => Ok(RedCall::ActivePaneIndex),
             RedCallName::SetActivePane => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::SetActivePane { index })
-            },
+            }
             RedCallName::PaneIndexUpFrom => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::PaneIndexUpFrom { index })
-            },
+            }
             RedCallName::PaneIndexDownTo => {
                 let index = table.get::<&str, usize>("index")?;
                 let to_first = table.get::<&str, bool>("to_first")?;
@@ -96,22 +99,23 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
             RedCallName::SetHook => {
                 let hook_name = table.get::<&str, HookName>("hook_name")?;
                 let function = table.get::<&str, Function<'_>>("function")?;
-                Ok(RedCall::SetHook { hook_name, function })
-            },
-            RedCallName::RunHook => {
-                Err(mlua::Error::FromLuaConversionError {
-                    from: "Table",
-                    to: "RedCall::RunHook",
-                    message: Some(format!("RunHook cannot be converted between Rust and Lua"))
+                Ok(RedCall::SetHook {
+                    hook_name,
+                    function,
                 })
-            },
+            }
+            RedCallName::RunHook => Err(mlua::Error::FromLuaConversionError {
+                from: "Table",
+                to: "RedCall::RunHook",
+                message: Some(format!("RunHook cannot be converted between Rust and Lua")),
+            }),
 
             RedCallName::CurrentBufferId => Ok(RedCall::CurrentBufferId),
             RedCallName::BufferInsert => {
                 let buffer_id = table.get::<&str, usize>("buffer_id")?;
                 let content = table.get::<&str, String>("content")?;
                 Ok(RedCall::BufferInsert { buffer_id, content })
-            },
+            }
         }
     }
 }
@@ -124,37 +128,42 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
             RedCall::None => (),
             RedCall::PaneVSplit { index } => {
                 table.set("index", index)?;
-            },
+            }
             RedCall::PaneHSplit { index } => {
                 table.set("index", index)?;
-            },
+            }
             RedCall::ActivePaneIndex => (),
             RedCall::SetActivePane { index } => {
                 table.set("index", index)?;
-            },
+            }
             RedCall::PaneIndexUpFrom { index } => {
                 table.set("index", index)?;
-            },
+            }
             RedCall::PaneIndexDownTo { index, to_first } => {
                 table.set("index", index)?;
                 table.set("to_first", to_first)?;
-            },
+            }
             RedCall::BufferInsert { buffer_id, content } => {
                 table.set("buffer_id", buffer_id)?;
                 table.set("content", content)?;
-            },
+            }
             RedCall::CurrentBufferId => (),
-            RedCall::SetHook { hook_name, function } => {
+            RedCall::SetHook {
+                hook_name,
+                function,
+            } => {
                 table.set("hook_name", hook_name)?;
                 table.set("function", function)?;
-            },
+            }
             RedCall::RunHook { .. } => {
                 Err(mlua::Error::ToLuaConversionError {
                     from: "RedCall::RunHook",
                     to: "Table",
-                    message: Some(format!("RedCall::RunHook cannot be converted between Rust and Lua"))
+                    message: Some(format!(
+                        "RedCall::RunHook cannot be converted between Rust and Lua"
+                    )),
                 })?;
-            },
+            }
         }
 
         table.into_lua(lua)
@@ -226,20 +235,23 @@ impl ScriptObject for RedCall<'_> {
                 RedCallName::CurrentBufferId => {
                     table.set(
                         Into::<&'static str>::into(case),
-                        lua.create_function(|_, _: ()| {
-                            Ok(RedCall::CurrentBufferId)
-                        })?,
+                        lua.create_function(|_, _: ()| Ok(RedCall::CurrentBufferId))?,
                     )?;
                 }
                 RedCallName::SetHook => {
                     table.set(
                         Into::<&'static str>::into(case),
-                        lua.create_function(|_, (hook_name, function): (HookName, Function<'lua>)| {
-                            Ok(RedCall::SetHook { hook_name, function })
-                        })?,
+                        lua.create_function(
+                            |_, (hook_name, function): (HookName, Function<'lua>)| {
+                                Ok(RedCall::SetHook {
+                                    hook_name,
+                                    function,
+                                })
+                            },
+                        )?,
                     )?;
                 }
-                RedCallName::RunHook => { /* RunHook not intended to be a Lua-accessible call */ },
+                RedCallName::RunHook => { /* RunHook not intended to be a Lua-accessible call */ }
             }
         }
 
@@ -248,7 +260,7 @@ impl ScriptObject for RedCall<'_> {
 }
 
 impl ScriptHandler {
-    pub fn new() -> mlua::Result<Self> {
+    pub fn new(red_script_path: String) -> mlua::Result<Self> {
         let lua = Lua::new();
 
         let redcall_object = RedCall::lua_object(&lua)?;
@@ -257,6 +269,16 @@ impl ScriptHandler {
         red_table.set("call", redcall_object)?;
 
         lua.globals().set("red", red_table)?;
+
+        {
+            let package: mlua::Table = lua.globals().get("package")?;
+            let current_path: String = package.get("path")?;
+            let new_path = format!(
+                "{0};{1}/?.lua;{1}/?/init.lua",
+                current_path, red_script_path
+            );
+            package.set("path", new_path)?;
+        }
 
         Ok(Self { lua })
     }

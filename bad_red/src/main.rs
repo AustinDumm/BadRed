@@ -16,17 +16,23 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(name = "init", short, long)]
+    #[arg(short, long)]
     init_path: Option<String>,
+    #[arg(long)]
+    init_name: Option<String>,
 }
 
-const DEFAULT_INIT_PATH: &'static str = "../bad_red_lib/init.lua";
+const DEFAULT_INIT_PATH: &'static str = "../bad_red_lib";
+const DEFAULT_INIT_SCRIPT: &'static str = "init.lua";
 
 fn main() -> io::Result<()> {
     let args = Args::parse();
 
     let result = panic::catch_unwind(|| {
-        let result = run(args.init_path.unwrap_or(DEFAULT_INIT_PATH.to_string()));
+        let result = run(
+            args.init_path.unwrap_or(DEFAULT_INIT_PATH.to_string()),
+            args.init_name.unwrap_or(DEFAULT_INIT_SCRIPT.to_string()),
+        );
         if let Err(ref error) = result {
             write!(io::stderr(), "{:?}", error)?;
         }
@@ -40,12 +46,12 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn run(init_path: String) -> io::Result<()> {
+fn run(init_path: String, init_file: String) -> io::Result<()> {
     let stdout = io::stdout();
-    let init_script = load_init_script(init_path)?;
+    let init_script = load_init_script(format!("{}/{}", init_path, init_file))?;
     let mut display = Display::new(stdout)?;
 
-    let script_handler = ScriptHandler::new()
+    let script_handler = ScriptHandler::new(init_path)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to init Lua: {}", e)))?;
     let mut editor = Editor::new(&script_handler.lua, init_script)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
@@ -89,7 +95,8 @@ fn run(init_path: String) -> io::Result<()> {
                 false
             }
             Err(e) => {
-                editor.state.push_to_buffer(format!("{}", e), 0); false
+                editor.state.push_to_buffer(format!("{}", e), 0);
+                false
             }
         };
 

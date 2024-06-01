@@ -137,7 +137,7 @@ impl<'lua> ScriptScheduler<'lua> {
                     };
                     buffer.insert_at_cursor(&content);
 
-                    Ok(())
+                    self.run_script(next, RedCall::None)
                 }
                 RedCall::CurrentBufferId => {
                     let pane = editor_state
