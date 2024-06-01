@@ -1,11 +1,10 @@
-use std::{cell::RefCell, rc::Rc, str::FromStr};
+use std::{str::FromStr};
 
-use mlua::{FromLua, Function, IntoLua, Lua, Table, UserData, Value};
+use mlua::{FromLua, Function, IntoLua, Lua, Table, Value};
 use strum::IntoEnumIterator;
 use strum_macros::{EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 use crate::{
-    editor_state::{EditorState, Error},
     hook_map::{Hook, HookName},
     keymap::RedKeyEvent,
 };

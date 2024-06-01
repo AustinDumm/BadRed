@@ -1,9 +1,9 @@
-use std::{collections::VecDeque, process};
+use std::{collections::VecDeque};
 
 use mlua::{Function, IntoLuaMulti, Lua, Thread};
 
 use crate::{
-    editor_state::{Editor, EditorState, Error, Result},
+    editor_state::{EditorState, Error, Result},
     hook_map::{Hook, HookMap},
     script_handler::RedCall,
 };

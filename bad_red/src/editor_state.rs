@@ -1,10 +1,10 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use crossterm::event::{Event, KeyEvent};
 use mlua::Lua;
 
 use crate::{
-    buffer::{Buffer, BufferUpdate}, hook_map::{Hook, HookMap, HookName}, keymap::{KeyMap, KeyMapNode, RedKeyEvent}, pane::{self, PaneTree, Split}, script_handler::{RedCall, ScriptHandler}, script_runtime::ScriptScheduler
+    buffer::{Buffer, BufferUpdate}, hook_map::{Hook, HookMap, HookName}, keymap::{RedKeyEvent}, pane::{self, PaneTree, Split}, script_runtime::ScriptScheduler
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
