@@ -1,6 +1,7 @@
 red.buffer = require("buffer")
+red.keymap = require("keymap")
 
 coroutine.yield(red.call.set_hook("key_event", function(event)
-    red.buffer:current():insert_at_cursor(event)
+    red.keymap.event(event)
 end))
 

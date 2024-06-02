@@ -96,7 +96,7 @@ fn run(init_path: String, init_file: String) -> io::Result<()> {
             }
             Err(e) => {
                 editor.state.push_to_buffer(format!("{}", e), 0);
-                false
+                true
             }
         };
 
