@@ -18,4 +18,16 @@ function P:insert_at_cursor(content)
     coroutine.yield(red.call.buffer_insert(self.id, content))
 end
 
+function P:delete(count)
+    coroutine.yield(red.call.buffer_delete(self.id, count))
+end
+
+function P:cursor_right(count)
+    coroutine.yield(red.call.buffer_cursor_move_char(self.id, count, false))
+end
+
+function P:cursor_left(count)
+    coroutine.yield(red.call.buffer_cursor_move_char(self.id, count, true))
+end
+
 return Buffer

@@ -52,6 +52,15 @@ pub enum RedCall<'lua> {
         buffer_id: usize,
         content: String,
     },
+    BufferDelete {
+        buffer_id: usize,
+        char_count: usize,
+    },
+    BufferCursorMoveChar {
+        buffer_id: usize,
+        char_count: usize,
+        move_left: bool,
+    },
 }
 
 impl<'lua> FromLua<'lua> for RedCall<'lua> {
@@ -116,6 +125,17 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
                 let content = table.get::<&str, String>("content")?;
                 Ok(RedCall::BufferInsert { buffer_id, content })
             }
+            RedCallName::BufferDelete => {
+                let buffer_id = table.get::<&str, usize>("buffer_id")?;
+                let char_count = table.get::<&str, usize>("char_count")?;
+                Ok(RedCall::BufferDelete { buffer_id, char_count })
+            },
+            RedCallName::BufferCursorMoveChar => {
+                let buffer_id = table.get::<&str, usize>("buffer_id")?;
+                let char_count = table.get::<&str, usize>("char_count")?;
+                let move_left = table.get::<&str, bool>("move_left")?;
+                Ok(RedCall::BufferCursorMoveChar { buffer_id, char_count, move_left })
+            },
         }
     }
 }
@@ -163,6 +183,15 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
                         "RedCall::RunHook cannot be converted between Rust and Lua"
                     )),
                 })?;
+            }
+            RedCall::BufferDelete { buffer_id, char_count } => {
+                table.set("buffer_id", buffer_id)?;
+                table.set("char_count", char_count)?;
+            }
+            RedCall::BufferCursorMoveChar { buffer_id, char_count, move_left } => {
+                table.set("buffer_id", buffer_id)?;
+                table.set("char_count", char_count)?;
+                table.set("move_left", move_left)?;
             }
         }
 
@@ -252,6 +281,33 @@ impl ScriptObject for RedCall<'_> {
                     )?;
                 }
                 RedCallName::RunHook => { /* RunHook not intended to be a Lua-accessible call */ }
+                RedCallName::BufferDelete => {
+                    table.set(
+                        Into::<&'static str>::into(case),
+                        lua.create_function(
+                            |_, (buffer_id, char_count): (usize, usize)| {
+                                Ok(RedCall::BufferDelete {
+                                    buffer_id,
+                                    char_count,
+                                })
+                            },
+                        )?,
+                    )?;
+                }
+                RedCallName::BufferCursorMoveChar => {
+                    table.set(
+                        Into::<&'static str>::into(case),
+                        lua.create_function(
+                            |_, (buffer_id, char_count, move_left): (usize, usize, bool)| {
+                                Ok(RedCall::BufferCursorMoveChar {
+                                    buffer_id,
+                                    char_count,
+                                    move_left,
+                                })
+                            },
+                        )?,
+                    )?;
+                }
             }
         }
 

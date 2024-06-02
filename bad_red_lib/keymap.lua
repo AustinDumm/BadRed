@@ -28,8 +28,19 @@ local function root_map()
             coroutine.yield(red.buffer:current():insert_at_cursor(key))
         end
     end
-    map["Backspace"] = function() end
-    map["Delete"] = function() end
+    map["Backspace"] = function()
+        red.buffer:current():cursor_left(1)
+        _ = red.buffer:current():delete(1)
+    end
+    map["Delete"] = function()
+        _ = red.buffer:current():delete(1)
+    end
+    map["Left"] = function()
+        red.buffer:current():cursor_left(1)
+    end
+    map["Right"] = function()
+        red.buffer:current():cursor_right(1)
+    end
     map.parent = nil
     setmetatable(map, map)
     return map

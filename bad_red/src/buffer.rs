@@ -1,4 +1,3 @@
-
 pub struct Buffer {
     pub title: String,
     pub cursor_index: usize,
@@ -32,18 +31,29 @@ impl Buffer {
         self.is_dirty = true;
     }
 
-    pub fn backspace_at_cursor(&mut self) {
-        if self.cursor_index > 0 {
-            self.content.remove(self.cursor_index - 1);
-            self.cursor_index -= 1;
-        }
+    pub fn delete_at_cursor(&mut self, char_count: usize) -> String {
+        let first_non_delete = (self.cursor_index + char_count).min(self.content.len());
+        let string_to_delete = self.content[self.cursor_index..first_non_delete].to_string();
+        let new_content = format!(
+            "{}{}",
+            &self.content[..self.cursor_index],
+            &self.content[first_non_delete..]
+        );
+        self.content = new_content;
         self.is_dirty = true;
+
+        string_to_delete
     }
 
-    pub fn delete_at_cursor(&mut self) {
-        if self.cursor_index < self.content.chars().count() {
-            self.content.remove(self.cursor_index);
-        }
+    pub fn move_cursor(&mut self, char_count: usize, move_left: bool) {
+        self.cursor_index = if move_left {
+            self.cursor_index
+                .saturating_sub(char_count)
+        } else {
+            self.cursor_index
+                .saturating_add(char_count)
+                .min(self.content.len())
+        };
         self.is_dirty = true;
     }
 }

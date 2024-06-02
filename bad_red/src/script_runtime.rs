@@ -162,6 +162,34 @@ impl<'lua> ScriptScheduler<'lua> {
                 RedCall::RunHook { hook } => match hook {
                     Hook::KeyEvent(event) => self.run_script(next, event),
                 },
+                RedCall::BufferDelete { buffer_id, char_count } => {
+                    let buffer = editor_state
+                        .buffer_by_id(buffer_id)
+                        .ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted to delete characters from non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                    let deleted_string = buffer.delete_at_cursor(char_count);
+
+                    self.run_script(next, deleted_string)
+                },
+                RedCall::BufferCursorMoveChar { buffer_id, char_count, move_left } => {
+                    let buffer = editor_state
+                        .buffer_by_id(buffer_id)
+                        .ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferCursorMoveChar for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                    buffer.move_cursor(char_count, move_left);
+
+                    self.run_script(next, ())
+                },
             }?
         }
 
