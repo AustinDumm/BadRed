@@ -1,6 +1,6 @@
-Introduce hooks for key events. Let Lua register functions for
-hook events. Can then get rid of the KeyMap complexity within
-the rust code and instead let the keymap live entirely within
-lua. Also need to create an init.lua call that lets the system
-set up the keymap for the key event hook.
+# TODO
 
+1. Change scripts to be atomic by default
+    a. Don't round-robin script execution by default, push_front when you start scripts
+    b. Add a RedCall to let a script set itself as non-atomic. Only non-atomic scripts get push_back when yield
+    c. Add a Yield RedCall to let an otherwise atomic script be push_back when RedCall::Yield

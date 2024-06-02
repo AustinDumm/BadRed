@@ -190,6 +190,44 @@ impl<'lua> ScriptScheduler<'lua> {
 
                     self.run_script(next, ())
                 },
+                RedCall::BufferLength { buffer_id } => {
+                    let buffer = editor_state
+                        .buffer_by_id(buffer_id)
+                        .ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferLength for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                    self.run_script(next, buffer.content_length())
+                },
+                RedCall::BufferCursorIndex { buffer_id } => {
+                    let buffer = editor_state
+                        .buffer_by_id(buffer_id)
+                        .ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferCursorIndex for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                    self.run_script(next, buffer.cursor_content_index())
+                },
+                RedCall::BufferSetCursorIndex { buffer_id, cursor_index } => {
+                    let buffer = editor_state
+                        .buffer_by_id(buffer_id)
+                        .ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferSetCursorIndex for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                    buffer.set_cursor_content_index(cursor_index);
+
+                    self.run_script(next, ())
+                },
             }?
         }
 

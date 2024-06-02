@@ -56,4 +56,16 @@ impl Buffer {
         };
         self.is_dirty = true;
     }
+
+    pub fn content_length(&self) -> usize {
+        self.content.len()
+    }
+
+    pub fn cursor_content_index(&self) -> usize {
+        self.cursor_index
+    }
+
+    pub fn set_cursor_content_index(&mut self, index: usize) {
+        self.cursor_index = index.min(self.content_length());
+    }
 }

@@ -30,4 +30,16 @@ function P:cursor_left(count)
     coroutine.yield(red.call.buffer_cursor_move_char(self.id, count, true))
 end
 
+function P:cursor_index()
+    coroutine.yield(red.call.buffer_cursor_index(self.id))
+end
+
+function P:set_cursor_index(index)
+    coroutine.yield(red.call.buffer_set_cursor_index(self.id, index))
+end
+
+function P:length()
+    return coroutine.yield(red.call.buffer_length(self.id))
+end
+
 return Buffer
