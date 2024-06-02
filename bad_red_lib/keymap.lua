@@ -8,10 +8,15 @@ local P = {}
 
 Keymap = P
 
+local MetaKeymap = {
+    __index = function(keymap, event)
+        return keymap.parent[event]
+    end
+}
+
 function P:new_map()
     local instance = { parent = self }
-    setmetatable(instance, self)
-    self.__index = self
+    setmetatable(instance, MetaKeymap)
     return instance
 end
 
@@ -24,11 +29,22 @@ function P.pop_map()
 end
 
 function P.event(key_event)
-    P.current[key_event](key_event)
+    local map = P.sequence or P.current
+    local event_handler = map[key_event]
+
+    if type(event_handler) == "function" then
+        event_handler(key_event)
+        P.sequence = nil
+    elseif type(event_handler) == "table" then
+        P.sequence = event_handler
+    else
+        error("Can only treat function and table as key event handlers")
+    end
 end
 
 local function root_map()
     local map = P:new_map()
+
     map.__index = function(_, _)
         return function(key)
             coroutine.yield(red.buffer:current():insert_at_cursor(key))
@@ -53,6 +69,27 @@ local function root_map()
     map["Right"] = function()
         red.buffer:current():cursor_right(1)
     end
+    map["C+r"] = (function()
+        local nested = map:new_map()
+        nested["_loop_count"] = 0
+        setmetatable(nested, nested)
+
+        nested.__index = function(_, key_event)
+            local number = tonumber(key_event)
+            if number == nil then
+                return function(k_e)
+                    for _=1,nested._loop_count do
+                        nested.parent[k_e](k_e)
+                    end
+                end
+            else
+                nested._loop_count = nested._loop_count * 10 + number
+                return nested
+            end
+        end
+
+        return nested
+    end)()
     map["C+e"] = function()
         local content = red.buffer:current():content()
         red.buffer:current():execute()
@@ -63,4 +100,5 @@ local function root_map()
 end
 
 P.current = root_map()
+P.sequence = nil
 return Keymap
