@@ -42,4 +42,24 @@ function P:length()
     return coroutine.yield(red.call.buffer_length(self.id))
 end
 
+function P:content()
+    return coroutine.yield(red.call.buffer_content(self.id))
+end
+
+function P:clear()
+    local content_length = self:length()
+    self:set_cursor_index(0)
+    self:delete(content_length)
+end
+
+function P:run_as_script()
+    local content = self:content()
+    coroutine.yield(red.call.run_script(content))
+end
+
+function P:execute()
+    self:run_as_script()
+    self:clear()
+end
+
 return Buffer

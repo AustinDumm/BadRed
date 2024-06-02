@@ -92,6 +92,7 @@ impl EditorState {
         };
 
         buffer.content.push_str(&content);
+        buffer.is_dirty = true;
     }
 
     pub fn buffer_by_id(&mut self, id: usize) -> Option<&mut Buffer> {

@@ -47,6 +47,10 @@ pub enum RedCall<'lua> {
         hook: Hook,
     },
 
+    RunScript {
+        script: String
+    },
+
     CurrentBufferId,
     BufferInsert {
         buffer_id: usize,
@@ -71,6 +75,10 @@ pub enum RedCall<'lua> {
         buffer_id: usize,
         cursor_index: usize,
     },
+    BufferContent {
+        buffer_id: usize,
+    }
+
 }
 
 impl<'lua> FromLua<'lua> for RedCall<'lua> {
@@ -129,6 +137,13 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
                 message: Some(format!("RunHook cannot be converted between Rust and Lua")),
             }),
 
+            RedCallName::RunScript => {
+                let script = table.get::<&str, String>("script")?;
+                Ok(RedCall::RunScript {
+                    script
+                })
+            },
+
             RedCallName::CurrentBufferId => Ok(RedCall::CurrentBufferId),
             RedCallName::BufferInsert => {
                 let buffer_id = table.get::<&str, usize>("buffer_id")?;
@@ -159,6 +174,10 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
                 let cursor_index = table.get::<&str, usize>("cursor_index")?;
                 Ok(RedCall::BufferSetCursorIndex { buffer_id, cursor_index })
             },
+            RedCallName::BufferContent => {
+                let buffer_id = table.get::<&str, usize>("buffer_id")?;
+                Ok(RedCall::BufferContent { buffer_id })
+            }
         }
     }
 }
@@ -207,6 +226,9 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
                     )),
                 })?;
             }
+            RedCall::RunScript { script } => {
+                table.set("script", script)?;
+            }
             RedCall::BufferDelete { buffer_id, char_count } => {
                 table.set("buffer_id", buffer_id)?;
                 table.set("char_count", char_count)?;
@@ -225,7 +247,10 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
             RedCall::BufferSetCursorIndex { buffer_id, cursor_index } => {
                 table.set("buffer_id", buffer_id)?;
                 table.set("cursor_index", cursor_index)?;
-            },
+            }
+            RedCall::BufferContent { buffer_id } => {
+                table.set("buffer_id", buffer_id)?;
+            }
         }
 
         table.into_lua(lua)
@@ -314,6 +339,20 @@ impl ScriptObject for RedCall<'_> {
                     )?;
                 }
                 RedCallName::RunHook => { /* RunHook not intended to be a Lua-accessible call */ }
+
+                RedCallName::RunScript => {
+                    table.set(
+                        Into::<&'static str>::into(case),
+                        lua.create_function(
+                            |_, script: String| {
+                                Ok(RedCall::RunScript {
+                                    script
+                                })
+                            },
+                        )?,
+                    )?;
+                }
+
                 RedCallName::BufferDelete => {
                     table.set(
                         Into::<&'static str>::into(case),
@@ -373,6 +412,18 @@ impl ScriptObject for RedCall<'_> {
                                 Ok(RedCall::BufferSetCursorIndex {
                                     buffer_id,
                                     cursor_index,
+                                })
+                            },
+                        )?,
+                    )?;
+                }
+                RedCallName::BufferContent => {
+                    table.set(
+                        Into::<&'static str>::into(case),
+                        lua.create_function(
+                            |_, buffer_id: usize| {
+                                Ok(RedCall::BufferContent {
+                                    buffer_id,
                                 })
                             },
                         )?,

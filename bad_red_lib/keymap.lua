@@ -32,14 +32,24 @@ local function root_map()
         red.buffer:current():cursor_left(1)
         _ = red.buffer:current():delete(1)
     end
+    map["C+Delete"] = function()
+        red.buffer:current():clear()
+    end
     map["Delete"] = function()
         _ = red.buffer:current():delete(1)
+    end
+    map["Enter"] = function()
+        red.buffer:current():insert_at_cursor("\n")
     end
     map["Left"] = function()
         red.buffer:current():cursor_left(1)
     end
     map["Right"] = function()
         red.buffer:current():cursor_right(1)
+    end
+    map["C+e"] = function()
+        local content = red.buffer:current():content()
+        red.buffer:current():execute()
     end
     map.parent = nil
     setmetatable(map, map)

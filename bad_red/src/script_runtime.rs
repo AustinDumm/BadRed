@@ -15,15 +15,13 @@ pub struct ScriptScheduler<'lua> {
 
 impl<'lua> ScriptScheduler<'lua> {
     pub fn new(lua: &'lua Lua, init: Function<'lua>) -> Result<Self> {
-        let thread = lua.create_thread(init)
-            .map_err(|e| Error::Unrecoverable(format!("Failed to initialize init thread: {}", e)))?;
+        let thread = lua.create_thread(init).map_err(|e| {
+            Error::Unrecoverable(format!("Failed to initialize init thread: {}", e))
+        })?;
         let mut active = VecDeque::new();
         active.push_back((thread, RedCall::None));
 
-        Ok(Self {
-            lua,
-            active,
-        })
+        Ok(Self { lua, active })
     }
 
     pub fn spawn_hook<'f>(&mut self, function: Function<'f>, hook: Hook) -> Result<()> {
@@ -32,9 +30,7 @@ impl<'lua> ScriptScheduler<'lua> {
             .create_thread(function)
             .map_err(|e| Error::Unrecoverable(format!("Failed to spawn function thread: {}", e)))?;
 
-        self.active.push_back(
-            (thread, RedCall::RunHook { hook })
-        );
+        self.active.push_back((thread, RedCall::RunHook { hook }));
 
         Ok(())
     }
@@ -55,7 +51,11 @@ impl<'lua> ScriptScheduler<'lua> {
         Ok(())
     }
 
-    pub fn run_schedule(&mut self, editor_state: &mut EditorState, hook_map: &mut HookMap<'lua>) -> Result<bool> {
+    pub fn run_schedule(
+        &mut self,
+        editor_state: &mut EditorState,
+        hook_map: &mut HookMap<'lua>,
+    ) -> Result<bool> {
         if self.active.len() == 0 {
             return Ok(false);
         }
@@ -162,71 +162,99 @@ impl<'lua> ScriptScheduler<'lua> {
                 RedCall::RunHook { hook } => match hook {
                     Hook::KeyEvent(event) => self.run_script(next, event),
                 },
-                RedCall::BufferDelete { buffer_id, char_count } => {
-                    let buffer = editor_state
-                        .buffer_by_id(buffer_id)
-                        .ok_or_else(|| {
-                            Error::Script(format!(
-                                "Attempted to delete characters from non-existent buffer: {}",
-                                buffer_id
-                            ))
-                        })?;
+
+                RedCall::RunScript { script } => {
+                    fn spawn_thread<'lua>(
+                        lua: &'lua Lua,
+                        script: String,
+                    ) -> mlua::Result<mlua::Thread<'lua>> {
+                        let function = lua.load(script).into_function()?;
+                        lua.create_thread(function)
+                    }
+
+                    let script_thread = spawn_thread(&self.lua, script).map_err(|e| {
+                        Error::Script(format!("Failed to create Lua thread for RunScript: {}", e))
+                    })?;
+
+                    self.active.push_back((script_thread, RedCall::None));
+                    self.run_script(next, ())
+                }
+
+                RedCall::BufferDelete {
+                    buffer_id,
+                    char_count,
+                } => {
+                    let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                        Error::Script(format!(
+                            "Attempted to delete characters from non-existent buffer: {}",
+                            buffer_id
+                        ))
+                    })?;
 
                     let deleted_string = buffer.delete_at_cursor(char_count);
 
                     self.run_script(next, deleted_string)
-                },
-                RedCall::BufferCursorMoveChar { buffer_id, char_count, move_left } => {
-                    let buffer = editor_state
-                        .buffer_by_id(buffer_id)
-                        .ok_or_else(|| {
-                            Error::Script(format!(
-                                "Attempted BufferCursorMoveChar for non-existent buffer: {}",
-                                buffer_id
-                            ))
-                        })?;
+                }
+                RedCall::BufferCursorMoveChar {
+                    buffer_id,
+                    char_count,
+                    move_left,
+                } => {
+                    let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                        Error::Script(format!(
+                            "Attempted BufferCursorMoveChar for non-existent buffer: {}",
+                            buffer_id
+                        ))
+                    })?;
 
                     buffer.move_cursor(char_count, move_left);
 
                     self.run_script(next, ())
-                },
+                }
                 RedCall::BufferLength { buffer_id } => {
-                    let buffer = editor_state
-                        .buffer_by_id(buffer_id)
-                        .ok_or_else(|| {
-                            Error::Script(format!(
-                                "Attempted BufferLength for non-existent buffer: {}",
-                                buffer_id
-                            ))
-                        })?;
+                    let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                        Error::Script(format!(
+                            "Attempted BufferLength for non-existent buffer: {}",
+                            buffer_id
+                        ))
+                    })?;
 
                     self.run_script(next, buffer.content_length())
-                },
+                }
                 RedCall::BufferCursorIndex { buffer_id } => {
-                    let buffer = editor_state
-                        .buffer_by_id(buffer_id)
-                        .ok_or_else(|| {
-                            Error::Script(format!(
-                                "Attempted BufferCursorIndex for non-existent buffer: {}",
-                                buffer_id
-                            ))
-                        })?;
+                    let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                        Error::Script(format!(
+                            "Attempted BufferCursorIndex for non-existent buffer: {}",
+                            buffer_id
+                        ))
+                    })?;
 
                     self.run_script(next, buffer.cursor_content_index())
-                },
-                RedCall::BufferSetCursorIndex { buffer_id, cursor_index } => {
-                    let buffer = editor_state
-                        .buffer_by_id(buffer_id)
-                        .ok_or_else(|| {
-                            Error::Script(format!(
-                                "Attempted BufferSetCursorIndex for non-existent buffer: {}",
-                                buffer_id
-                            ))
-                        })?;
+                }
+                RedCall::BufferSetCursorIndex {
+                    buffer_id,
+                    cursor_index,
+                } => {
+                    let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                        Error::Script(format!(
+                            "Attempted BufferSetCursorIndex for non-existent buffer: {}",
+                            buffer_id
+                        ))
+                    })?;
 
                     buffer.set_cursor_content_index(cursor_index);
 
                     self.run_script(next, ())
+                }
+                RedCall::BufferContent { buffer_id } => {
+                    let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                        Error::Script(format!(
+                            "Attempted BufferContent for non-existent buffer: {}",
+                            buffer_id
+                        ))
+                    })?;
+
+                    self.run_script(next, buffer.content())
                 },
             }?
         }

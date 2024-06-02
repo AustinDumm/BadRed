@@ -61,6 +61,10 @@ impl Buffer {
         self.content.len()
     }
 
+    pub fn content(&self) -> String {
+        self.content.clone()
+    }
+
     pub fn cursor_content_index(&self) -> usize {
         self.cursor_index
     }
