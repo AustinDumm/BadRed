@@ -4,6 +4,8 @@
 // 
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
+use strum_macros::EnumDiscriminants;
+
 pub type Result<T> = std::result::Result<T, String>;
 
 pub struct PaneTree {
@@ -97,6 +99,8 @@ pub struct PaneNode {
     pub parent_index: Option<usize>,
 }
 
+#[derive(EnumDiscriminants)]
+#[strum_discriminants(name(PaneNodeTypeName))]
 pub enum PaneNodeType {
     Leaf(Pane),
     VSplit(Split),

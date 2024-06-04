@@ -90,6 +90,16 @@ local function root_map()
 
         return nested
     end)()
+    map["C+w"] = (function()
+        local pane_map = map:new_map()
+        pane_map["v"] = function(_) red.pane:current():v_split() end
+        pane_map["h"] = function(_) red.pane:current():h_split() end
+        pane_map["u"] = function(_) red.pane:current():to_parent() end
+        pane_map["l"] = function(_) red.pane:current():to_child(true) end
+        pane_map["r"] = function(_) red.pane:current():to_child(false) end
+        pane_map["s"] = function(_) red.pane:current():to_sibling() end
+        return pane_map
+    end)()
     map["C+e"] = function()
         local content = red.buffer:current():content()
         red.buffer:current():execute()

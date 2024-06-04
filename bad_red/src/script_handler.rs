@@ -34,6 +34,9 @@ pub enum RedCall<'lua> {
         index: usize,
     },
     ActivePaneIndex,
+    PaneIsFirst {
+        index: usize,
+    },
     SetActivePane {
         index: usize,
     },
@@ -115,6 +118,10 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
                 Ok(RedCall::PaneHSplit { index })
             }
             RedCallName::ActivePaneIndex => Ok(RedCall::ActivePaneIndex),
+            RedCallName::PaneIsFirst => {
+                let index = table.get::<&str, usize>("index")?;
+                Ok(RedCall::PaneIsFirst { index })
+            }
             RedCallName::SetActivePane => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::SetActivePane { index })
@@ -201,6 +208,9 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
                 table.set("index", index)?;
             }
             RedCall::ActivePaneIndex => (),
+            RedCall::PaneIsFirst { index } => {
+                table.set("index", index)?;
+            }
             RedCall::SetActivePane { index } => {
                 table.set("index", index)?;
             }
@@ -291,6 +301,12 @@ impl ScriptObject for RedCall<'_> {
                     table.set(
                         Into::<&'static str>::into(case),
                         lua.create_function(|_, _: ()| Ok(RedCall::ActivePaneIndex))?,
+                    )?;
+                }
+                RedCallName::PaneIsFirst => {
+                    table.set(
+                        Into::<&'static str>::into(case),
+                        lua.create_function(|_, index: usize| Ok(RedCall::PaneIsFirst { index }))?,
                     )?;
                 }
                 RedCallName::SetActivePane => {

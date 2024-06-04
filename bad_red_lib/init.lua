@@ -6,6 +6,7 @@
 
 red.buffer = require("buffer")
 red.keymap = require("keymap")
+red.pane = require("pane")
 
 coroutine.yield(red.call.set_hook("key_event", function(event)
     red.keymap.event(event)

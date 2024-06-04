@@ -1,7 +1,7 @@
 // This file is part of BadRed.
 
 // BadRed is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-// 
+//
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 use crossterm::{
@@ -68,12 +68,12 @@ impl Display {
             cols: window_size.columns,
         };
 
-        queue!(self.stdout, cursor::Hide, cursor::SavePosition,)?;
+        queue!(self.stdout, cursor::SavePosition, cursor::Hide)?;
         let cursor =
             self.render_to_pane(editor_state, &editor_frame, &editor_state.pane_tree, 0)?;
-        queue!(self.stdout, cursor::RestorePosition,)?;
+        queue!(self.stdout, cursor::RestorePosition)?;
         if let Some((row, col)) = cursor {
-            queue!(self.stdout, cursor::MoveTo(col, row), cursor::Show,)?;
+            queue!(self.stdout, cursor::MoveTo(col, row), cursor::Show)?;
         }
 
         self.stdout.flush()
@@ -93,7 +93,8 @@ impl Display {
 
         match &node.node_type {
             PaneNodeType::Leaf(ref pane) => {
-                let pane_cursor = self.render_leaf_pane(pane, editor_state, editor_frame)?;
+                let pane_cursor =
+                    self.render_leaf_pane(pane, node_index, editor_state, editor_frame)?;
                 if editor_state.active_pane_index == node_index {
                     Ok(pane_cursor)
                 } else {
@@ -109,7 +110,11 @@ impl Display {
 
                 let right_cursor =
                     self.render_to_pane(editor_state, right_frame, pane_tree, split.second)?;
-                self.render_frame_v_gap(&left_frame, &right_frame)?;
+                self.render_frame_v_gap(
+                    editor_state.active_pane_index == node_index,
+                    &left_frame,
+                    &right_frame,
+                )?;
 
                 Ok(left_cursor.or(right_cursor))
             }
@@ -125,7 +130,11 @@ impl Display {
                     pane_tree,
                     split.second,
                 )?;
-                self.render_frame_h_gap(&top_frame, &bottom_frame)?;
+                self.render_frame_h_gap(
+                    editor_state.active_pane_index == node_index,
+                    &top_frame,
+                    &bottom_frame,
+                )?;
 
                 Ok(top_cursor.or(bottom_cursor))
             }
@@ -135,6 +144,7 @@ impl Display {
     fn render_leaf_pane(
         &mut self,
         pane: &Pane,
+        pane_id: usize,
         editor_state: &EditorState,
         editor_frame: &EditorFrame,
     ) -> io::Result<Option<(u16, u16)>> {
@@ -147,7 +157,7 @@ impl Display {
                 ),
             ));
         };
-        if !buffer.is_dirty {
+        if !buffer.is_dirty && editor_state.active_pane_index != pane_id {
             return Ok(None);
         }
 
@@ -221,10 +231,16 @@ impl Display {
 
     fn render_frame_v_gap(
         &mut self,
+        is_active: bool,
         left_frame: &EditorFrame,
         right_frame: &EditorFrame,
     ) -> io::Result<()> {
-        queue!(self.stdout, style::SetBackgroundColor(Color::DarkGreen),)?;
+        let color = if is_active {
+            Color::DarkBlue
+        } else {
+            Color::DarkGreen
+        };
+        queue!(self.stdout, style::SetBackgroundColor(color))?;
 
         for col in (left_frame.x_col + left_frame.cols)..right_frame.x_col {
             queue!(self.stdout, cursor::MoveTo(col, left_frame.y_row,),)?;
@@ -245,16 +261,21 @@ impl Display {
 
     fn render_frame_h_gap(
         &mut self,
+        is_active: bool,
         top_frame: &EditorFrame,
         bottom_frame: &EditorFrame,
     ) -> io::Result<()> {
-        queue!(self.stdout, style::SetBackgroundColor(Color::DarkGreen),)?;
+        let color = if is_active {
+            Color::DarkBlue
+        } else {
+            Color::DarkGreen
+        };
+        queue!(self.stdout, style::SetBackgroundColor(color),)?;
 
         for row in (top_frame.y_row + top_frame.rows)..bottom_frame.y_row {
             queue!(
                 self.stdout,
                 cursor::MoveTo(top_frame.x_col, row),
-                style::SetBackgroundColor(Color::DarkGreen),
             )?;
             for _ in top_frame.x_col..(top_frame.x_col + top_frame.cols) {
                 queue!(self.stdout, style::Print(" "),)?;

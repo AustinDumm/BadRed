@@ -1,7 +1,7 @@
 // This file is part of BadRed.
 
 // BadRed is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-// 
+//
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 use std::collections::VecDeque;
@@ -9,9 +9,7 @@ use std::collections::VecDeque;
 use mlua::{Function, IntoLuaMulti, Lua, Thread};
 
 use crate::{
-    editor_state::{EditorState, Error, Result},
-    hook_map::{Hook, HookMap},
-    script_handler::RedCall,
+    editor_state::{EditorState, Error, Result}, hook_map::{Hook, HookMap}, script_handler::RedCall
 };
 
 pub struct ScriptScheduler<'lua> {
@@ -84,6 +82,35 @@ impl<'lua> ScriptScheduler<'lua> {
                 RedCall::ActivePaneIndex => {
                     let active_index = editor_state.active_pane_index;
                     self.run_script(next, active_index)
+                }
+                RedCall::PaneIsFirst { index } => {
+                    let node = editor_state
+                        .pane_tree
+                        .pane_node_by_index(index)
+                        .ok_or_else(|| {
+                            Error::Unrecoverable(format!(
+                                "Could not find active pane node while making ActivePane call"
+                            ))
+                        })?;
+                    let is_first = node
+                        .parent_index
+                        .map(|i| editor_state.pane_tree.pane_node_by_index(i))
+                        .flatten()
+                        .map(|p| match &p.node_type {
+                            crate::pane::PaneNodeType::Leaf(_) => None,
+                            crate::pane::PaneNodeType::VSplit(split)
+                            | crate::pane::PaneNodeType::HSplit(split) => {
+                                if split.first == index {
+                                    Some(true)
+                                } else if split.second == index {
+                                    Some(false)
+                                } else {
+                                    None
+                                }
+                            }
+                        });
+
+                    self.run_script(next, is_first)
                 }
                 RedCall::SetActivePane { index } => {
                     if editor_state.pane_tree.tree.len() <= index {
@@ -261,7 +288,7 @@ impl<'lua> ScriptScheduler<'lua> {
                     })?;
 
                     self.run_script(next, buffer.content())
-                },
+                }
             }?
         }
 
