@@ -27,6 +27,7 @@ trait ScriptObject {
 #[strum_discriminants(name(RedCallName))]
 pub enum RedCall<'lua> {
     None,
+    Yield,
     PaneVSplit {
         index: usize,
     },
@@ -109,6 +110,7 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
 
         match call_name {
             RedCallName::None => Ok(RedCall::None),
+            RedCallName::Yield => Ok(RedCall::Yield),
             RedCallName::PaneVSplit => {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::PaneVSplit { index })
@@ -201,6 +203,7 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
         let table = lua.create_table_from([("type", type_name)])?;
         match self {
             RedCall::None => (),
+            RedCall::Yield => (),
             RedCall::PaneVSplit { index } => {
                 table.set("index", index)?;
             }
@@ -283,6 +286,12 @@ impl ScriptObject for RedCall<'_> {
                     table.set(
                         Into::<&'static str>::into(case),
                         lua.create_function(|_, _: ()| Ok(RedCall::None))?,
+                    )?;
+                }
+                RedCallName::Yield => {
+                    table.set(
+                        Into::<&'static str>::into(case),
+                        lua.create_function(|_, _: ()| Ok(RedCall::Yield))?,
                     )?;
                 }
                 RedCallName::PaneVSplit => {

@@ -9,12 +9,19 @@ use std::collections::VecDeque;
 use mlua::{Function, IntoLuaMulti, Lua, Thread};
 
 use crate::{
-    editor_state::{EditorState, Error, Result}, hook_map::{Hook, HookMap}, script_handler::RedCall
+    editor_state::{EditorState, Error, Result},
+    hook_map::{Hook, HookMap},
+    script_handler::RedCall,
 };
 
 pub struct ScriptScheduler<'lua> {
     lua: &'lua Lua,
-    active: VecDeque<(Thread<'lua>, RedCall<'lua>)>,
+    active: VecDeque<ScriptProcess<'lua>>,
+}
+
+struct ScriptProcess<'lua> {
+    thread: Thread<'lua>,
+    awaiting: RedCall<'lua>,
 }
 
 impl<'lua> ScriptScheduler<'lua> {
@@ -23,7 +30,10 @@ impl<'lua> ScriptScheduler<'lua> {
             Error::Unrecoverable(format!("Failed to initialize init thread: {}", e))
         })?;
         let mut active = VecDeque::new();
-        active.push_back((thread, RedCall::None));
+        active.push_back(ScriptProcess {
+            thread,
+            awaiting: RedCall::None,
+        });
 
         Ok(Self { lua, active })
     }
@@ -34,7 +44,10 @@ impl<'lua> ScriptScheduler<'lua> {
             .create_thread(function)
             .map_err(|e| Error::Unrecoverable(format!("Failed to spawn function thread: {}", e)))?;
 
-        self.active.push_back((thread, RedCall::RunHook { hook }));
+        self.active.push_back(ScriptProcess {
+            thread,
+            awaiting: RedCall::RunHook { hook },
+        });
 
         Ok(())
     }
@@ -50,7 +63,10 @@ impl<'lua> ScriptScheduler<'lua> {
             )
             .map_err(|e| Error::Unrecoverable(format!("Failed to spawn script thread: {}", e)))?;
 
-        self.active.push_back((thread, RedCall::None));
+        self.active.push_back(ScriptProcess {
+            thread,
+            awaiting: RedCall::None,
+        });
 
         Ok(())
     }
@@ -65,12 +81,17 @@ impl<'lua> ScriptScheduler<'lua> {
         }
 
         for _ in 0..(self.active.len().min(10)) {
-            let Some((next, red_call)) = self.active.pop_front() else {
+            let Some(ScriptProcess {
+                thread: next,
+                awaiting: red_call,
+            }) = self.active.pop_front()
+            else {
                 return Ok(true);
             };
 
             match red_call {
                 RedCall::None => self.run_script(next, ()),
+                RedCall::Yield => self.yield_script(next, ()),
                 RedCall::PaneVSplit { index: pane_index } => {
                     editor_state.vsplit(pane_index)?;
                     self.run_script(next, ())
@@ -209,7 +230,10 @@ impl<'lua> ScriptScheduler<'lua> {
                         Error::Script(format!("Failed to create Lua thread for RunScript: {}", e))
                     })?;
 
-                    self.active.push_back((script_thread, RedCall::None));
+                    self.active.push_back(ScriptProcess {
+                        thread: script_thread,
+                        awaiting: RedCall::None,
+                    });
                     self.run_script(next, ())
                 }
 
@@ -299,13 +323,42 @@ impl<'lua> ScriptScheduler<'lua> {
     where
         A: IntoLuaMulti<'lua>,
     {
+        self.execute_script(thread, arg, false)
+    }
+
+    fn yield_script<A>(&mut self, thread: Thread<'lua>, arg: A) -> Result<()>
+    where
+        A: IntoLuaMulti<'lua>,
+    {
+        self.execute_script(thread, arg, true)
+    }
+
+    fn execute_script<A>(
+        &mut self,
+        thread: Thread<'lua>,
+        arg: A,
+        should_yield: bool,
+    ) -> Result<()>
+    where
+        A: IntoLuaMulti<'lua>,
+    {
         match thread.status() {
             mlua::ThreadStatus::Resumable => {
                 let red_call = thread
                     .resume(arg)
                     .map_err(|e| Error::Script(format!("{}", e)))?;
 
-                self.active.push_back((thread, red_call));
+                if should_yield {
+                    self.active.push_back(ScriptProcess {
+                        thread,
+                        awaiting: red_call,
+                    });
+                } else {
+                    self.active.push_front(ScriptProcess {
+                        thread,
+                        awaiting: red_call,
+                    });
+                }
 
                 Ok(())
             }
