@@ -1,9 +1,10 @@
 // This file is part of BadRed.
 
 // BadRed is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-// 
+//
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
+use mlua::FromLua;
 use strum_macros::EnumDiscriminants;
 
 pub type Result<T> = std::result::Result<T, String>;
@@ -41,7 +42,9 @@ impl PaneTree {
             PaneNodeType::VSplit(Split {
                 first: left,
                 second: right,
-                split_type: SplitType::Percent { first_percent: split_percentage },
+                split_type: SplitType::Percent {
+                    first_percent: split_percentage,
+                },
             })
         })
     }
@@ -51,7 +54,9 @@ impl PaneTree {
             PaneNodeType::HSplit(Split {
                 first: top,
                 second: bottom,
-                split_type: SplitType::Percent { first_percent: split_percentage },
+                split_type: SplitType::Percent {
+                    first_percent: split_percentage,
+                },
             })
         })
     }
@@ -113,10 +118,26 @@ pub struct Split {
     pub split_type: SplitType,
 }
 
+#[derive(EnumDiscriminants)]
+#[strum_discriminants(name(SplitTypeName))]
 pub enum SplitType {
     Percent { first_percent: f32 },
     FirstFixed { size: u16 },
     SecondFixed { size: u16 },
+}
+
+impl FromLua for SplitTypeName {
+    fn from_lua(
+        value: mlua::prelude::LuaValue<'lua>,
+        lua: &'lua mlua::prelude::Lua,
+    ) -> mlua::prelude::LuaResult<Self> {
+        match value.as_string().ok_or_else(|| mlua::Error::FromLuaConversionError {
+            from: "Value",
+            to: "SplitTypeName",
+            message: Some(format!("Expected string type for SplitTypeName. Found: {}" value))
+        })? {
+        }
+    }
 }
 
 pub struct Pane {

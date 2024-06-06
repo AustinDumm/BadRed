@@ -11,6 +11,7 @@ use mlua::{Function, IntoLuaMulti, Lua, Thread};
 use crate::{
     editor_state::{EditorState, Error, Result},
     hook_map::{Hook, HookMap},
+    pane::PaneNodeType,
     script_handler::RedCall,
 };
 
@@ -171,8 +172,8 @@ impl<'lua> ScriptScheduler<'lua> {
                             .pane_node_by_index(index)
                             .map(|node| &node.node_type)
                             .map(|node_type| match node_type {
-                                crate::pane::PaneNodeType::Leaf(_) => None,
-                                crate::pane::PaneNodeType::VSplit(split)
+                                PaneNodeType::Leaf(_) => None,
+                                PaneNodeType::VSplit(split)
                                 | crate::pane::PaneNodeType::HSplit(split) => {
                                     if to_first {
                                         Some(split.first)
@@ -186,12 +187,27 @@ impl<'lua> ScriptScheduler<'lua> {
                     }
                 }
                 RedCall::PaneType { index } => {
-                    todo!()
+                    let node_type = editor_state.pane_tree.pane_node_by_index(index).ok_or_else(|| {
+                        Error::Script(format!(
+                            "Attempted to get pane type from pane index out of bounds: {}",
+                            index
+                        ))
+                    })?;
+
+                    match node_type {
+                        PaneNodeType::Leaf(_) => todo!(),
+                        PaneNodeType::VSplit(_) => todo!(),
+                        PaneNodeType::HSplit(_) => todo!(),
+                    }
                 }
                 RedCall::PaneSetSplitPercent { index, percent } => {
                     todo!()
                 }
-                RedCall::PaneSetSplitFixed { index, size, to_first } => {
+                RedCall::PaneSetSplitFixed {
+                    index,
+                    size,
+                    to_first,
+                } => {
                     todo!()
                 }
 
@@ -343,12 +359,7 @@ impl<'lua> ScriptScheduler<'lua> {
         self.execute_script(thread, arg, true)
     }
 
-    fn execute_script<A>(
-        &mut self,
-        thread: Thread<'lua>,
-        arg: A,
-        should_yield: bool,
-    ) -> Result<()>
+    fn execute_script<A>(&mut self, thread: Thread<'lua>, arg: A, should_yield: bool) -> Result<()>
     where
         A: IntoLuaMulti<'lua>,
     {
