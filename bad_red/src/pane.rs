@@ -41,7 +41,7 @@ impl PaneTree {
             PaneNodeType::VSplit(Split {
                 first: left,
                 second: right,
-                first_percent: split_percentage,
+                split_type: SplitType::Percent { first_percent: split_percentage },
             })
         })
     }
@@ -51,7 +51,7 @@ impl PaneTree {
             PaneNodeType::HSplit(Split {
                 first: top,
                 second: bottom,
-                first_percent: split_percentage,
+                split_type: SplitType::Percent { first_percent: split_percentage },
             })
         })
     }
@@ -110,7 +110,13 @@ pub enum PaneNodeType {
 pub struct Split {
     pub first: usize,
     pub second: usize,
-    pub first_percent: f32,
+    pub split_type: SplitType,
+}
+
+pub enum SplitType {
+    Percent { first_percent: f32 },
+    FirstFixed { size: u16 },
+    SecondFixed { size: u16 },
 }
 
 pub struct Pane {

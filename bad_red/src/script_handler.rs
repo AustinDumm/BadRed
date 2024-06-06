@@ -44,10 +44,23 @@ pub enum RedCall<'lua> {
     PaneIndexUpFrom {
         index: usize,
     },
-    PaneIndexDownTo {
+    PaneIndexDownFrom {
         index: usize,
         to_first: bool,
     },
+    PaneType {
+        index: usize,
+    },
+    PaneSetSplitPercent {
+        index: usize,
+        percent: f32,
+    },
+    PaneSetSplitFixed {
+        index: usize,
+        size: u16,
+        to_first: bool,
+    },
+
 
     SetHook {
         hook_name: HookName,
@@ -132,10 +145,25 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
                 let index = table.get::<&str, usize>("index")?;
                 Ok(RedCall::PaneIndexUpFrom { index })
             }
-            RedCallName::PaneIndexDownTo => {
+            RedCallName::PaneIndexDownFrom => {
                 let index = table.get::<&str, usize>("index")?;
                 let to_first = table.get::<&str, bool>("to_first")?;
-                Ok(RedCall::PaneIndexDownTo { index, to_first })
+                Ok(RedCall::PaneIndexDownFrom { index, to_first })
+            }
+            RedCallName::PaneType => {
+                let index = table.get::<&str, usize>("index")?;
+                Ok(RedCall::PaneType { index })
+            }
+            RedCallName::PaneSetSplitPercent => {
+                let index = table.get::<&str, usize>("index")?;
+                let percent = table.get::<&str, f32>("percent")?;
+                Ok(RedCall::PaneSetSplitPercent { index, percent })
+            }
+            RedCallName::PaneSetSplitFixed => {
+                let index = table.get::<&str, usize>("index")?;
+                let size = table.get::<&str, u16>("size")?;
+                let to_first = table.get::<&str, bool>("to_first")?;
+                Ok(RedCall::PaneSetSplitFixed { index, size, to_first })
             }
 
             RedCallName::SetHook => {
@@ -220,10 +248,23 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
             RedCall::PaneIndexUpFrom { index } => {
                 table.set("index", index)?;
             }
-            RedCall::PaneIndexDownTo { index, to_first } => {
+            RedCall::PaneIndexDownFrom { index, to_first } => {
                 table.set("index", index)?;
                 table.set("to_first", to_first)?;
             }
+            RedCall::PaneType { index } => {
+                table.set("index", index)?;
+            }
+            RedCall::PaneSetSplitPercent { index, percent } => {
+                table.set("index", index)?;
+                table.set("percent", percent)?;
+            }
+            RedCall::PaneSetSplitFixed { index, size, to_first } => {
+                table.set("index", index)?;
+                table.set("size", size)?;
+                table.set("to_first", to_first)?;
+            }
+
             RedCall::BufferInsert { buffer_id, content } => {
                 table.set("buffer_id", buffer_id)?;
                 table.set("content", content)?;
@@ -334,14 +375,39 @@ impl ScriptObject for RedCall<'_> {
                         })?,
                     )?;
                 }
-                RedCallName::PaneIndexDownTo => {
+                RedCallName::PaneIndexDownFrom => {
                     table.set(
                         Into::<&'static str>::into(case),
                         lua.create_function(|_, (index, to_first): (usize, bool)| {
-                            Ok(RedCall::PaneIndexDownTo { index, to_first })
+                            Ok(RedCall::PaneIndexDownFrom { index, to_first })
                         })?,
                     )?;
                 }
+                RedCallName::PaneType => {
+                    table.set(
+                        Into::<&'static str>::into(case),
+                        lua.create_function(|_, index: usize| {
+                            Ok(RedCall::PaneType { index })
+                        })?,
+                    )?;
+                }
+                RedCallName::PaneSetSplitPercent => {
+                    table.set(
+                        Into::<&'static str>::into(case),
+                        lua.create_function(|_, (index, percent): (usize, f32)| {
+                            Ok(RedCall::PaneSetSplitPercent { index, percent })
+                        })?,
+                    )?;
+                }
+                RedCallName::PaneSetSplitFixed => {
+                    table.set(
+                        Into::<&'static str>::into(case),
+                        lua.create_function(|_, (index, size, to_first): (usize, u16, bool)| {
+                            Ok(RedCall::PaneSetSplitFixed { index, size, to_first })
+                        })?,
+                    )?;
+                }
+
                 RedCallName::BufferInsert => {
                     table.set(
                         Into::<&'static str>::into(case),

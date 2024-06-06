@@ -17,7 +17,7 @@ use std::{
 use crate::{
     editor_frame::EditorFrame,
     editor_state::{Editor, EditorState},
-    pane::{Pane, PaneNodeType, PaneTree},
+    pane::{Pane, PaneNodeType, PaneTree, Split},
 };
 
 pub struct Display {
@@ -102,8 +102,26 @@ impl Display {
                 }
             }
             PaneNodeType::VSplit(split) => {
-                let left_frame = editor_frame.percent_cols(split.first_percent, -1);
-                let right_frame = &editor_frame.percent_cols_shift(split.first_percent, -1);
+                self.render_v_split(node_index, pane_tree, editor_state, editor_frame, split)
+            }
+            PaneNodeType::HSplit(split) => {
+                self.render_h_split(node_index, pane_tree, editor_state, editor_frame, split)
+            }
+        }
+    }
+
+    fn render_v_split(
+        &mut self,
+        node_index: usize,
+        pane_tree: &PaneTree,
+        editor_state: &EditorState,
+        editor_frame: &EditorFrame,
+        split: &Split,
+    ) -> io::Result<Option<(u16, u16)>> {
+        match split.split_type {
+            crate::pane::SplitType::Percent { first_percent } => {
+                let left_frame = editor_frame.percent_cols(first_percent, -1);
+                let right_frame = &editor_frame.percent_cols_shift(first_percent, -1);
 
                 let left_cursor =
                     self.render_to_pane(editor_state, &left_frame, pane_tree, split.first)?;
@@ -118,15 +136,70 @@ impl Display {
 
                 Ok(left_cursor.or(right_cursor))
             }
-            PaneNodeType::HSplit(split) => {
-                let top_frame = editor_frame.percent_rows(split.first_percent, -1);
-                let bottom_frame = editor_frame.percent_rows_shift(split.first_percent, -1);
+            crate::pane::SplitType::FirstFixed { size } => self.render_fixed_v_split(
+                node_index,
+                pane_tree,
+                editor_state,
+                editor_frame,
+                split,
+                size,
+            ),
+            crate::pane::SplitType::SecondFixed { size } => self.render_fixed_v_split(
+                node_index,
+                pane_tree,
+                editor_state,
+                editor_frame,
+                split,
+                editor_frame.cols - size - 1,
+            ),
+        }
+    }
+
+    fn render_fixed_v_split(
+        &mut self,
+        node_index: usize,
+        pane_tree: &PaneTree,
+        editor_state: &EditorState,
+        editor_frame: &EditorFrame,
+        split: &Split,
+        first_fixed: u16,
+    ) -> io::Result<Option<(u16, u16)>> {
+        let left_frame = editor_frame.with_cols(first_fixed);
+        let right_frame = &editor_frame
+            .with_cols(editor_frame.cols - first_fixed - 1)
+            .with_x_col(editor_frame.x_col + first_fixed + 1);
+
+        let left_cursor = self.render_to_pane(editor_state, &left_frame, pane_tree, split.first)?;
+
+        let right_cursor =
+            self.render_to_pane(editor_state, right_frame, pane_tree, split.second)?;
+        self.render_frame_v_gap(
+            editor_state.active_pane_index == node_index,
+            &left_frame,
+            &right_frame,
+        )?;
+
+        Ok(left_cursor.or(right_cursor))
+    }
+
+    fn render_h_split(
+        &mut self,
+        node_index: usize,
+        pane_tree: &PaneTree,
+        editor_state: &EditorState,
+        editor_frame: &EditorFrame,
+        split: &Split,
+    ) -> io::Result<Option<(u16, u16)>> {
+        match split.split_type {
+            crate::pane::SplitType::Percent { first_percent } => {
+                let top_frame = editor_frame.percent_rows(first_percent, -1);
+                let bottom_frame = editor_frame.percent_rows_shift(first_percent, -1);
 
                 let top_cursor =
                     self.render_to_pane(editor_state, &top_frame, pane_tree, split.first)?;
                 let bottom_cursor = self.render_to_pane(
                     editor_state,
-                    &editor_frame.percent_rows_shift(split.first_percent, -1),
+                    &editor_frame.percent_rows_shift(first_percent, -1),
                     pane_tree,
                     split.second,
                 )?;
@@ -138,7 +211,50 @@ impl Display {
 
                 Ok(top_cursor.or(bottom_cursor))
             }
+            crate::pane::SplitType::FirstFixed { size } => self.render_fixed_h_split(
+                node_index,
+                pane_tree,
+                editor_state,
+                editor_frame,
+                split,
+                size
+            ),
+            crate::pane::SplitType::SecondFixed { size } => self.render_fixed_h_split(
+                node_index,
+                pane_tree,
+                editor_state,
+                editor_frame,
+                split,
+                editor_frame.rows - size - 1
+            ),
         }
+    }
+
+    fn render_fixed_h_split(
+        &mut self,
+        node_index: usize,
+        pane_tree: &PaneTree,
+        editor_state: &EditorState,
+        editor_frame: &EditorFrame,
+        split: &Split,
+        first_fixed: u16,
+    ) -> io::Result<Option<(u16, u16)>> {
+        let top_frame = editor_frame.with_rows(first_fixed);
+        let bottom_frame = &editor_frame
+            .with_rows(editor_frame.rows - first_fixed - 1)
+            .with_y_row(editor_frame.y_row + first_fixed + 1);
+
+        let top_cursor = self.render_to_pane(editor_state, &top_frame, pane_tree, split.first)?;
+
+        let bottom_cursor =
+            self.render_to_pane(editor_state, bottom_frame, pane_tree, split.second)?;
+        self.render_frame_v_gap(
+            editor_state.active_pane_index == node_index,
+            &top_frame,
+            &bottom_frame,
+        )?;
+
+        Ok(top_cursor.or(bottom_cursor))
     }
 
     fn render_leaf_pane(
@@ -273,10 +389,7 @@ impl Display {
         queue!(self.stdout, style::SetBackgroundColor(color),)?;
 
         for row in (top_frame.y_row + top_frame.rows)..bottom_frame.y_row {
-            queue!(
-                self.stdout,
-                cursor::MoveTo(top_frame.x_col, row),
-            )?;
+            queue!(self.stdout, cursor::MoveTo(top_frame.x_col, row),)?;
             for _ in top_frame.x_col..(top_frame.x_col + top_frame.cols) {
                 queue!(self.stdout, style::Print(" "),)?;
             }

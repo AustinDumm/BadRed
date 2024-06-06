@@ -159,7 +159,7 @@ impl<'lua> ScriptScheduler<'lua> {
                         self.run_script(next, up_index)
                     }
                 }
-                RedCall::PaneIndexDownTo { index, to_first } => {
+                RedCall::PaneIndexDownFrom { index, to_first } => {
                     if editor_state.pane_tree.tree.len() <= index {
                         Err(Error::Script(format!(
                             "Attempted to get child index from pane index out of bounds: {}",
@@ -185,6 +185,16 @@ impl<'lua> ScriptScheduler<'lua> {
                         self.run_script(next, down_index)
                     }
                 }
+                RedCall::PaneType { index } => {
+                    todo!()
+                }
+                RedCall::PaneSetSplitPercent { index, percent } => {
+                    todo!()
+                }
+                RedCall::PaneSetSplitFixed { index, size, to_first } => {
+                    todo!()
+                }
+
                 RedCall::BufferInsert { buffer_id, content } => {
                     let Some(buffer) = editor_state.buffer_by_id(buffer_id) else {
                         return Ok(true);
