@@ -194,7 +194,6 @@ impl<'lua> ScriptScheduler<'lua> {
                         ))
                     })?;
 
-                    let 
                     match node_type {
                         PaneNodeType::Leaf(_) => {
                         },

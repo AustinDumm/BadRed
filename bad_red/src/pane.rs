@@ -4,8 +4,9 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-use mlua::FromLua;
-use strum_macros::EnumDiscriminants;
+use mlua::{FromLua, IntoLua, Value};
+use std::str::FromStr;
+use strum_macros::{EnumDiscriminants, EnumString, IntoStaticStr};
 
 pub type Result<T> = std::result::Result<T, String>;
 
@@ -120,23 +121,117 @@ pub struct Split {
 
 #[derive(EnumDiscriminants)]
 #[strum_discriminants(name(SplitTypeName))]
+#[strum_discriminants(derive(EnumString, IntoStaticStr))]
 pub enum SplitType {
     Percent { first_percent: f32 },
     FirstFixed { size: u16 },
     SecondFixed { size: u16 },
 }
 
-impl FromLua for SplitTypeName {
+impl<'lua> FromLua<'lua> for SplitTypeName {
     fn from_lua(
         value: mlua::prelude::LuaValue<'lua>,
-        lua: &'lua mlua::prelude::Lua,
+        _lua: &'lua mlua::prelude::Lua,
     ) -> mlua::prelude::LuaResult<Self> {
-        match value.as_string().ok_or_else(|| mlua::Error::FromLuaConversionError {
-            from: "Value",
-            to: "SplitTypeName",
-            message: Some(format!("Expected string type for SplitTypeName. Found: {}" value))
-        })? {
+        value
+            .as_str()
+            .ok_or_else(|| mlua::Error::FromLuaConversionError {
+                from: "Value",
+                to: "SplitTypeName",
+                message: Some(format!(
+                    "Expected string type for SplitTypeName. Found: {:?}",
+                    value
+                )),
+            })?
+            .try_into()
+            .map_err(|e| mlua::Error::FromLuaConversionError {
+                from: "String",
+                to: "SplitTypeName",
+                message: Some(format!("{}", e)),
+            })
+    }
+}
+
+impl<'lua> FromLua<'lua> for SplitType {
+    fn from_lua(
+        value: mlua::prelude::LuaValue<'lua>,
+        _lua: &'lua mlua::prelude::Lua,
+    ) -> mlua::prelude::LuaResult<Self> {
+        let table = value
+            .as_table()
+            .ok_or_else(|| mlua::Error::FromLuaConversionError {
+                from: "Value",
+                to: "SplitType",
+                message: Some(format!(
+                    "Expected table for SplitType lua representation. Found: {:?}",
+                    value
+                )),
+            })?;
+
+        let split = match table.get::<&str, SplitTypeName>("type")? {
+            SplitTypeName::Percent => SplitType::Percent {
+                first_percent: table.get::<&str, f32>("first_percent").map_err(|e| {
+                    mlua::Error::FromLuaConversionError {
+                        from: "Table",
+                        to: "SplitType",
+                        message: Some(format!(
+                            "Could not retreive f32 percentage value under key 'first_percent'. {}", e
+                        )),
+                    }
+                })?,
+            },
+            SplitTypeName::FirstFixed => SplitType::FirstFixed {
+                size: table.get::<&str, u16>("size").map_err(|e| {
+                    mlua::Error::FromLuaConversionError {
+                        from: "Table",
+                        to: "SplitType",
+                        message: Some(format!(
+                            "Could not retreive u16 size under key 'size' for FirstFixed split. {}", e
+                        )),
+                    }
+                })?,
+            },
+            SplitTypeName::SecondFixed => SplitType::SecondFixed {
+                size: table.get::<&str, u16>("size").map_err(|e| {
+                    mlua::Error::FromLuaConversionError {
+                        from: "Table",
+                        to: "SplitType",
+                        message: Some(format!(
+                            "Could not retreive u16 size under key 'size' for FirstSecond split. {}", e
+                        )),
+                    }
+                })?,
+            },
+        };
+
+        Ok(split)
+    }
+}
+
+impl<'lua> IntoLua<'lua> for SplitTypeName {
+    fn into_lua(self, lua: &'lua mlua::prelude::Lua) -> mlua::prelude::LuaResult<Value<'lua>> {
+        let string: &str = self.into();
+        lua.create_string(string)?.into_lua(lua)
+    }
+}
+
+impl<'lua> IntoLua<'lua> for SplitType {
+    fn into_lua(self, lua: &'lua mlua::prelude::Lua) -> mlua::prelude::LuaResult<Value<'lua>> {
+        let table = lua.create_table()?;
+
+        match self {
+            SplitType::Percent { first_percent } => {
+                table.set("first_percent", first_percent)?;
+            }
+            SplitType::FirstFixed { size } |
+            SplitType::SecondFixed { size } => {
+                table.set("size", size)?;
+            }
         }
+        let name: SplitTypeName = self.into();
+        table.set("type", name)?;
+
+        table.into_lua(lua)
     }
 }
 
