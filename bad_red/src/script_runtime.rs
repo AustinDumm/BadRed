@@ -194,11 +194,13 @@ impl<'lua> ScriptScheduler<'lua> {
                         ))
                     })?;
 
+                    let 
                     match node_type {
-                        PaneNodeType::Leaf(_) => todo!(),
+                        PaneNodeType::Leaf(_) => {
+                        },
                         PaneNodeType::VSplit(_) => todo!(),
                         PaneNodeType::HSplit(_) => todo!(),
-                    }
+                    };
                 }
                 RedCall::PaneSetSplitPercent { index, percent } => {
                     todo!()
