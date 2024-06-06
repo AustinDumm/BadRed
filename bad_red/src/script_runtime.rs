@@ -192,14 +192,9 @@ impl<'lua> ScriptScheduler<'lua> {
                             "Attempted to get pane type from pane index out of bounds: {}",
                             index
                         ))
-                    })?;
+                    })?.node_type.clone();
 
-                    match node_type {
-                        PaneNodeType::Leaf(_) => {
-                        },
-                        PaneNodeType::VSplit(_) => todo!(),
-                        PaneNodeType::HSplit(_) => todo!(),
-                    };
+                    self.run_script(next, node_type)
                 }
                 RedCall::PaneSetSplitPercent { index, percent } => {
                     todo!()

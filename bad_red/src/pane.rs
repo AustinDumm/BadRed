@@ -105,21 +105,137 @@ pub struct PaneNode {
     pub parent_index: Option<usize>,
 }
 
-#[derive(EnumDiscriminants)]
+#[derive(Clone, Debug, EnumDiscriminants)]
 #[strum_discriminants(name(PaneNodeTypeName))]
+#[strum_discriminants(derive(EnumString, IntoStaticStr))]
 pub enum PaneNodeType {
     Leaf(Pane),
     VSplit(Split),
     HSplit(Split),
 }
 
+impl<'lua> FromLua<'lua> for PaneNodeTypeName {
+    fn from_lua(
+        value: Value<'lua>,
+        lua: &'lua mlua::prelude::Lua,
+    ) -> mlua::prelude::LuaResult<Self> {
+        value
+            .as_str()
+            .ok_or_else(|| mlua::Error::FromLuaConversionError {
+                from: "Value",
+                to: "PaneNodeTypeName",
+                message: Some(format!(
+                    "Expected String type for PaneNodeTypeName. Found: {:?}",
+                    value
+                )),
+            })?
+            .try_into()
+            .map_err(|e| mlua::Error::FromLuaConversionError {
+                from: "String",
+                to: "PaneNodeTypeName",
+                message: Some(format!("{}", e)),
+            })
+    }
+}
+
+impl<'lua> IntoLua<'lua> for PaneNodeTypeName {
+    fn into_lua(self, lua: &'lua mlua::prelude::Lua) -> mlua::prelude::LuaResult<Value<'lua>> {
+        let string: &str = self.into();
+        lua.create_string(string)?.into_lua(lua)
+    }
+}
+
+impl<'lua> FromLua<'lua> for PaneNodeType {
+    fn from_lua(
+        value: Value<'lua>,
+        _lua: &'lua mlua::prelude::Lua,
+    ) -> mlua::prelude::LuaResult<Self> {
+        let table = value
+            .as_table()
+            .ok_or_else(|| mlua::Error::FromLuaConversionError {
+                from: "Value",
+                to: "PaneNodeType",
+                message: Some(format!(
+                    "Expected table type when converting from Lua. Found: {:?}",
+                    value
+                )),
+            })?;
+
+        let node_type = match table.get::<&str, PaneNodeTypeName>("type")? {
+            PaneNodeTypeName::Leaf => PaneNodeType::Leaf(
+                table.get::<&str, Pane>("pane")?
+            ),
+            PaneNodeTypeName::VSplit => PaneNodeType::VSplit(table.get::<&str, Split>("split")?),
+            PaneNodeTypeName::HSplit => PaneNodeType::HSplit(table.get::<&str, Split>("split")?),
+        };
+
+        Ok(node_type)
+    }
+}
+
+impl<'lua> IntoLua<'lua> for PaneNodeType {
+    fn into_lua(self, lua: &'lua mlua::prelude::Lua) -> mlua::prelude::LuaResult<Value<'lua>> {
+        let table = lua.create_table()?;
+
+        let pane_type_name: PaneNodeTypeName = self.clone().into();
+        table.set("type", pane_type_name)?;
+
+        match self {
+            PaneNodeType::Leaf(pane) => {
+                table.set("pane", pane)?
+            }
+            PaneNodeType::VSplit(split) |
+            PaneNodeType::HSplit(split) => {
+                table.set("split", split)?
+            }
+        }
+
+        table.into_lua(lua)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Split {
     pub first: usize,
     pub second: usize,
     pub split_type: SplitType,
 }
 
-#[derive(EnumDiscriminants)]
+impl<'lua> FromLua<'lua> for Split {
+    fn from_lua(
+        value: Value<'lua>,
+        _lua: &'lua mlua::prelude::Lua,
+    ) -> mlua::prelude::LuaResult<Self> {
+        let table = value
+            .as_table()
+            .ok_or_else(|| mlua::Error::FromLuaConversionError {
+                from: "Value",
+                to: "Split",
+                message: Some(format!(
+                    "Expected table value for Split from Lua. Found: {:?}",
+                    value
+                )),
+            })?;
+
+        Ok(Split {
+            first: table.get::<&str, usize>("first")?,
+            second: table.get::<&str, usize>("second")?,
+            split_type: table.get::<&str, SplitType>("split_type")?,
+        })
+    }
+}
+
+impl<'lua> IntoLua<'lua> for Split {
+    fn into_lua(self, lua: &'lua mlua::prelude::Lua) -> mlua::prelude::LuaResult<Value<'lua>> {
+        let table = lua.create_table()?;
+        table.set("first", self.first)?;
+        table.set("second", self.second)?;
+        table.set("split_type", self.split_type)?;
+        table.into_lua(lua)
+    }
+}
+
+#[derive(Clone, Debug, EnumDiscriminants)]
 #[strum_discriminants(name(SplitTypeName))]
 #[strum_discriminants(derive(EnumString, IntoStaticStr))]
 pub enum SplitType {
@@ -223,8 +339,7 @@ impl<'lua> IntoLua<'lua> for SplitType {
             SplitType::Percent { first_percent } => {
                 table.set("first_percent", first_percent)?;
             }
-            SplitType::FirstFixed { size } |
-            SplitType::SecondFixed { size } => {
+            SplitType::FirstFixed { size } | SplitType::SecondFixed { size } => {
                 table.set("size", size)?;
             }
         }
@@ -235,9 +350,35 @@ impl<'lua> IntoLua<'lua> for SplitType {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Pane {
     pub top_line: u16,
     pub buffer_id: usize,
+}
+
+impl<'lua> FromLua<'lua> for Pane {
+    fn from_lua(value: Value<'lua>, _lua: &'lua mlua::prelude::Lua) -> mlua::prelude::LuaResult<Self> {
+        let table = value.as_table()
+            .ok_or_else(|| mlua::Error::FromLuaConversionError {
+                from: "Value",
+                to: "Pane",
+                message: Some(format!("Expected table to convert from Lua for Pane. Found: {:?}", value)),
+            })?;
+
+        Ok(Pane {
+            top_line: table.get::<&str, u16>("top_line")?,
+            buffer_id: table.get::<&str, usize>("buffer_id")?,
+        })
+    }
+}
+
+impl<'lua> IntoLua<'lua> for Pane {
+    fn into_lua(self, lua: &'lua mlua::prelude::Lua) -> mlua::prelude::LuaResult<Value<'lua>> {
+        let table = lua.create_table()?;
+        table.set("top_line", self.top_line)?;
+        table.set("buffer_id", self.buffer_id)?;
+        table.into_lua(lua)
+    }
 }
 
 impl Pane {
