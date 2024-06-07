@@ -11,7 +11,7 @@ use mlua::{Function, IntoLuaMulti, Lua, Thread};
 use crate::{
     editor_state::{EditorState, Error, Result},
     hook_map::{Hook, HookMap},
-    pane::PaneNodeType,
+    pane::{PaneNodeType, Split, SplitType},
     script_handler::RedCall,
 };
 
@@ -187,24 +187,111 @@ impl<'lua> ScriptScheduler<'lua> {
                     }
                 }
                 RedCall::PaneType { index } => {
-                    let node_type = editor_state.pane_tree.pane_node_by_index(index).ok_or_else(|| {
-                        Error::Script(format!(
-                            "Attempted to get pane type from pane index out of bounds: {}",
-                            index
-                        ))
-                    })?.node_type.clone();
+                    let node_type = editor_state
+                        .pane_tree
+                        .pane_node_by_index(index)
+                        .ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted to get pane type from pane index out of bounds: {}",
+                                index
+                            ))
+                        })?
+                        .node_type
+                        .clone();
 
                     self.run_script(next, node_type)
                 }
                 RedCall::PaneSetSplitPercent { index, percent } => {
-                    todo!()
+                    let node = editor_state
+                        .pane_tree
+                        .pane_node_mut_by_index(index)
+                        .ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted to get pane from pane index out of bounds: {}",
+                                index
+                            ))
+                        })?;
+
+                    match &node.node_type {
+                        PaneNodeType::Leaf(_) => Err(Error::Script(format!(
+                            "Attempted to set split type for a leaf node at index: {}",
+                            index
+                        ))),
+                        PaneNodeType::VSplit(old_split) => {
+                            node.node_type = PaneNodeType::VSplit(Split {
+                                first: old_split.first,
+                                second: old_split.second,
+                                split_type: SplitType::Percent {
+                                    first_percent: percent,
+                                },
+                            });
+
+                            Ok(())
+                        }
+                        PaneNodeType::HSplit(old_split) => {
+                            node.node_type = PaneNodeType::HSplit(Split {
+                                first: old_split.first,
+                                second: old_split.second,
+                                split_type: SplitType::Percent {
+                                    first_percent: percent,
+                                },
+                            });
+
+                            Ok(())
+                        }
+                    }?;
+
+                    self.run_script(next, ())
                 }
                 RedCall::PaneSetSplitFixed {
                     index,
                     size,
                     to_first,
                 } => {
-                    todo!()
+                    let node = editor_state
+                        .pane_tree
+                        .pane_node_mut_by_index(index)
+                        .ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted to get pane from pane index out of bounds: {}",
+                                index
+                            ))
+                        })?;
+
+                    match &node.node_type {
+                        PaneNodeType::Leaf(_) => Err(Error::Script(format!(
+                            "Attempted to set split type for a leaf node at index: {}",
+                            index
+                        ))),
+                        PaneNodeType::VSplit(old_split) => {
+                            node.node_type = PaneNodeType::VSplit(Split {
+                                first: old_split.first,
+                                second: old_split.second,
+                                split_type: if to_first {
+                                    SplitType::FirstFixed { size }
+                                } else {
+                                    SplitType::SecondFixed { size }
+                                },
+                            });
+
+                            Ok(())
+                        }
+                        PaneNodeType::HSplit(old_split) => {
+                            node.node_type = PaneNodeType::HSplit(Split {
+                                first: old_split.first,
+                                second: old_split.second,
+                                split_type: if to_first {
+                                    SplitType::FirstFixed { size }
+                                } else {
+                                    SplitType::SecondFixed { size }
+                                },
+                            });
+
+                            Ok(())
+                        }
+                    }?;
+
+                    self.run_script(next, ())
                 }
 
                 RedCall::BufferInsert { buffer_id, content } => {

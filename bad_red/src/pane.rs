@@ -5,7 +5,6 @@
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 use mlua::{FromLua, IntoLua, Value};
-use std::str::FromStr;
 use strum_macros::{EnumDiscriminants, EnumString, IntoStaticStr};
 
 pub type Result<T> = std::result::Result<T, String>;
@@ -26,6 +25,10 @@ impl PaneTree {
 
     pub fn pane_node_by_index<'a>(&'a self, pane_index: usize) -> Option<&'a PaneNode> {
         self.tree.get(pane_index)
+    }
+
+    pub fn pane_node_mut_by_index<'a>(&'a mut self, pane_index: usize) -> Option<&'a mut PaneNode> {
+        self.tree.get_mut(pane_index)
     }
 
     pub fn pane_by_index<'a>(&'a self, pane_index: usize) -> Option<&'a Pane> {
@@ -105,6 +108,12 @@ pub struct PaneNode {
     pub parent_index: Option<usize>,
 }
 
+impl PaneNode {
+    pub fn set_type(&mut self, node_type: PaneNodeType) {
+        self.node_type = node_type
+    }
+}
+
 #[derive(Clone, Debug, EnumDiscriminants)]
 #[strum_discriminants(name(PaneNodeTypeName))]
 #[strum_discriminants(derive(EnumString, IntoStaticStr))]
@@ -117,7 +126,7 @@ pub enum PaneNodeType {
 impl<'lua> FromLua<'lua> for PaneNodeTypeName {
     fn from_lua(
         value: Value<'lua>,
-        lua: &'lua mlua::prelude::Lua,
+        _lua: &'lua mlua::prelude::Lua,
     ) -> mlua::prelude::LuaResult<Self> {
         value
             .as_str()

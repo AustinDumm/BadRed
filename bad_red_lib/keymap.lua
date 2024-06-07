@@ -94,10 +94,12 @@ local function root_map()
         local pane_map = map:new_map()
         pane_map["v"] = function(_) red.pane:current():v_split() end
         pane_map["h"] = function(_) red.pane:current():h_split() end
-        pane_map["u"] = function(_) red.pane:current():to_parent() end
-        pane_map["l"] = function(_) red.pane:current():to_child(true) end
-        pane_map["r"] = function(_) red.pane:current():to_child(false) end
-        pane_map["s"] = function(_) red.pane:current():to_sibling() end
+        pane_map["u"] = function(_) red.pane:current():parent():set_active() end
+        pane_map["l"] = function(_) red.pane:current():child(true):set_active() end
+        pane_map["r"] = function(_) red.pane:current():child(false):set_active() end
+        pane_map["s"] = function(_) red.pane:current():sibling():set_active() end
+        pane_map["+"] = function(_) red.pane:current():increase_size() end
+        pane_map["-"] = function(_) red.pane:current():decrease_size() end
         return pane_map
     end)()
     map["C+e"] = function()

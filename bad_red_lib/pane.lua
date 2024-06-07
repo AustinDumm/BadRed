@@ -19,34 +19,104 @@ function P:current()
     return self:new(id)
 end
 
-function P:to_sibling()
-    local is_left = coroutine.yield(red.call.pane_is_first(self.id))
-    local parent_id = coroutine.yield(red.call.pane_index_up_from(self.id))
-    local sibling_id = coroutine.yield(red.call.pane_index_down_from(parent_id, not is_left))
-    coroutine.yield(red.call.set_active_pane(sibling_id))
-    self.id = sibling_id
+function P:set_active()
+    coroutine.yield(red.call.set_active_pane(self.id))
 end
 
-function P:to_parent()
-    local parent_id = coroutine.yield(red.call.pane_index_up_from(self.id))
-    coroutine.yield(red.call.set_active_pane(parent_id))
-    self.id = parent_id
+function P:is_first_child()
+    coroutine.yield(red.call.pane_is_first(self.id))
 end
 
-function P:to_child(is_left)
-    local child_id = coroutine.yield(red.call.pane_index_down_from(self.id, is_left))
-    coroutine.yield(red.call.set_active_pane(child_id))
-    self.id = child_id
+function P:sibling()
+    local is_first_child = self:is_first_child()
+    local parent = self:parent()
+    return parent:child(not is_first_child)
+end
+
+function P:parent()
+    local parent_id = coroutine.yield(red.call.pane_index_up_from(self.id))
+    return P:new(parent_id)
+end
+
+function P:child(to_left)
+    local child_id = coroutine.yield(red.call.pane_index_down_from(self.id, to_left))
+    return P:new(child_id)
+end
+
+function P:type()
+    return coroutine.yield(red.call.pane_type(self.id))
 end
 
 function P:v_split()
     coroutine.yield(red.call.pane_v_split(self.id))
-    self.id = coroutine.yield(red.call.pane_index_down_from(self.id, is_left))
+    self.id = coroutine.yield(red.call.pane_index_down_from(self.id, is_first_child))
 end
 
 function P:h_split()
     coroutine.yield(red.call.pane_h_split(self.id))
-    self.id = coroutine.yield(red.call.pane_index_down_from(self.id, is_left))
+    self.id = coroutine.yield(red.call.pane_index_down_from(self.id, is_first_child))
+end
+
+function P:increase_size()
+    local is_first_child = self:is_first_child()
+    local parent = self:parent()
+    local parent_type = parent:type()
+
+    if parent_type.type == "Leaf" then
+        return
+    end
+
+    local split = parent_type.split
+    if split.type == "Percent" then
+        local percent = split.first_percent
+        local shift
+        if is_first_child then
+            shift = 0.1
+        else
+            shift = -0.1
+        end
+        local new_percent = percent + shift
+        if new_percent < 0.0 then
+            new_percent = 0.0
+        elseif new_percent > 1.0 then
+            new_percent = 1.0
+        end
+        coroutine.yield(red.call.pane_set_split_percent(parent_id, new_percent))
+
+    elseif split.type == "FirstFixed" then
+    elseif split.type == "SecondFixed" then
+    end
+end
+
+function P:decrease_size()
+    local is_first_child = self:is_first_child()
+    local parent = self:parent()
+    local parent_type = parent:type()
+
+    if parent_type.type == "Leaf" then
+        return
+    end
+
+    local split = parent_type.split
+    if split.type == "Percent" then
+        local percent = split.first_percent
+        local shift
+        if is_first_child then
+            shift = -0.1
+        else
+            shift = 0.1
+        end
+        local new_percent = percent + shift
+        if new_percent < 0.0 then
+            new_percent = 0.0
+        elseif new_percent > 1.0 then
+            new_percent = 1.0
+        end
+        coroutine.yield(red.call.pane_set_split_percent(parent_id, new_percent))
+
+    elseif split.type == "FirstFixed" then
+    elseif split.type == "SecondFixed" then
+    end
 end
 
 return Pane
