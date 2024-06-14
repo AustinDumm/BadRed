@@ -1,11 +1,12 @@
 // This file is part of BadRed.
 
 // BadRed is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-// 
+//
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 use std::str::FromStr;
 
+use bad_red_proc_macros::FromLua;
 use mlua::{FromLua, Function, IntoLua, Lua, Table, Value};
 use strum::IntoEnumIterator;
 use strum_macros::{EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
@@ -20,7 +21,7 @@ trait ScriptObject {
     fn lua_object<'lua>(lua: &'lua Lua) -> mlua::Result<Table<'lua>>;
 }
 
-#[derive(EnumDiscriminants)]
+#[derive(EnumDiscriminants, FromLua)]
 #[strum(serialize_all = "snake_case")]
 #[strum_discriminants(derive(IntoStaticStr, EnumString, EnumIter))]
 #[strum_discriminants(strum(serialize_all = "snake_case"))]
@@ -61,7 +62,6 @@ pub enum RedCall<'lua> {
         to_first: bool,
     },
 
-
     SetHook {
         hook_name: HookName,
         function: Function<'lua>,
@@ -71,7 +71,7 @@ pub enum RedCall<'lua> {
     },
 
     RunScript {
-        script: String
+        script: String,
     },
 
     CurrentBufferId,
@@ -100,9 +100,11 @@ pub enum RedCall<'lua> {
     },
     BufferContent {
         buffer_id: usize,
-    }
-
+    },
 }
+
+#[derive(FromLua)]
+struct Test(u64);
 
 impl<'lua> FromLua<'lua> for RedCall<'lua> {
     fn from_lua(value: Value<'lua>, _lua: &'lua Lua) -> mlua::prelude::LuaResult<Self> {
@@ -163,7 +165,11 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
                 let index = table.get::<&str, usize>("index")?;
                 let size = table.get::<&str, u16>("size")?;
                 let to_first = table.get::<&str, bool>("to_first")?;
-                Ok(RedCall::PaneSetSplitFixed { index, size, to_first })
+                Ok(RedCall::PaneSetSplitFixed {
+                    index,
+                    size,
+                    to_first,
+                })
             }
 
             RedCallName::SetHook => {
@@ -182,10 +188,8 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
 
             RedCallName::RunScript => {
                 let script = table.get::<&str, String>("script")?;
-                Ok(RedCall::RunScript {
-                    script
-                })
-            },
+                Ok(RedCall::RunScript { script })
+            }
 
             RedCallName::CurrentBufferId => Ok(RedCall::CurrentBufferId),
             RedCallName::BufferInsert => {
@@ -196,27 +200,37 @@ impl<'lua> FromLua<'lua> for RedCall<'lua> {
             RedCallName::BufferDelete => {
                 let buffer_id = table.get::<&str, usize>("buffer_id")?;
                 let char_count = table.get::<&str, usize>("char_count")?;
-                Ok(RedCall::BufferDelete { buffer_id, char_count })
-            },
+                Ok(RedCall::BufferDelete {
+                    buffer_id,
+                    char_count,
+                })
+            }
             RedCallName::BufferCursorMoveChar => {
                 let buffer_id = table.get::<&str, usize>("buffer_id")?;
                 let char_count = table.get::<&str, usize>("char_count")?;
                 let move_left = table.get::<&str, bool>("move_left")?;
-                Ok(RedCall::BufferCursorMoveChar { buffer_id, char_count, move_left })
-            },
+                Ok(RedCall::BufferCursorMoveChar {
+                    buffer_id,
+                    char_count,
+                    move_left,
+                })
+            }
             RedCallName::BufferLength => {
                 let buffer_id = table.get::<&str, usize>("buffer_id")?;
                 Ok(RedCall::BufferLength { buffer_id })
-            },
+            }
             RedCallName::BufferCursorIndex => {
                 let buffer_id = table.get::<&str, usize>("buffer_id")?;
                 Ok(RedCall::BufferCursorIndex { buffer_id })
-            },
+            }
             RedCallName::BufferSetCursorIndex => {
                 let buffer_id = table.get::<&str, usize>("buffer_id")?;
                 let cursor_index = table.get::<&str, usize>("cursor_index")?;
-                Ok(RedCall::BufferSetCursorIndex { buffer_id, cursor_index })
-            },
+                Ok(RedCall::BufferSetCursorIndex {
+                    buffer_id,
+                    cursor_index,
+                })
+            }
             RedCallName::BufferContent => {
                 let buffer_id = table.get::<&str, usize>("buffer_id")?;
                 Ok(RedCall::BufferContent { buffer_id })
@@ -259,7 +273,11 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
                 table.set("index", index)?;
                 table.set("percent", percent)?;
             }
-            RedCall::PaneSetSplitFixed { index, size, to_first } => {
+            RedCall::PaneSetSplitFixed {
+                index,
+                size,
+                to_first,
+            } => {
                 table.set("index", index)?;
                 table.set("size", size)?;
                 table.set("to_first", to_first)?;
@@ -289,11 +307,18 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
             RedCall::RunScript { script } => {
                 table.set("script", script)?;
             }
-            RedCall::BufferDelete { buffer_id, char_count } => {
+            RedCall::BufferDelete {
+                buffer_id,
+                char_count,
+            } => {
                 table.set("buffer_id", buffer_id)?;
                 table.set("char_count", char_count)?;
             }
-            RedCall::BufferCursorMoveChar { buffer_id, char_count, move_left } => {
+            RedCall::BufferCursorMoveChar {
+                buffer_id,
+                char_count,
+                move_left,
+            } => {
                 table.set("buffer_id", buffer_id)?;
                 table.set("char_count", char_count)?;
                 table.set("move_left", move_left)?;
@@ -304,7 +329,10 @@ impl<'lua> IntoLua<'lua> for RedCall<'_> {
             RedCall::BufferCursorIndex { buffer_id } => {
                 table.set("buffer_id", buffer_id)?;
             }
-            RedCall::BufferSetCursorIndex { buffer_id, cursor_index } => {
+            RedCall::BufferSetCursorIndex {
+                buffer_id,
+                cursor_index,
+            } => {
                 table.set("buffer_id", buffer_id)?;
                 table.set("cursor_index", cursor_index)?;
             }
@@ -386,9 +414,7 @@ impl ScriptObject for RedCall<'_> {
                 RedCallName::PaneType => {
                     table.set(
                         Into::<&'static str>::into(case),
-                        lua.create_function(|_, index: usize| {
-                            Ok(RedCall::PaneType { index })
-                        })?,
+                        lua.create_function(|_, index: usize| Ok(RedCall::PaneType { index }))?,
                     )?;
                 }
                 RedCallName::PaneSetSplitPercent => {
@@ -403,7 +429,11 @@ impl ScriptObject for RedCall<'_> {
                     table.set(
                         Into::<&'static str>::into(case),
                         lua.create_function(|_, (index, size, to_first): (usize, u16, bool)| {
-                            Ok(RedCall::PaneSetSplitFixed { index, size, to_first })
+                            Ok(RedCall::PaneSetSplitFixed {
+                                index,
+                                size,
+                                to_first,
+                            })
                         })?,
                     )?;
                 }
@@ -440,27 +470,19 @@ impl ScriptObject for RedCall<'_> {
                 RedCallName::RunScript => {
                     table.set(
                         Into::<&'static str>::into(case),
-                        lua.create_function(
-                            |_, script: String| {
-                                Ok(RedCall::RunScript {
-                                    script
-                                })
-                            },
-                        )?,
+                        lua.create_function(|_, script: String| Ok(RedCall::RunScript { script }))?,
                     )?;
                 }
 
                 RedCallName::BufferDelete => {
                     table.set(
                         Into::<&'static str>::into(case),
-                        lua.create_function(
-                            |_, (buffer_id, char_count): (usize, usize)| {
-                                Ok(RedCall::BufferDelete {
-                                    buffer_id,
-                                    char_count,
-                                })
-                            },
-                        )?,
+                        lua.create_function(|_, (buffer_id, char_count): (usize, usize)| {
+                            Ok(RedCall::BufferDelete {
+                                buffer_id,
+                                char_count,
+                            })
+                        })?,
                     )?;
                 }
                 RedCallName::BufferCursorMoveChar => {
@@ -480,50 +502,36 @@ impl ScriptObject for RedCall<'_> {
                 RedCallName::BufferLength => {
                     table.set(
                         Into::<&'static str>::into(case),
-                        lua.create_function(
-                            |_, buffer_id: usize| {
-                                Ok(RedCall::BufferLength {
-                                    buffer_id
-                                })
-                            },
-                        )?,
+                        lua.create_function(|_, buffer_id: usize| {
+                            Ok(RedCall::BufferLength { buffer_id })
+                        })?,
                     )?;
                 }
                 RedCallName::BufferCursorIndex => {
                     table.set(
                         Into::<&'static str>::into(case),
-                        lua.create_function(
-                            |_, buffer_id: usize| {
-                                Ok(RedCall::BufferCursorIndex {
-                                    buffer_id
-                                })
-                            },
-                        )?,
+                        lua.create_function(|_, buffer_id: usize| {
+                            Ok(RedCall::BufferCursorIndex { buffer_id })
+                        })?,
                     )?;
                 }
                 RedCallName::BufferSetCursorIndex => {
                     table.set(
                         Into::<&'static str>::into(case),
-                        lua.create_function(
-                            |_, (buffer_id, cursor_index): (usize, usize)| {
-                                Ok(RedCall::BufferSetCursorIndex {
-                                    buffer_id,
-                                    cursor_index,
-                                })
-                            },
-                        )?,
+                        lua.create_function(|_, (buffer_id, cursor_index): (usize, usize)| {
+                            Ok(RedCall::BufferSetCursorIndex {
+                                buffer_id,
+                                cursor_index,
+                            })
+                        })?,
                     )?;
                 }
                 RedCallName::BufferContent => {
                     table.set(
                         Into::<&'static str>::into(case),
-                        lua.create_function(
-                            |_, buffer_id: usize| {
-                                Ok(RedCall::BufferContent {
-                                    buffer_id,
-                                })
-                            },
-                        )?,
+                        lua.create_function(|_, buffer_id: usize| {
+                            Ok(RedCall::BufferContent { buffer_id })
+                        })?,
                     )?;
                 }
             }

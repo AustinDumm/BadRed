@@ -30,6 +30,9 @@ end
 function P:sibling()
     local is_first_child = self:is_first_child()
     local parent = self:parent()
+    if is_first_child then
+        error("w")
+    end
     return parent:child(not is_first_child)
 end
 
@@ -38,8 +41,8 @@ function P:parent()
     return P:new(parent_id)
 end
 
-function P:child(to_left)
-    local child_id = coroutine.yield(red.call.pane_index_down_from(self.id, to_left))
+function P:child(to_first)
+    local child_id = coroutine.yield(red.call.pane_index_down_from(self.id, to_first))
     return P:new(child_id)
 end
 
@@ -65,6 +68,7 @@ function P:increase_size()
     if parent_type.type == "Leaf" then
         return
     end
+    error("HI")
 
     local split = parent_type.split
     if split.type == "Percent" then

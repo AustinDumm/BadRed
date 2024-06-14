@@ -1,0 +1,16 @@
+[lib]
+proc-macro = true
+
+[package]
+name = "bad_red_proc_macros"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+quote = "1.0.36"
+syn = { version = "2.0.66", features = ["extra-traits"] }
+proc-macro2 = "1.0.85"
+
+[dependencies.mlua]
+version = "0.9.8"
+features = ["lua54"]

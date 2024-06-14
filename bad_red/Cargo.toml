@@ -25,6 +25,7 @@ strum = "0.26.2"
 strum_macros = "0.26.2"
 etcetera = "0.8.0"
 clap = { version = "4.5.4", features = ["derive"] }
+bad_red_proc_macros = { path = "../bad_red_proc_macros/" }
 
 [dependencies.mlua]
 version = "0.9.8"
