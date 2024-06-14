@@ -1,8 +1,10 @@
 extern crate proc_macro;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
+use quote::format_ident;
 use quote::quote;
 use quote::ToTokens;
+use syn::FieldsUnnamed;
 use syn::Generics;
 use syn::Lifetime;
 use syn::{parse_macro_input, DataEnum, DataStruct, DeriveInput, Ident};
@@ -28,12 +30,19 @@ pub fn derive_from_lua_impl(input: proc_macro::TokenStream) -> proc_macro::Token
 fn body_from_lua_struct(ident: Ident, strct: DataStruct) -> TokenStream {
     match strct.fields {
         syn::Fields::Named(_) => todo!(),
-        syn::Fields::Unnamed(_) => todo!(),
-        syn::Fields::Unit => from_lua_impl_unit_struct(ident),
+        syn::Fields::Unnamed(unnamed) => {
+            let type_extract = from_lua_impl_struct_type(ident.clone());
+            let value_extract = from_lua_impl_struct_unnamed_fields(ident, unnamed);
+            quote! {
+                #type_extract?;
+                #value_extract
+            }
+        },
+        syn::Fields::Unit => from_lua_impl_struct_type(ident),
     }
 }
 
-fn from_lua_impl_unit_struct(ident: Ident) -> TokenStream {
+fn from_lua_impl_struct_type(ident: Ident) -> TokenStream {
     let ident_str = ident.to_string();
     quote! {
         let table = match value {
@@ -54,6 +63,33 @@ fn from_lua_impl_unit_struct(ident: Ident) -> TokenStream {
                 message: Some(format!("Found unexpected type name while converting {} FromLua: {}", #ident_str, type_name)),
             })
         }
+    }
+}
+
+fn from_lua_impl_struct_unnamed_fields(ident: Ident, fields: FieldsUnnamed) -> TokenStream {
+    let field_idents = fields
+        .unnamed
+        .iter()
+        .enumerate()
+        .map(|(i, f)| (format_ident!("field{}", i), f));
+
+    let field_extractions = field_idents
+        .clone()
+        .rev()
+        .map(|(field_name, f)| {
+            let ty = &f.ty;
+            quote! {
+                let #field_name: #ty = table.pop()?;
+            }
+        });
+
+    let field_list = field_idents
+        .map(|(name, _)| name);
+
+    quote! {
+        let table = table.get::<&str, mlua::Table>("values")?;
+        #(#field_extractions);*;
+        Ok(#ident(#(#field_list),*))
     }
 }
 

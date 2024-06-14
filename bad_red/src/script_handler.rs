@@ -21,7 +21,7 @@ trait ScriptObject {
     fn lua_object<'lua>(lua: &'lua Lua) -> mlua::Result<Table<'lua>>;
 }
 
-#[derive(EnumDiscriminants, FromLua)]
+#[derive(EnumDiscriminants)]
 #[strum(serialize_all = "snake_case")]
 #[strum_discriminants(derive(IntoStaticStr, EnumString, EnumIter))]
 #[strum_discriminants(strum(serialize_all = "snake_case"))]
@@ -104,7 +104,7 @@ pub enum RedCall<'lua> {
 }
 
 #[derive(FromLua)]
-struct Test(u64);
+struct Test(u64, String);
 
 impl<'lua> FromLua<'lua> for RedCall<'lua> {
     fn from_lua(value: Value<'lua>, _lua: &'lua Lua) -> mlua::prelude::LuaResult<Self> {
