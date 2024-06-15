@@ -19,7 +19,7 @@ pub fn script_table_impl(token_stream: TokenStream) -> TokenStream {
     }
 }
 
-fn script_table_impl_body(ident: &Ident, generics: &Generics, data: &Data) -> TokenStream {
+fn script_table_impl_body(ident: &Ident, _generics: &Generics, data: &Data) -> TokenStream {
     let body = match data {
         Data::Struct(_) => unimplemented!(),
         Data::Enum(enm) => script_table_function_body(ident, enm),
