@@ -3,6 +3,7 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
+use quote::ToTokens;
 use syn::FieldsNamed;
 use syn::FieldsUnnamed;
 use syn::Generics;
@@ -37,7 +38,7 @@ fn body_from_lua_struct(ident: Ident, strct: DataStruct) -> TokenStream {
             }
         }
         syn::Fields::Unnamed(unnamed) => {
-            let struct_init = from_lua_impl_struct_unnamed_fields(ident.clone(), unnamed);
+            let struct_init = from_lua_impl_struct_unnamed_fields(ident.clone(), ident.clone(), unnamed);
             let body = from_lua_impl_struct_type(ident, struct_init);
             quote! {
                 #body
@@ -78,7 +79,7 @@ fn from_lua_unit_struct_init(ident: Ident) -> TokenStream {
     }
 }
 
-fn from_lua_impl_struct_unnamed_fields(ident: Ident, fields: FieldsUnnamed) -> TokenStream {
+fn from_lua_impl_struct_unnamed_fields(ident: Ident, init_name: impl ToTokens, fields: FieldsUnnamed) -> TokenStream {
     let field_idents = fields
         .unnamed
         .iter()
@@ -97,7 +98,7 @@ fn from_lua_impl_struct_unnamed_fields(ident: Ident, fields: FieldsUnnamed) -> T
     quote! {
         let table = table.get::<&str, mlua::Table>("values")?;
         #(#field_extractions);*;
-        Ok(#ident(#(#field_list),*))
+        Ok(#init_name(#(#field_list),*))
     }
 }
 
@@ -141,7 +142,7 @@ fn derive_from_lua_enum_init(ident: &Ident, enm: &DataEnum) -> TokenStream {
         let variant = #enum_name_ident::from_str(variant_name.as_str())
             .map_err(|e| mlua::Error::FromLuaConversionError {
                 from: "Table",
-                to: enum_ident_str,
+                to: #enum_ident_str,
                 message: Some(format!(
                     "Failed to convert 'type' field to valid {} name: {:?}",
                     #enum_ident_str,
@@ -160,7 +161,24 @@ fn derive_from_lua_enum_variants(
     enum_name_ident: &Ident,
     enm: &DataEnum
 ) -> TokenStream {
-    quote! {}
+    let arm_iter = enm.variants.iter().map(|variant| {
+        let variant_ident = &variant.ident;
+        let variant_init_name = quote! { #enum_ident::#variant_ident };
+        let values_init = match &variant.fields {
+            syn::Fields::Named(_) => todo!(),
+            syn::Fields::Unnamed(unnamed) => {
+                from_lua_impl_struct_unnamed_fields(enum_ident.clone(), variant_init_name, unnamed.clone())
+            }
+            syn::Fields::Unit => todo!(),
+        };
+        quote! {
+            #enum_name_ident::#variant_ident => {
+                #values_init
+            }
+        }
+    });
+
+    quote! { #(#arm_iter)* }
 }
 
 fn from_lua_impl(ident: Ident, generics: Generics, impl_body: TokenStream) -> TokenStream {
