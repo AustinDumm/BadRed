@@ -5,51 +5,16 @@
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 use std::collections::HashMap;
-use std::str::FromStr;
 
-use mlua::{FromLua, Function, IntoLua};
-use strum_macros::{EnumDiscriminants, EnumString, IntoStaticStr};
+use bad_red_proc_macros::auto_lua;
+use mlua::Function;
 
 use crate::keymap::RedKeyEvent;
 
-#[derive(Clone, Hash, PartialEq, Eq, Debug, EnumString, IntoStaticStr, EnumDiscriminants)]
-#[strum(serialize_all = "snake_case")]
-#[strum_discriminants(derive(Hash, EnumString, IntoStaticStr))]
-#[strum_discriminants(strum(serialize_all = "snake_case"))]
-#[strum_discriminants(name(HookName))]
+#[auto_lua]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub enum Hook {
     KeyEvent(RedKeyEvent),
-}
-
-impl<'lua> FromLua<'lua> for HookName {
-    fn from_lua(
-        value: mlua::prelude::LuaValue<'lua>,
-        _lua: &'lua mlua::prelude::Lua,
-    ) -> mlua::prelude::LuaResult<Self> {
-        let hook_name = value
-            .as_str()
-            .ok_or_else(|| mlua::Error::FromLuaConversionError {
-                from: "LuaValue",
-                to: "Hook",
-                message: Some(format!("Expected Lua string for Hook. Found: {:?}", value)),
-            })?;
-
-        HookName::from_str(hook_name).map_err(|e| mlua::Error::FromLuaConversionError {
-            from: "String",
-            to: "Hook",
-            message: Some(format!("Failed to convert from string to Hook: {}", e)),
-        })
-    }
-}
-
-impl<'lua> IntoLua<'lua> for HookName {
-    fn into_lua(
-        self,
-        lua: &'lua mlua::prelude::Lua,
-    ) -> mlua::prelude::LuaResult<mlua::prelude::LuaValue<'lua>> {
-        let self_string: &'static str = self.into();
-        lua.create_string(self_string)?.into_lua(lua)
-    }
 }
 
 pub struct HookMap<'lua> {

@@ -5,7 +5,7 @@ use syn::{
     Lifetime, Variant,
 };
 
-pub fn into_lua_impl(derive_input: DeriveInput) -> TokenStream {
+pub fn into_lua_impl(derive_input: &DeriveInput) -> TokenStream {
     let DeriveInput {
         ident,
         generics,
@@ -27,7 +27,7 @@ fn gen_into_lua_impl(ident: &Ident, generics: &Generics, impl_body: &impl ToToke
 
     quote! {
         impl<#lua_lifetime> mlua::IntoLua<#lua_lifetime> for #ident #generics {
-            fn into_lua(self, lua: &'lua Lua) -> mlua::prelude::LuaResult<Value<'lua>> {
+            fn into_lua(self, lua: &'lua mlua::Lua) -> mlua::prelude::LuaResult<mlua::Value<'lua>> {
                 #impl_body
             }
         }

@@ -10,7 +10,7 @@ use syn::Generics;
 use syn::Lifetime;
 use syn::{DataEnum, DataStruct, DeriveInput, Ident};
 
-pub fn from_lua_impl(derive_input: DeriveInput) -> TokenStream {
+pub fn from_lua_impl(derive_input: &DeriveInput) -> TokenStream {
     let DeriveInput {
         ident,
         data,
@@ -122,7 +122,7 @@ fn from_lua_impl_struct_named_fields(
     let field_idents = idents_fields_zip.map(|(ident, _)| ident);
 
     quote! {
-        let table = table.get::<&str, Table>("values")?;
+        let table = table.get::<&str, mlua::Table>("values")?;
         #(#field_extractions);*;
         Ok(#init_expr { #(#field_idents),* })
     }
@@ -144,6 +144,7 @@ fn from_lua_enum_init(ident: &Ident, enm: &DataEnum) -> TokenStream {
     let enum_variant_impl = from_lua_enum_variants(ident, &enum_name_ident, enm);
 
     quote! {
+        use std::str::FromStr;
         let variant_name = table.get::<&str, String>("variant")?;
         let variant = #enum_name_ident::from_str(variant_name.as_str())
             .map_err(|e| mlua::Error::FromLuaConversionError {
@@ -202,7 +203,7 @@ fn gen_from_lua_impl(ident: &Ident, generics: &Generics, impl_body: &TokenStream
 
     quote! {
         impl<#lua_lifetime> mlua::FromLua<#lua_lifetime> for #ident #generics {
-            fn from_lua(value: Value<#lua_lifetime>, _lua: &#lua_lifetime Lua) -> mlua::prelude::LuaResult<Self> {
+            fn from_lua(value: mlua::Value<#lua_lifetime>, _lua: &#lua_lifetime mlua::Lua) -> mlua::prelude::LuaResult<Self> {
                 #impl_body
             }
         }
