@@ -104,10 +104,9 @@ pub enum RedCall<'lua> {
 }
 
 #[auto_lua]
-struct Test {
-    one: u32,
-    two: String,
-    _hey: bool,
+enum Test {
+    One,
+    Two,
 }
 
 impl<'lua> FromLua<'lua> for RedCall<'lua> {

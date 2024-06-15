@@ -1,7 +1,8 @@
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
-    Data, DataStruct, DeriveInput, Fields, FieldsNamed, FieldsUnnamed, Generics, Index, Lifetime,
+    Data, DataEnum, DataStruct, DeriveInput, Fields, FieldsNamed, FieldsUnnamed, Generics, Index,
+    Lifetime, Variant,
 };
 
 pub fn into_lua_impl(derive_input: DeriveInput) -> TokenStream {
@@ -17,11 +18,7 @@ pub fn into_lua_impl(derive_input: DeriveInput) -> TokenStream {
     gen_into_lua_impl(&ident, &generics, &into_lua_function_impl)
 }
 
-pub fn gen_into_lua_impl(
-    ident: &Ident,
-    generics: &Generics,
-    impl_body: &impl ToTokens,
-) -> TokenStream {
+fn gen_into_lua_impl(ident: &Ident, generics: &Generics, impl_body: &impl ToTokens) -> TokenStream {
     let lua_lifetime = generics
         .lifetimes()
         .next()
@@ -38,15 +35,15 @@ pub fn gen_into_lua_impl(
     }
 }
 
-pub fn into_lua_func(ident: &Ident, data: &Data) -> TokenStream {
+fn into_lua_func(ident: &Ident, data: &Data) -> TokenStream {
     match data {
         Data::Struct(strct) => into_lua_func_struct(ident, strct),
-        Data::Enum(_) => todo!(),
+        Data::Enum(enm) => into_lua_func_enum(ident, enm),
         Data::Union(_) => unimplemented!(),
     }
 }
 
-pub fn into_lua_func_struct(ident: &Ident, strct: &DataStruct) -> TokenStream {
+fn into_lua_func_struct(ident: &Ident, strct: &DataStruct) -> TokenStream {
     let fields_inserts = table_fields_inserts(&strct.fields);
     let make_table = make_type_table(ident, &fields_inserts);
 
@@ -55,14 +52,23 @@ pub fn into_lua_func_struct(ident: &Ident, strct: &DataStruct) -> TokenStream {
     }
 }
 
-pub fn make_type_table(ident: &Ident, fields_inserts: &impl ToTokens) -> TokenStream {
+fn into_lua_func_enum(ident: &Ident, enm: &DataEnum) -> TokenStream {
+    let enum_variant = table_enum_variant(ident, enm);
+    let make_table = make_type_table(ident, &enum_variant);
+
+    quote! {
+        #make_table
+    }
+}
+
+fn make_type_table(ident: &Ident, fields_inserts: &impl ToTokens) -> TokenStream {
     let ident_string = ident.to_string();
     quote! {
         let table = lua.create_table()?;
 
         table.set("type", #ident_string)?;
 
-        let values_table = #fields_inserts;
+        let values_table: Option<mlua::Table> = #fields_inserts;
         if let Some(values_table) = values_table {
             table.set("values", values_table)?;
         }
@@ -71,7 +77,7 @@ pub fn make_type_table(ident: &Ident, fields_inserts: &impl ToTokens) -> TokenSt
     }
 }
 
-pub fn table_fields_inserts(fields: &Fields) -> TokenStream {
+fn table_fields_inserts(fields: &Fields) -> TokenStream {
     match fields {
         Fields::Named(named) => table_named_fields_inserts(named),
         Fields::Unnamed(unnamed) => table_unnamed_fields_inserts(unnamed),
@@ -79,7 +85,7 @@ pub fn table_fields_inserts(fields: &Fields) -> TokenStream {
     }
 }
 
-pub fn table_unnamed_fields_inserts(unnamed: &FieldsUnnamed) -> TokenStream {
+fn table_unnamed_fields_inserts(unnamed: &FieldsUnnamed) -> TokenStream {
     let field_pushes = unnamed.unnamed.iter().enumerate().map(|(i, _)| {
         let index = Index {
             index: i as u32,
@@ -93,7 +99,7 @@ pub fn table_unnamed_fields_inserts(unnamed: &FieldsUnnamed) -> TokenStream {
     fields_value_table(field_pushes)
 }
 
-pub fn table_named_fields_inserts(named: &FieldsNamed) -> TokenStream {
+fn table_named_fields_inserts(named: &FieldsNamed) -> TokenStream {
     let field_pushes = named.named.iter().map(|f| {
         let ident = f.ident.as_ref().expect("Named field found without ident");
         let ident_string = ident.to_string();
@@ -105,7 +111,7 @@ pub fn table_named_fields_inserts(named: &FieldsNamed) -> TokenStream {
     fields_value_table(field_pushes)
 }
 
-pub fn fields_value_table<I, T>(field_pushes: I) -> TokenStream
+fn fields_value_table<I, T>(field_pushes: I) -> TokenStream
 where
     T: ToTokens,
     I: Iterator<Item = T>,
@@ -118,5 +124,37 @@ where
 
             Some(values)
         }
+    }
+}
+
+fn table_enum_variant(enum_ident: &Ident, enm: &DataEnum) -> TokenStream {
+    let enum_name_ident = format_ident!("{}Name", enum_ident);
+    let match_arms = enm
+        .variants
+        .iter()
+        .map(|v| table_enum_variant_arm(enum_ident, &v));
+    quote! {
+        {
+            let variant_name: &'static str = #enum_name_ident::from(&self).into();
+            table.set("variant", variant_name)?;
+            match self {
+                #(#match_arms)*
+            }
+        }
+    }
+}
+
+fn table_enum_variant_arm(enum_ident: &Ident, variant: &Variant) -> TokenStream {
+    let variant_ident = &variant.ident;
+    let values_init = match variant.fields {
+        Fields::Named(_) => todo!(),
+        Fields::Unnamed(_) => todo!(),
+        Fields::Unit => quote! {
+            #enum_ident::#variant_ident => { None }
+        },
+    };
+
+    quote! {
+        #values_init
     }
 }

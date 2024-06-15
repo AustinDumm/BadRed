@@ -180,7 +180,7 @@ fn from_lua_enum_variants(
                 &unnamed,
             ),
             syn::Fields::Unit => {
-                quote! { #variant_init_name }
+                quote! { Ok(#variant_init_name) }
             }
         };
         quote! {
