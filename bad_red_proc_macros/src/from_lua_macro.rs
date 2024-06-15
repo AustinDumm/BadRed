@@ -3,29 +3,27 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
-use quote::ToTokens;
 use syn::FieldsNamed;
 use syn::FieldsUnnamed;
 use syn::Generics;
 use syn::Lifetime;
 use syn::{parse_macro_input, DataEnum, DataStruct, DeriveInput, Ident};
 
-pub fn derive_from_lua_impl(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn derive_from_lua_impl(derive_input: DeriveInput) -> TokenStream {
     let DeriveInput {
         ident,
         data,
         generics,
         ..
-    } = parse_macro_input!(input as DeriveInput);
+    } = derive_input;
 
     match data {
         syn::Data::Struct(strct) => {
             from_lua_impl(ident.clone(), generics, body_from_lua_struct(ident, strct))
         }
-        syn::Data::Enum(enm) => derive_from_lua_enum(enm),
+        syn::Data::Enum(enm) => derive_from_lua_enum(ident, generics, enm),
         syn::Data::Union(_) => unimplemented!("Union not supported as a FromLua type"),
     }
-    .into()
 }
 
 fn body_from_lua_struct(ident: Ident, strct: DataStruct) -> TokenStream {
@@ -60,6 +58,7 @@ fn from_lua_impl_struct_type(ident: Ident, struct_init: TokenStream) -> TokenStr
                 message: Some(format!("Expected Table type FromLua for Rust type {}", #ident_str)),
             }),
         }?;
+
         let type_name = table.get::<&str, String>("type")?;
         if type_name == #ident_str {
             #struct_init
@@ -116,12 +115,51 @@ fn from_lua_impl_struct_named_fields(ident: Ident, fields: FieldsNamed) -> Token
     let field_idents = idents_fields_zip.map(|(ident, _)| ident);
 
     quote! {
+        let table = table.get::<&str, Table>("values")?;
         #(#field_extractions);*;
         Ok(#ident { #(#field_idents),* })
     }
 }
 
-fn derive_from_lua_enum(enm: DataEnum) -> TokenStream {
+fn derive_from_lua_enum(ident: Ident, generics: Generics, enm: DataEnum) -> TokenStream {
+    let init_body = derive_from_lua_enum_init(&ident, &enm);
+    let table_init = from_lua_impl_struct_type(ident.clone(), init_body);
+    let body = from_lua_impl(ident, generics, table_init);
+
+    quote! {
+        #body
+    }
+}
+
+fn derive_from_lua_enum_init(ident: &Ident, enm: &DataEnum) -> TokenStream {
+    let enum_ident_str = ident.to_string();
+    let enum_name_ident = format_ident!("{}Name", ident);
+    let enum_variant_impl = derive_from_lua_enum_variants(ident, &enum_name_ident, enm);
+
+    quote! {
+        let variant_name = table.get::<&str, String>("variant")?;
+        let variant = #enum_name_ident::from_str(variant_name.as_str())
+            .map_err(|e| mlua::Error::FromLuaConversionError {
+                from: "Table",
+                to: enum_ident_str,
+                message: Some(format!(
+                    "Failed to convert 'type' field to valid {} name: {:?}",
+                    #enum_ident_str,
+                    e,
+                )),
+            })?;
+
+        match variant {
+            #enum_variant_impl
+        }
+    }
+}
+
+fn derive_from_lua_enum_variants(
+    enum_ident: &Ident,
+    enum_name_ident: &Ident,
+    enm: &DataEnum
+) -> TokenStream {
     quote! {}
 }
 

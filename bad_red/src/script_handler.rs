@@ -6,7 +6,7 @@
 
 use std::str::FromStr;
 
-use bad_red_proc_macros::FromLua;
+use bad_red_proc_macros::auto_lua;
 use mlua::{FromLua, Function, IntoLua, Lua, Table, Value};
 use strum::IntoEnumIterator;
 use strum_macros::{EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
@@ -103,10 +103,9 @@ pub enum RedCall<'lua> {
     },
 }
 
-#[derive(FromLua)]
-struct Test {
-    first: u64,
-    second: String,
+#[auto_lua]
+enum Test {
+    Blah(f32)
 }
 
 impl<'lua> FromLua<'lua> for RedCall<'lua> {
