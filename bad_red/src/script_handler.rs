@@ -105,7 +105,10 @@ pub enum RedCall<'lua> {
 
 #[auto_lua]
 enum Test {
-    Blah
+    Blah {
+        thing: u32,
+        another: String,
+    },
 }
 
 impl<'lua> FromLua<'lua> for RedCall<'lua> {

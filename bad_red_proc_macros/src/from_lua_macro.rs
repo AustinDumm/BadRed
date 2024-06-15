@@ -30,7 +30,8 @@ pub fn derive_from_lua_impl(derive_input: DeriveInput) -> TokenStream {
 fn body_from_lua_struct(ident: Ident, strct: DataStruct) -> TokenStream {
     match strct.fields {
         syn::Fields::Named(named) => {
-            let struct_init = from_lua_impl_struct_named_fields(ident.clone(), named);
+            let struct_init =
+                from_lua_impl_struct_named_fields(ident.clone(), ident.clone(), named);
             let body = from_lua_impl_struct_type(ident, struct_init);
 
             quote! {
@@ -38,13 +39,16 @@ fn body_from_lua_struct(ident: Ident, strct: DataStruct) -> TokenStream {
             }
         }
         syn::Fields::Unnamed(unnamed) => {
-            let struct_init = from_lua_impl_struct_unnamed_fields(ident.clone(), ident.clone(), unnamed);
+            let struct_init =
+                from_lua_impl_struct_unnamed_fields(ident.clone(), ident.clone(), unnamed);
             let body = from_lua_impl_struct_type(ident, struct_init);
             quote! {
                 #body
             }
         }
-        syn::Fields::Unit => from_lua_impl_struct_type(ident.clone(), from_lua_unit_struct_init(ident)),
+        syn::Fields::Unit => {
+            from_lua_impl_struct_type(ident.clone(), from_lua_unit_struct_init(ident))
+        }
     }
 }
 
@@ -79,7 +83,11 @@ fn from_lua_unit_struct_init(ident: Ident) -> TokenStream {
     }
 }
 
-fn from_lua_impl_struct_unnamed_fields(ident: Ident, init_name: impl ToTokens, fields: FieldsUnnamed) -> TokenStream {
+fn from_lua_impl_struct_unnamed_fields(
+    ident: Ident,
+    init_name: impl ToTokens,
+    fields: FieldsUnnamed,
+) -> TokenStream {
     let field_idents = fields
         .unnamed
         .iter()
@@ -102,7 +110,11 @@ fn from_lua_impl_struct_unnamed_fields(ident: Ident, init_name: impl ToTokens, f
     }
 }
 
-fn from_lua_impl_struct_named_fields(ident: Ident, fields: FieldsNamed) -> TokenStream {
+fn from_lua_impl_struct_named_fields(
+    ident: Ident,
+    init_expr: impl ToTokens,
+    fields: FieldsNamed,
+) -> TokenStream {
     let idents_fields_zip = fields.named.iter().map(|f| (f.clone().ident.unwrap(), f));
 
     let field_extractions = idents_fields_zip.clone().map(|(ident, field)| {
@@ -118,7 +130,7 @@ fn from_lua_impl_struct_named_fields(ident: Ident, fields: FieldsNamed) -> Token
     quote! {
         let table = table.get::<&str, Table>("values")?;
         #(#field_extractions);*;
-        Ok(#ident { #(#field_idents),* })
+        Ok(#init_expr { #(#field_idents),* })
     }
 }
 
@@ -159,16 +171,22 @@ fn derive_from_lua_enum_init(ident: &Ident, enm: &DataEnum) -> TokenStream {
 fn derive_from_lua_enum_variants(
     enum_ident: &Ident,
     enum_name_ident: &Ident,
-    enm: &DataEnum
+    enm: &DataEnum,
 ) -> TokenStream {
     let arm_iter = enm.variants.iter().map(|variant| {
         let variant_ident = &variant.ident;
         let variant_init_name = quote! { #enum_ident::#variant_ident };
         let values_init = match &variant.fields {
-            syn::Fields::Named(_) => todo!(),
-            syn::Fields::Unnamed(unnamed) => {
-                from_lua_impl_struct_unnamed_fields(enum_ident.clone(), variant_init_name, unnamed.clone())
-            }
+            syn::Fields::Named(named) => from_lua_impl_struct_named_fields(
+                enum_ident.clone(),
+                variant_init_name,
+                named.clone(),
+            ),
+            syn::Fields::Unnamed(unnamed) => from_lua_impl_struct_unnamed_fields(
+                enum_ident.clone(),
+                variant_init_name,
+                unnamed.clone(),
+            ),
             syn::Fields::Unit => {
                 quote! { #variant_init_name }
             }
