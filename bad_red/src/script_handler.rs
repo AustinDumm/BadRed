@@ -105,7 +105,7 @@ pub enum RedCall<'lua> {
 
 #[auto_lua]
 enum Test {
-    Blah(f32)
+    Blah
 }
 
 impl<'lua> FromLua<'lua> for RedCall<'lua> {

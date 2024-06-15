@@ -169,7 +169,9 @@ fn derive_from_lua_enum_variants(
             syn::Fields::Unnamed(unnamed) => {
                 from_lua_impl_struct_unnamed_fields(enum_ident.clone(), variant_init_name, unnamed.clone())
             }
-            syn::Fields::Unit => todo!(),
+            syn::Fields::Unit => {
+                quote! { #variant_init_name }
+            }
         };
         quote! {
             #enum_name_ident::#variant_ident => {
