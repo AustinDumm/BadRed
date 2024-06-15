@@ -8,9 +8,9 @@ use syn::FieldsNamed;
 use syn::FieldsUnnamed;
 use syn::Generics;
 use syn::Lifetime;
-use syn::{parse_macro_input, DataEnum, DataStruct, DeriveInput, Ident};
+use syn::{DataEnum, DataStruct, DeriveInput, Ident};
 
-pub fn derive_from_lua_impl(derive_input: DeriveInput) -> TokenStream {
+pub fn from_lua_impl(derive_input: DeriveInput) -> TokenStream {
     let DeriveInput {
         ident,
         data,
@@ -20,9 +20,9 @@ pub fn derive_from_lua_impl(derive_input: DeriveInput) -> TokenStream {
 
     match data {
         syn::Data::Struct(strct) => {
-            from_lua_impl(&ident, &generics, &body_from_lua_struct(&ident, &strct))
+            gen_from_lua_impl(&ident, &generics, &body_from_lua_struct(&ident, &strct))
         }
-        syn::Data::Enum(enm) => derive_from_lua_enum(&ident, &generics, &enm),
+        syn::Data::Enum(enm) => from_lua_enum(&ident, &generics, &enm),
         syn::Data::Union(_) => unimplemented!("Union not supported as a FromLua type"),
     }
 }
@@ -128,20 +128,20 @@ fn from_lua_impl_struct_named_fields(
     }
 }
 
-fn derive_from_lua_enum(ident: &Ident, generics: &Generics, enm: &DataEnum) -> TokenStream {
-    let init_body = derive_from_lua_enum_init(&ident, &enm);
+fn from_lua_enum(ident: &Ident, generics: &Generics, enm: &DataEnum) -> TokenStream {
+    let init_body = from_lua_enum_init(&ident, &enm);
     let table_init = from_lua_impl_struct_type(&ident, &init_body);
-    let body = from_lua_impl(ident, generics, &table_init);
+    let body = gen_from_lua_impl(ident, generics, &table_init);
 
     quote! {
         #body
     }
 }
 
-fn derive_from_lua_enum_init(ident: &Ident, enm: &DataEnum) -> TokenStream {
+fn from_lua_enum_init(ident: &Ident, enm: &DataEnum) -> TokenStream {
     let enum_ident_str = ident.to_string();
     let enum_name_ident = format_ident!("{}Name", ident);
-    let enum_variant_impl = derive_from_lua_enum_variants(ident, &enum_name_ident, enm);
+    let enum_variant_impl = from_lua_enum_variants(ident, &enum_name_ident, enm);
 
     quote! {
         let variant_name = table.get::<&str, String>("variant")?;
@@ -162,7 +162,7 @@ fn derive_from_lua_enum_init(ident: &Ident, enm: &DataEnum) -> TokenStream {
     }
 }
 
-fn derive_from_lua_enum_variants(
+fn from_lua_enum_variants(
     enum_ident: &Ident,
     enum_name_ident: &Ident,
     enm: &DataEnum,
@@ -193,7 +193,7 @@ fn derive_from_lua_enum_variants(
     quote! { #(#arm_iter)* }
 }
 
-fn from_lua_impl(ident: &Ident, generics: &Generics, impl_body: &TokenStream) -> TokenStream {
+fn gen_from_lua_impl(ident: &Ident, generics: &Generics, impl_body: &TokenStream) -> TokenStream {
     let lua_lifetime = generics
         .lifetimes()
         .next()

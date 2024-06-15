@@ -104,12 +104,7 @@ pub enum RedCall<'lua> {
 }
 
 #[auto_lua]
-enum Test {
-    Blah {
-        thing: u32,
-        another: String,
-    },
-}
+struct Test;
 
 impl<'lua> FromLua<'lua> for RedCall<'lua> {
     fn from_lua(value: Value<'lua>, _lua: &'lua Lua) -> mlua::prelude::LuaResult<Self> {
