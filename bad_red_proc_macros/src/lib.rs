@@ -6,6 +6,7 @@ use syn::DeriveInput;
 mod from_lua_macro;
 mod into_lua_macro;
 mod type_derives;
+mod script_table;
 
 #[proc_macro_attribute]
 pub fn auto_lua(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -15,6 +16,11 @@ pub fn auto_lua(args: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn auto_lua_defaulting(args: TokenStream, item: TokenStream) -> TokenStream {
     auto_lua_impl(args, item, true)
+}
+
+#[proc_macro_attribute]
+pub fn auto_script_table(_args: TokenStream, item: TokenStream) -> TokenStream {
+    script_table::script_table_impl(item.into()).into()
 }
 
 fn auto_lua_impl(_args: TokenStream, item: TokenStream, has_default: bool) -> TokenStream {
