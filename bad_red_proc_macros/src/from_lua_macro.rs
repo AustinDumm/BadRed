@@ -10,7 +10,7 @@ use syn::Generics;
 use syn::Lifetime;
 use syn::{DataEnum, DataStruct, DeriveInput, Ident};
 
-pub fn from_lua_impl(derive_input: &DeriveInput) -> TokenStream {
+pub fn from_lua_impl(derive_input: &DeriveInput, has_default: bool) -> TokenStream {
     let DeriveInput {
         ident,
         data,
@@ -20,18 +20,18 @@ pub fn from_lua_impl(derive_input: &DeriveInput) -> TokenStream {
 
     match data {
         syn::Data::Struct(strct) => {
-            gen_from_lua_impl(&ident, &generics, &body_from_lua_struct(&ident, &strct))
+            gen_from_lua_impl(&ident, &generics, &body_from_lua_struct(&ident, &strct, has_default))
         }
-        syn::Data::Enum(enm) => from_lua_enum(&ident, &generics, &enm),
+        syn::Data::Enum(enm) => from_lua_enum(&ident, &generics, &enm, has_default),
         syn::Data::Union(_) => unimplemented!("Union not supported as a FromLua type"),
     }
 }
 
-fn body_from_lua_struct(ident: &Ident, strct: &DataStruct) -> TokenStream {
+fn body_from_lua_struct(ident: &Ident, strct: &DataStruct, has_default: bool) -> TokenStream {
     match &strct.fields {
         syn::Fields::Named(named) => {
             let struct_init = from_lua_impl_struct_named_fields(&ident, &named);
-            let body = from_lua_impl_struct_type(&ident, &struct_init);
+            let body = from_lua_impl_struct_type(&ident, &struct_init, has_default);
 
             quote! {
                 #body
@@ -39,24 +39,33 @@ fn body_from_lua_struct(ident: &Ident, strct: &DataStruct) -> TokenStream {
         }
         syn::Fields::Unnamed(unnamed) => {
             let struct_init = from_lua_impl_struct_unnamed_fields(&ident, &unnamed);
-            let body = from_lua_impl_struct_type(&ident, &struct_init);
+            let body = from_lua_impl_struct_type(&ident, &struct_init, has_default);
             quote! {
                 #body
             }
         }
-        syn::Fields::Unit => from_lua_impl_struct_type(&ident, &from_lua_unit_struct_init(&ident)),
+        syn::Fields::Unit => from_lua_impl_struct_type(&ident, &from_lua_unit_struct_init(&ident), has_default),
     }
 }
 
-fn from_lua_impl_struct_type(ident: &Ident, struct_init: &TokenStream) -> TokenStream {
+fn from_lua_impl_struct_type(ident: &Ident, struct_init: &TokenStream, is_default: bool) -> TokenStream {
     let ident_str = ident.to_string();
+    let default_arm = if is_default {
+        quote! {
+            mlua::Value::Nil => return Ok(#ident::default()),
+        }
+    } else {
+        quote! {}
+    };
+
     quote! {
         let table = match value {
             mlua::Value::Table(table) => Ok(table),
-            _ => Err(mlua::Error::FromLuaConversionError {
+            #default_arm
+            v => Err(mlua::Error::FromLuaConversionError {
                 from: "Value",
                 to: #ident_str,
-                message: Some(format!("Expected Table type FromLua for Rust type {}", #ident_str)),
+                message: Some(format!("Expected Table type FromLua for Rust type {}. Found: {:?}", #ident_str, v)),
             }),
         }?;
 
@@ -128,9 +137,9 @@ fn from_lua_impl_struct_named_fields(
     }
 }
 
-fn from_lua_enum(ident: &Ident, generics: &Generics, enm: &DataEnum) -> TokenStream {
+fn from_lua_enum(ident: &Ident, generics: &Generics, enm: &DataEnum, has_default: bool) -> TokenStream {
     let init_body = from_lua_enum_init(&ident, &enm);
-    let table_init = from_lua_impl_struct_type(&ident, &init_body);
+    let table_init = from_lua_impl_struct_type(&ident, &init_body, has_default);
     let body = gen_from_lua_impl(ident, generics, &table_init);
 
     quote! {

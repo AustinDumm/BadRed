@@ -5,7 +5,7 @@
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 
-use bad_red_proc_macros::auto_lua;
+use bad_red_proc_macros::auto_lua_defaulting;
 use mlua::{Function, Lua, Table};
 use strum::IntoEnumIterator;
 
@@ -19,8 +19,10 @@ trait ScriptObject {
     fn lua_object<'lua>(lua: &'lua Lua) -> mlua::Result<Table<'lua>>;
 }
 
-#[auto_lua]
+#[auto_lua_defaulting]
+#[derive(Default)]
 pub enum RedCall<'lua> {
+    #[default]
     None,
     Yield,
     PaneVSplit {
