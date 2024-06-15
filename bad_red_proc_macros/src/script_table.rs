@@ -26,11 +26,11 @@ fn script_table_impl_body(ident: &Ident, generics: &Generics, data: &Data) -> To
         Data::Union(_) => unimplemented!(),
     };
 
-    let lifetime = Lifetime::new("'_auto_generated_lua_lifetime", Span::call_site());
+    let lifetime = Lifetime::new("'lua", Span::call_site());
     let anon_lifetime = Lifetime::new("'_", Span::call_site());
 
     quote! {
-        impl #generics ScriptObject for #ident #anon_lifetime {
+        impl ScriptObject for #ident <#anon_lifetime> {
             fn lua_object<#lifetime>(lua: &#lifetime Lua) -> mlua::Result<Table<#lifetime>> {
                 use strum::IntoEnumIterator;
                 #body
