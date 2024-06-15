@@ -107,6 +107,7 @@ pub enum RedCall<'lua> {
 enum Test {
     One,
     Two(u32),
+    Three { a: bool, b: String },
 }
 
 impl<'lua> FromLua<'lua> for RedCall<'lua> {

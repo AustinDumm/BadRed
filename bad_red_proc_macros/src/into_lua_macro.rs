@@ -147,7 +147,7 @@ fn table_enum_variant(enum_ident: &Ident, enm: &DataEnum) -> TokenStream {
 fn table_enum_variant_arm(enum_ident: &Ident, variant: &Variant) -> TokenStream {
     let variant_ident = &variant.ident;
     let values_init = match &variant.fields {
-        Fields::Named(_) => todo!(),
+        Fields::Named(named) => table_enum_named_variant_arm(enum_ident, variant_ident, named),
         Fields::Unnamed(unnamed) => {
             table_enum_unnamed_variant_arm(enum_ident, variant_ident, unnamed)
         }
@@ -184,6 +184,32 @@ fn table_enum_unnamed_variant_arm(
 
     quote! {
         #enum_ident::#variant_ident(#(#fields_names),*) => {
+            let values = lua.create_table()?;
+            #(#fields_inserts)*
+            Some(values)
+        }
+    }
+}
+
+fn table_enum_named_variant_arm(
+    enum_ident: &Ident,
+    variant_ident: &Ident,
+    named: &FieldsNamed,
+) -> TokenStream {
+    let fields_idents = named.named.iter().map(|f| {
+        f.ident
+            .as_ref()
+            .expect("Named fields expected to have ident. Found: none")
+    });
+    let fields_inserts = fields_idents.clone().map(|i| {
+        let ident_string = i.to_string();
+        quote! {
+            values.set(#ident_string, #i)?;
+        }
+    });
+
+    quote! {
+        #enum_ident::#variant_ident { #(#fields_idents),* } => {
             let values = lua.create_table()?;
             #(#fields_inserts)*
             Some(values)
