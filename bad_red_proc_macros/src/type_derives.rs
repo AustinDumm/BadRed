@@ -1,6 +1,6 @@
 use quote::{format_ident, quote};
 use proc_macro2::{TokenStream, Ident, Span};
-use syn::{DataEnum, DeriveInput, Lifetime};
+use syn::{DeriveInput, Lifetime};
 
 pub fn type_derives(typedef: &DeriveInput) -> TokenStream {
     match typedef.data {
@@ -8,9 +8,9 @@ pub fn type_derives(typedef: &DeriveInput) -> TokenStream {
         syn::Data::Enum(_) => {
             let name_ident = format_ident!("{}Name", typedef.ident);
             quote! {
-                #[strum(serialize_all = "snake_case")]
-                #[strum_discriminants(derive(strum_macros::IntoStaticStr, strum_macros::EnumString, strum_macros::EnumIter, Hash))]
                 #[derive(strum_macros::EnumDiscriminants)]
+                #[strum_discriminants(derive(strum_macros::IntoStaticStr, strum_macros::EnumString, strum_macros::EnumIter, Hash))]
+                #[strum(serialize_all = "snake_case")]
                 #[strum_discriminants(strum(serialize_all = "snake_case"))]
                 #[strum_discriminants(name(#name_ident))]
             }
@@ -22,8 +22,8 @@ pub fn type_derives(typedef: &DeriveInput) -> TokenStream {
 pub fn name_type_impls(typedef: &DeriveInput) -> TokenStream {
     match &typedef.data {
         syn::Data::Struct(_) => quote! {},
-        syn::Data::Enum(enm) => {
-            let from_lua = name_type_from_lua(&typedef.ident, enm);
+        syn::Data::Enum(_) => {
+            let from_lua = name_type_from_lua(&typedef.ident);
             let into_lua = name_type_into_lua(&typedef.ident);
 
             quote! {
@@ -35,7 +35,7 @@ pub fn name_type_impls(typedef: &DeriveInput) -> TokenStream {
     }
 }
 
-pub fn name_type_from_lua(enum_ident: &Ident, enm: &DataEnum) -> TokenStream {
+pub fn name_type_from_lua(enum_ident: &Ident) -> TokenStream {
     let lua_lifetime = Lifetime::new("'lua", Span::call_site());
     let name_ident = format_ident!("{}Name", enum_ident);
     let name_ident_string = name_ident.to_string();

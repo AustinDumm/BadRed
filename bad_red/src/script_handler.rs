@@ -4,12 +4,10 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-use std::str::FromStr;
 
 use bad_red_proc_macros::auto_lua;
-use mlua::{FromLua, Function, IntoLua, Lua, Table, Value};
+use mlua::{Function, Lua, Table};
 use strum::IntoEnumIterator;
-use strum_macros::{EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 use crate::hook_map::{Hook, HookName};
 
