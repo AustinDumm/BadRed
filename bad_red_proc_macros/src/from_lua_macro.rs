@@ -4,6 +4,7 @@ use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
 use quote::ToTokens;
+use syn::FieldsNamed;
 use syn::FieldsUnnamed;
 use syn::Generics;
 use syn::Lifetime;
@@ -29,20 +30,26 @@ pub fn derive_from_lua_impl(input: proc_macro::TokenStream) -> proc_macro::Token
 
 fn body_from_lua_struct(ident: Ident, strct: DataStruct) -> TokenStream {
     match strct.fields {
-        syn::Fields::Named(_) => todo!(),
-        syn::Fields::Unnamed(unnamed) => {
-            let type_extract = from_lua_impl_struct_type(ident.clone());
-            let value_extract = from_lua_impl_struct_unnamed_fields(ident, unnamed);
+        syn::Fields::Named(named) => {
+            let struct_init = from_lua_impl_struct_named_fields(ident.clone(), named);
+            let body = from_lua_impl_struct_type(ident, struct_init);
+
             quote! {
-                #type_extract?;
-                #value_extract
+                #body
             }
-        },
-        syn::Fields::Unit => from_lua_impl_struct_type(ident),
+        }
+        syn::Fields::Unnamed(unnamed) => {
+            let struct_init = from_lua_impl_struct_unnamed_fields(ident.clone(), unnamed);
+            let body = from_lua_impl_struct_type(ident, struct_init);
+            quote! {
+                #body
+            }
+        }
+        syn::Fields::Unit => from_lua_impl_struct_type(ident.clone(), from_lua_unit_struct_init(ident)),
     }
 }
 
-fn from_lua_impl_struct_type(ident: Ident) -> TokenStream {
+fn from_lua_impl_struct_type(ident: Ident, struct_init: TokenStream) -> TokenStream {
     let ident_str = ident.to_string();
     quote! {
         let table = match value {
@@ -55,7 +62,7 @@ fn from_lua_impl_struct_type(ident: Ident) -> TokenStream {
         }?;
         let type_name = table.get::<&str, String>("type")?;
         if type_name == #ident_str {
-            Ok(#ident)
+            #struct_init
         } else {
             Err(mlua::Error::FromLuaConversionError {
                 from: "Table",
@@ -66,6 +73,12 @@ fn from_lua_impl_struct_type(ident: Ident) -> TokenStream {
     }
 }
 
+fn from_lua_unit_struct_init(ident: Ident) -> TokenStream {
+    quote! {
+        Ok(#ident)
+    }
+}
+
 fn from_lua_impl_struct_unnamed_fields(ident: Ident, fields: FieldsUnnamed) -> TokenStream {
     let field_idents = fields
         .unnamed
@@ -73,23 +86,38 @@ fn from_lua_impl_struct_unnamed_fields(ident: Ident, fields: FieldsUnnamed) -> T
         .enumerate()
         .map(|(i, f)| (format_ident!("field{}", i), f));
 
-    let field_extractions = field_idents
-        .clone()
-        .rev()
-        .map(|(field_name, f)| {
-            let ty = &f.ty;
-            quote! {
-                let #field_name: #ty = table.pop()?;
-            }
-        });
+    let field_extractions = field_idents.clone().rev().map(|(field_name, f)| {
+        let ty = &f.ty;
+        quote! {
+            let #field_name: #ty = table.pop()?;
+        }
+    });
 
-    let field_list = field_idents
-        .map(|(name, _)| name);
+    let field_list = field_idents.map(|(name, _)| name);
 
     quote! {
         let table = table.get::<&str, mlua::Table>("values")?;
         #(#field_extractions);*;
         Ok(#ident(#(#field_list),*))
+    }
+}
+
+fn from_lua_impl_struct_named_fields(ident: Ident, fields: FieldsNamed) -> TokenStream {
+    let idents_fields_zip = fields.named.iter().map(|f| (f.clone().ident.unwrap(), f));
+
+    let field_extractions = idents_fields_zip.clone().map(|(ident, field)| {
+        let ty = &field.ty;
+        let ident_str = ident.to_string();
+        quote! {
+            let #ident = table.get::<&str, #ty>(#ident_str)?;
+        }
+    });
+
+    let field_idents = idents_fields_zip.map(|(ident, _)| ident);
+
+    quote! {
+        #(#field_extractions);*;
+        Ok(#ident { #(#field_idents),* })
     }
 }
 

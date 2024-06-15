@@ -104,7 +104,10 @@ pub enum RedCall<'lua> {
 }
 
 #[derive(FromLua)]
-struct Test(u64, String);
+struct Test {
+    first: u64,
+    second: String,
+}
 
 impl<'lua> FromLua<'lua> for RedCall<'lua> {
     fn from_lua(value: Value<'lua>, _lua: &'lua Lua) -> mlua::prelude::LuaResult<Self> {
