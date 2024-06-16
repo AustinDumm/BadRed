@@ -212,12 +212,13 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                    match &node.node_type {
+                    let (first_changed_pane, second_changed_pane) = match &node.node_type {
                         PaneNodeType::Leaf(_) => Err(Error::Script(format!(
                             "Attempted to set split type for a leaf node at index: {}",
                             index
                         ))),
                         PaneNodeType::VSplit(old_split) => {
+                            let panes_used = (old_split.first, old_split.second);
                             node.node_type = PaneNodeType::VSplit(Split {
                                 first: old_split.first,
                                 second: old_split.second,
@@ -226,9 +227,10 @@ impl<'lua> ScriptScheduler<'lua> {
                                 },
                             });
 
-                            Ok(())
+                            Ok(panes_used)
                         }
                         PaneNodeType::HSplit(old_split) => {
+                            let panes_used = (old_split.first, old_split.second);
                             node.node_type = PaneNodeType::HSplit(Split {
                                 first: old_split.first,
                                 second: old_split.second,
@@ -237,9 +239,30 @@ impl<'lua> ScriptScheduler<'lua> {
                                 },
                             });
 
-                            Ok(())
+                            Ok(panes_used)
                         }
                     }?;
+
+                    editor_state
+                        .pane_tree
+                        .pane_node_mut_by_index(first_changed_pane)
+                        .ok_or_else(|| {
+                            Error::Recoverable(format!(
+                                "Failed to find pane node while changing size for index: {}",
+                                first_changed_pane
+                            ))
+                        })?
+                        .is_dirty = true;
+                    editor_state
+                        .pane_tree
+                        .pane_node_mut_by_index(second_changed_pane)
+                        .ok_or_else(|| {
+                            Error::Recoverable(format!(
+                                "Failed to find pane node while changing size for index: {}",
+                                second_changed_pane
+                            ))
+                        })?
+                        .is_dirty = true;
 
                     self.run_script(next, ())
                 }

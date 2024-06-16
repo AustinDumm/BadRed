@@ -62,13 +62,14 @@ function P:increase_size()
     local parent = self:parent()
     local parent_type = parent:type()
 
-    if parent_type.type == "Leaf" then
+    if parent_type.variant == "leaf" then
         return
     end
 
-    local split = parent_type.split
-    if split.type == "Percent" then
-        local percent = split.first_percent
+    local split = parent_type.values[1].values
+    local split_type = split.split_type
+    if split_type.variant == "percent" then
+        local percent = split_type.values.first_percent
         local shift
         if is_first_child then
             shift = 0.1
@@ -81,10 +82,11 @@ function P:increase_size()
         elseif new_percent > 1.0 then
             new_percent = 1.0
         end
-        coroutine.yield(red.call.pane_set_split_percent(parent_id, new_percent))
 
-    elseif split.type == "FirstFixed" then
-    elseif split.type == "SecondFixed" then
+        coroutine.yield(red.call.pane_set_split_percent(parent.id, new_percent))
+
+    elseif split.type == "first_fixed" then
+    elseif split.type == "second_fixed" then
     end
 end
 
@@ -93,13 +95,14 @@ function P:decrease_size()
     local parent = self:parent()
     local parent_type = parent:type()
 
-    if parent_type.type == "Leaf" then
+    if parent_type.variant == "leaf" then
         return
     end
 
-    local split = parent_type.split
-    if split.type == "Percent" then
-        local percent = split.first_percent
+    local split = parent_type.values[1].values
+    local split_type = split.split_type
+    if split_type.variant == "percent" then
+        local percent = split_type.values.first_percent
         local shift
         if is_first_child then
             shift = -0.1
@@ -112,10 +115,11 @@ function P:decrease_size()
         elseif new_percent > 1.0 then
             new_percent = 1.0
         end
-        coroutine.yield(red.call.pane_set_split_percent(parent_id, new_percent))
 
-    elseif split.type == "FirstFixed" then
-    elseif split.type == "SecondFixed" then
+        coroutine.yield(red.call.pane_set_split_percent(parent.id, new_percent))
+
+    elseif split.type == "first_fixed" then
+    elseif split.type == "second_fixed" then
     end
 end
 

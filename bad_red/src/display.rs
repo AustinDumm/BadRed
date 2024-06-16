@@ -17,7 +17,7 @@ use std::{
 use crate::{
     editor_frame::EditorFrame,
     editor_state::{Editor, EditorState},
-    pane::{Pane, PaneNodeType, PaneTree, Split},
+    pane::{Pane, PaneNode, PaneNodeType, PaneTree, Split},
 };
 
 pub struct Display {
@@ -94,7 +94,7 @@ impl Display {
         match &node.node_type {
             PaneNodeType::Leaf(ref pane) => {
                 let pane_cursor =
-                    self.render_leaf_pane(pane, node_index, editor_state, editor_frame)?;
+                    self.render_leaf_pane(node, pane, node_index, editor_state, editor_frame)?;
                 if editor_state.active_pane_index == node_index {
                     Ok(pane_cursor)
                 } else {
@@ -259,6 +259,7 @@ impl Display {
 
     fn render_leaf_pane(
         &mut self,
+        pane_node: &PaneNode,
         pane: &Pane,
         pane_id: usize,
         editor_state: &EditorState,
@@ -273,7 +274,7 @@ impl Display {
                 ),
             ));
         };
-        if !buffer.is_dirty && editor_state.active_pane_index != pane_id {
+        if !buffer.is_dirty && !pane_node.is_dirty && editor_state.active_pane_index != pane_id {
             return Ok(None);
         }
 
