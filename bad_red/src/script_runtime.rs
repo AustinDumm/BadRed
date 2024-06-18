@@ -342,9 +342,33 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(next, ())
                     }
+                    RedCall::PaneSetBuffer {
+                        pane_index,
+                        buffer_index,
+                    } => {
+                        let pane = editor_state
+                            .pane_tree
+                            .pane_node_mut_by_index(pane_index)
+                            .ok_or_else(|| {
+                                Error::Script(format!(
+                                    "Attempted to set buffer {} for invalid pane: {}",
+                                    buffer_index, pane_index
+                                ))
+                            })?;
+                        match pane.node_type {
+                            PaneNodeType::Leaf(ref mut pane) => {
+                                pane.buffer_id = buffer_index;
+                                self.run_script(next, ())
+                            }
+                            PaneNodeType::VSplit(_) |
+                            PaneNodeType::HSplit(_) => {
+                                Err(Error::Script(format!("Attempted to set buffer {} for split pane at index {}", buffer_index, pane_index)))
+                            },
+                        }
+                    }
 
                     RedCall::BufferInsert { buffer_id, content } => {
-                        let Some(buffer) = editor_state.buffer_by_id(buffer_id) else {
+                        let Some(buffer) = editor_state.mut_buffer_by_id(buffer_id) else {
                             return Ok(true);
                         };
                         buffer.insert_at_cursor(&content);
@@ -402,7 +426,7 @@ impl<'lua> ScriptScheduler<'lua> {
                         buffer_id,
                         char_count,
                     } => {
-                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                        let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
                                 "Attempted to delete characters from non-existent buffer: {}",
                                 buffer_id
@@ -418,7 +442,7 @@ impl<'lua> ScriptScheduler<'lua> {
                         char_count,
                         move_left,
                     } => {
-                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                        let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
                                 "Attempted BufferCursorMoveChar for non-existent buffer: {}",
                                 buffer_id
@@ -453,7 +477,7 @@ impl<'lua> ScriptScheduler<'lua> {
                         buffer_id,
                         cursor_index,
                     } => {
-                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                        let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
                                 "Attempted BufferSetCursorIndex for non-existent buffer: {}",
                                 buffer_id
@@ -473,6 +497,14 @@ impl<'lua> ScriptScheduler<'lua> {
                         })?;
 
                         self.run_script(next, buffer.content())
+                    }
+                    RedCall::BufferOpen => {
+                        let new_buffer_id = editor_state.create_buffer();
+                        self.run_script(next, new_buffer_id)
+                    }
+                    RedCall::BufferClose { buffer_id } => {
+                        editor_state.remove_buffer(buffer_id)?;
+                        self.run_script(next, ())
                     }
                 }?;
 

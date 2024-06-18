@@ -7,23 +7,7 @@
 local P = {}
 Command = P
 
-function P.start_command()
-    local pane = red.pane:current()
-
-    local old_root_pane = red.pane:root()
-    old_root_pane:h_split()
-
-    local root_pane = red.pane:root()
-    root_pane:fix_size(1, false)
-
-    local command_pane = root_pane:child(false)
-    command_pane:set_active()
-
-    local old_map = red.keymap.current
-    red.keymap.current = command_keymap(pane, root_pane, old_map, command_pane:buffer())
-end
-
-function command_keymap(origin_pane, root_pane, old_map, command_buffer)
+local function command_keymap(origin_pane, root_pane, old_map, command_buffer)
     local new_map = red.keymap:new_map()
     new_map.__index = function(_, _)
         return function(key)
@@ -36,7 +20,9 @@ function command_keymap(origin_pane, root_pane, old_map, command_buffer)
         return string.len(command) == 0
     end
     local function exit_command()
+        command_buffer:clear()
         root_pane:close_child(false)
+        command_buffer:close()
         origin_pane:set_active()
         red.keymap.current = old_map
     end
@@ -74,4 +60,22 @@ function command_keymap(origin_pane, root_pane, old_map, command_buffer)
     return new_map
 end
 
+function P.start_command()
+    local pane = red.pane:current()
+
+    local old_root_pane = red.pane:root()
+    old_root_pane:h_split()
+
+    local root_pane = red.pane:root()
+    root_pane:fix_size(1, false)
+
+    local command_pane = root_pane:child(false)
+    command_pane:set_active()
+
+    local command_buffer = red.buffer:open()
+    command_pane:set_buffer(command_buffer)
+
+    local old_map = red.keymap.current
+    red.keymap.current = command_keymap(pane, root_pane, old_map, command_buffer)
+end
 return Command

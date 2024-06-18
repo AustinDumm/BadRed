@@ -15,6 +15,15 @@ function P:new(id)
     return instance
 end
 
+function P:open()
+    local id = coroutine.yield(red.call.buffer_open())
+    return P:new(id)
+end
+
+function P:close()
+    coroutine.yield(red.call.buffer_close(self.id))
+end
+
 function P:current()
     id = coroutine.yield(red.call.current_buffer_id())
     return self:new(id)

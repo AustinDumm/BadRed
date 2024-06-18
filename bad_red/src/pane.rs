@@ -206,7 +206,7 @@ impl PaneTree {
                 }
             }
         } else if self.root_index == parent_index {
-            self.root_index = parent_index
+            self.root_index = child_to_keep
         } else {
             Err(format!(
                 "Tried to close child of node {} without a parent that is not the root index {}.",

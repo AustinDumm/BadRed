@@ -274,7 +274,7 @@ impl Display {
         editor_state: &EditorState,
         editor_frame: &EditorFrame,
     ) -> io::Result<Option<(u16, u16)>> {
-        let Some(buffer) = &editor_state.buffers.get(pane.buffer_id) else {
+        let Some(buffer) = &editor_state.buffer_by_id(pane.buffer_id) else {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
                 format!(

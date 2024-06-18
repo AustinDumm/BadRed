@@ -65,6 +65,10 @@ pub enum RedCall<'lua> {
         index: usize,
         first_child: bool,
     },
+    PaneSetBuffer {
+        pane_index: usize,
+        buffer_index: usize,
+    },
 
     SetHook {
         hook_name: HookName,
@@ -103,6 +107,10 @@ pub enum RedCall<'lua> {
         cursor_index: usize,
     },
     BufferContent {
+        buffer_id: usize,
+    },
+    BufferOpen,
+    BufferClose {
         buffer_id: usize,
     },
 }
