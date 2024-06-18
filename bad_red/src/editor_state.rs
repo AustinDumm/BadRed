@@ -123,7 +123,7 @@ impl EditorState {
         let active_pane = self.pane_tree.pane_node_by_index(index).ok_or_else(|| {
             Error::Unrecoverable(format!(
                 "Attempted to split pane but could not find pane at index: {}",
-                self.active_pane_index
+                index
             ))
         })?;
 
@@ -157,16 +157,35 @@ impl EditorState {
     }
 
     pub fn hsplit(&mut self, index: usize) -> Result<()> {
-        let active_pane = self.pane_tree.pane_by_index(index).ok_or_else(|| {
+        let active_pane = self.pane_tree.pane_node_by_index(index).ok_or_else(|| {
             Error::Unrecoverable(format!(
                 "Attempted to split pane but could not find pane at index: {}",
-                self.active_pane_index
+                index
             ))
         })?;
 
+        let mut current_pane = active_pane;
+
+        let buffer_id = loop {
+            match &current_pane.node_type {
+                pane::PaneNodeType::Leaf(pane) => break pane.buffer_id,
+                pane::PaneNodeType::VSplit(split) | pane::PaneNodeType::HSplit(split) => {
+                    current_pane = self
+                        .pane_tree
+                        .pane_node_by_index(split.first)
+                        .ok_or_else(|| {
+                            Error::Unrecoverable(format!(
+                                "Attemped to find leaf for split pane but pane does not exist at index: {}",
+                                split.first
+                            ))
+                        })?;
+                }
+            };
+        };
+
         let new_active_index = self
             .pane_tree
-            .hsplit(self.active_pane_index, active_pane.buffer_id)
+            .hsplit(self.active_pane_index, buffer_id)
             .map_err(|e| Error::Recoverable(e))?;
 
         self.active_pane_index = new_active_index;
