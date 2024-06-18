@@ -146,12 +146,14 @@ impl EditorState {
             };
         };
 
-        let new_active_index = self
+        let new_split_root_index = self
             .pane_tree
-            .vsplit(self.active_pane_index, buffer_id)
+            .vsplit(index, buffer_id)
             .map_err(|e| Error::Recoverable(e))?;
 
-        self.active_pane_index = new_active_index;
+        if self.active_pane_index == index {
+            self.active_pane_index = new_split_root_index
+        }
 
         Ok(())
     }
@@ -183,12 +185,14 @@ impl EditorState {
             };
         };
 
-        let new_active_index = self
+        let new_split_root_index = self
             .pane_tree
-            .hsplit(self.active_pane_index, buffer_id)
+            .hsplit(index, buffer_id)
             .map_err(|e| Error::Recoverable(e))?;
 
-        self.active_pane_index = new_active_index;
+        if self.active_pane_index == index {
+            self.active_pane_index = new_split_root_index
+        }
 
         Ok(())
     }

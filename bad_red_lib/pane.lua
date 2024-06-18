@@ -20,7 +20,8 @@ function P:current()
 end
 
 function P:root()
-    return self:new(0)
+    local id = coroutine.yield(red.call.root_pane_index())
+    return self:new(id)
 end
 
 function P:set_active()
@@ -53,12 +54,10 @@ end
 
 function P:v_split()
     coroutine.yield(red.call.pane_v_split(self.id))
-    self.id = coroutine.yield(red.call.pane_index_down_from(self.id, true))
 end
 
 function P:h_split()
     coroutine.yield(red.call.pane_h_split(self.id))
-    self.id = coroutine.yield(red.call.pane_index_down_from(self.id, true))
 end
 
 function P:close_child(first_child)

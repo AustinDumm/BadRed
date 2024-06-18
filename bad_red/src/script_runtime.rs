@@ -107,6 +107,10 @@ impl<'lua> ScriptScheduler<'lua> {
                         let active_index = editor_state.active_pane_index;
                         self.run_script(next, active_index)
                     }
+                    RedCall::RootPaneIndex => {
+                        let root_index = editor_state.pane_tree.root_index();
+                        self.run_script(next, root_index)
+                    }
                     RedCall::PaneIsFirst { index } => {
                         let node = editor_state
                             .pane_tree
@@ -326,12 +330,15 @@ impl<'lua> ScriptScheduler<'lua> {
                         self.run_script(next, pane.buffer_id)
                     }
                     RedCall::PaneCloseChild { index, first_child } => {
-                        editor_state
+                        let new_active_pane_index = editor_state
                             .pane_tree
-                            .close_child(index, first_child)
+                            .close_child(index, first_child, editor_state.active_pane_index)
                             .map_err(|e| {
                                 Error::Script(format!("Failed to close pane child: {}", e))
                             })?;
+
+                        editor_state.active_pane_index =
+                            new_active_pane_index.unwrap_or(editor_state.active_pane_index);
 
                         self.run_script(next, ())
                     }

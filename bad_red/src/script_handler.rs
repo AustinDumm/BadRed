@@ -32,6 +32,7 @@ pub enum RedCall<'lua> {
         index: usize,
     },
     ActivePaneIndex,
+    RootPaneIndex,
     PaneIsFirst {
         index: usize,
     },

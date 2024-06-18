@@ -69,8 +69,12 @@ impl Display {
         };
 
         queue!(self.stdout, cursor::SavePosition, cursor::Hide)?;
-        let cursor =
-            self.render_to_pane(editor_state, &editor_frame, &editor_state.pane_tree, 0)?;
+        let cursor = self.render_to_pane(
+            editor_state,
+            &editor_frame,
+            &editor_state.pane_tree,
+            editor_state.pane_tree.root_index(),
+        )?;
         queue!(self.stdout, cursor::RestorePosition)?;
         if let Some((row, col)) = cursor {
             queue!(self.stdout, cursor::MoveTo(col, row), cursor::Show)?;
@@ -86,10 +90,15 @@ impl Display {
         pane_tree: &PaneTree,
         node_index: usize,
     ) -> io::Result<Option<(u16, u16)>> {
-        let node = pane_tree.tree.get(node_index).ok_or(io::Error::new(
-            ErrorKind::Other,
-            format!("Failed to find pane at index: {}", node_index),
-        ))?;
+        let node = pane_tree
+            .tree
+            .get(node_index)
+            .map(|ni| ni.as_ref())
+            .flatten()
+            .ok_or(io::Error::new(
+                ErrorKind::Other,
+                format!("Failed to find pane at index: {}", node_index),
+            ))?;
 
         match &node.node_type {
             PaneNodeType::Leaf(ref pane) => {
@@ -217,7 +226,7 @@ impl Display {
                 editor_state,
                 editor_frame,
                 split,
-                size
+                size,
             ),
             crate::pane::SplitType::SecondFixed { size } => self.render_fixed_h_split(
                 node_index,
@@ -225,7 +234,7 @@ impl Display {
                 editor_state,
                 editor_frame,
                 split,
-                editor_frame.rows - size - 1
+                editor_frame.rows - size - 1,
             ),
         }
     }
