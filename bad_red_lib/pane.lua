@@ -19,6 +19,10 @@ function P:current()
     return self:new(id)
 end
 
+function P:root()
+    return self:new(0)
+end
+
 function P:set_active()
     coroutine.yield(red.call.set_active_pane(self.id))
 end
@@ -49,12 +53,18 @@ end
 
 function P:v_split()
     coroutine.yield(red.call.pane_v_split(self.id))
-    self.id = coroutine.yield(red.call.pane_index_down_from(self.id, is_first_child))
+    self.id = coroutine.yield(red.call.pane_index_down_from(self.id, true))
 end
 
 function P:h_split()
     coroutine.yield(red.call.pane_h_split(self.id))
-    self.id = coroutine.yield(red.call.pane_index_down_from(self.id, is_first_child))
+    self.id = coroutine.yield(red.call.pane_index_down_from(self.id, true))
+end
+
+function P:close_child(first_child)
+    local new_id = self:parent().id
+    coroutine.yield(red.call.pane_close_child(self.id, first_child))
+    self.id = new_id
 end
 
 function P:increase_size()
@@ -121,6 +131,19 @@ function P:decrease_size()
     elseif split.type == "first_fixed" then
     elseif split.type == "second_fixed" then
     end
+end
+
+function P:fix_size(size, on_first_child)
+    coroutine.yield(red.call.pane_set_split_fixed(self.id, size, on_first_child))
+end
+
+function P:flex_size(percent, on_first_child)
+    coroutine.yield(red.call.pane_set_split_percent(self.id, percent, on_first_child))
+end
+
+function P:buffer()
+    local buffer_id = coroutine.yield(red.call.pane_buffer_index(self.id))
+    return red.buffer:new(buffer_id)
 end
 
 return Pane

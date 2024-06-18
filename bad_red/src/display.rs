@@ -248,7 +248,7 @@ impl Display {
 
         let bottom_cursor =
             self.render_to_pane(editor_state, bottom_frame, pane_tree, split.second)?;
-        self.render_frame_v_gap(
+        self.render_frame_h_gap(
             editor_state.active_pane_index == node_index,
             &top_frame,
             &bottom_frame,

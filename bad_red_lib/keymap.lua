@@ -103,9 +103,9 @@ local function root_map()
         return pane_map
     end)()
     map["C+e"] = function()
-        local content = red.buffer:current():content()
         red.buffer:current():execute()
     end
+    map["C+l"] = function(_) red.command.start_command() end
     map.parent = nil
     setmetatable(map, map)
     return map

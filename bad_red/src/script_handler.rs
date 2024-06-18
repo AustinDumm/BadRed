@@ -57,6 +57,13 @@ pub enum RedCall<'lua> {
         size: u16,
         to_first: bool,
     },
+    PaneBufferIndex {
+        index: usize,
+    },
+    PaneCloseChild {
+        index: usize,
+        first_child: bool,
+    },
 
     SetHook {
         hook_name: HookName,

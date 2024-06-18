@@ -103,6 +103,33 @@ impl PaneTree {
 
         Ok(moved_content_pane_index)
     }
+
+    pub fn close_child(&mut self, parent_index: usize, first_child: bool) -> Result<()> {
+        let parent_node = self.tree.get(parent_index).ok_or_else(|| {
+            format!(
+                "Attempted to close child of pane node at invalid index: {}",
+                parent_index
+            )
+        })?;
+
+        let (child_to_keep, _child_to_close) = match &parent_node.node_type {
+            PaneNodeType::Leaf(_) => Err(format!(
+                "Attempted to close child for pane node index that is leaf node: {}",
+                parent_index
+            )),
+            PaneNodeType::VSplit(split) | PaneNodeType::HSplit(split) => {
+                if first_child {
+                    Ok((split.second, split.first))
+                } else {
+                    Ok((split.first, split.second))
+                }
+            }
+        }?;
+
+        self.tree.swap(parent_index, child_to_keep);
+
+        Ok(())
+    }
 }
 
 pub struct PaneNode {
