@@ -45,6 +45,9 @@ local function command_keymap(origin_pane, root_pane, old_map, command_buffer)
         if is_empty() then
             exit_command()
         else
+            if command_buffer:cursor_index() == 0 then
+                return
+            end
             command_buffer:cursor_left(1)
             _ = command_buffer:delete(1)
         end

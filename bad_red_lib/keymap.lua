@@ -47,27 +47,31 @@ local function root_map()
 
     map.__index = function(_, _)
         return function(key)
-            coroutine.yield(red.buffer:current():insert_at_cursor(key))
+            coroutine.yield(red.buffer:insert_at_cursor(key))
         end
     end
     map["Backspace"] = function()
-        red.buffer:current():cursor_left(1)
-        _ = red.buffer:current():delete(1)
+        if red.buffer:cursor_index() == 0 then
+            return
+        end
+
+        red.buffer:cursor_left(1)
+        _ = red.buffer:delete(1)
     end
     map["C+Delete"] = function()
-        red.buffer:current():clear()
+        red.buffer:clear()
     end
     map["Delete"] = function()
-        _ = red.buffer:current():delete(1)
+        _ = red.buffer:delete(1)
     end
     map["Enter"] = function()
-        red.buffer:current():insert_at_cursor("\n")
+        red.buffer:insert_at_cursor("\n")
     end
     map["Left"] = function()
-        red.buffer:current():cursor_left(1)
+        red.buffer:cursor_left(1)
     end
     map["Right"] = function()
-        red.buffer:current():cursor_right(1)
+        red.buffer:cursor_right(1)
     end
     map["C+r"] = (function()
         local nested = map:new_map()
@@ -92,14 +96,14 @@ local function root_map()
     end)()
     map["C+w"] = (function()
         local pane_map = map:new_map()
-        pane_map["v"] = function(_) red.pane:current():v_split() end
-        pane_map["h"] = function(_) red.pane:current():h_split() end
-        pane_map["u"] = function(_) red.pane:current():parent():set_active() end
-        pane_map["l"] = function(_) red.pane:current():child(true):set_active() end
-        pane_map["r"] = function(_) red.pane:current():child(false):set_active() end
-        pane_map["s"] = function(_) red.pane:current():sibling():set_active() end
-        pane_map["+"] = function(_) red.pane:current():increase_size() end
-        pane_map["-"] = function(_) red.pane:current():decrease_size() end
+        pane_map["v"] = function(_) red.pane:v_split() end
+        pane_map["h"] = function(_) red.pane:h_split() end
+        pane_map["u"] = function(_) red.pane:parent():set_active() end
+        pane_map["l"] = function(_) red.pane:child(true):set_active() end
+        pane_map["r"] = function(_) red.pane:child(false):set_active() end
+        pane_map["s"] = function(_) red.pane:sibling():set_active() end
+        pane_map["+"] = function(_) red.pane:increase_size() end
+        pane_map["-"] = function(_) red.pane:decrease_size() end
         return pane_map
     end)()
     map["C+e"] = function()

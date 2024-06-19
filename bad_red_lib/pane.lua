@@ -8,10 +8,14 @@ local P = {}
 Pane = P
 
 function P:new(id)
-    local instance = { id = id }
+    local instance = { _id = id }
     setmetatable(instance, self)
     self.__index = self
     return instance
+end
+
+function P:id()
+    return self._id or P:current()._id
 end
 
 function P:current()
@@ -25,11 +29,11 @@ function P:root()
 end
 
 function P:set_active()
-    coroutine.yield(red.call.set_active_pane(self.id))
+    coroutine.yield(red.call.set_active_pane(self:id()))
 end
 
 function P:is_first_child()
-    return coroutine.yield(red.call.pane_is_first(self.id))
+    return coroutine.yield(red.call.pane_is_first(self:id()))
 end
 
 function P:sibling()
@@ -39,31 +43,29 @@ function P:sibling()
 end
 
 function P:parent()
-    local parent_id = coroutine.yield(red.call.pane_index_up_from(self.id))
+    local parent_id = coroutine.yield(red.call.pane_index_up_from(self:id()))
     return P:new(parent_id)
 end
 
 function P:child(to_first)
-    local child_id = coroutine.yield(red.call.pane_index_down_from(self.id, to_first))
+    local child_id = coroutine.yield(red.call.pane_index_down_from(self:id(), to_first))
     return P:new(child_id)
 end
 
 function P:type()
-    return coroutine.yield(red.call.pane_type(self.id))
+    return coroutine.yield(red.call.pane_type(self:id()))
 end
 
 function P:v_split()
-    coroutine.yield(red.call.pane_v_split(self.id))
+    coroutine.yield(red.call.pane_v_split(self:id()))
 end
 
 function P:h_split()
-    coroutine.yield(red.call.pane_h_split(self.id))
+    coroutine.yield(red.call.pane_h_split(self:id()))
 end
 
 function P:close_child(first_child)
-    local new_id = self:parent().id
-    coroutine.yield(red.call.pane_close_child(self.id, first_child))
-    self.id = new_id
+    coroutine.yield(red.call.pane_close_child(self:id(), first_child))
 end
 
 function P:increase_size()
@@ -133,20 +135,20 @@ function P:decrease_size()
 end
 
 function P:fix_size(size, on_first_child)
-    coroutine.yield(red.call.pane_set_split_fixed(self.id, size, on_first_child))
+    coroutine.yield(red.call.pane_set_split_fixed(self:id(), size, on_first_child))
 end
 
 function P:flex_size(percent, on_first_child)
-    coroutine.yield(red.call.pane_set_split_percent(self.id, percent, on_first_child))
+    coroutine.yield(red.call.pane_set_split_percent(self:id(), percent, on_first_child))
 end
 
 function P:buffer()
-    local buffer_id = coroutine.yield(red.call.pane_buffer_index(self.id))
+    local buffer_id = coroutine.yield(red.call.pane_buffer_index(self:id()))
     return red.buffer:new(buffer_id)
 end
 
 function P:set_buffer(buffer)
-    coroutine.yield(red.call.pane_set_buffer(self.id, buffer.id))
+    coroutine.yield(red.call.pane_set_buffer(self:id(), buffer.id))
 end
 
 return Pane
