@@ -148,7 +148,7 @@ function P:buffer()
 end
 
 function P:set_buffer(buffer)
-    coroutine.yield(red.call.pane_set_buffer(self:id(), buffer.id))
+    coroutine.yield(red.call.pane_set_buffer(self:id(), buffer:id()))
 end
 
 return Pane
