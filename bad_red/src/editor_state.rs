@@ -14,7 +14,7 @@ use crate::{
     hook_map::{Hook, HookMap, HookName},
     keymap::RedKeyEvent,
     pane::{self, PaneTree, Split},
-    script_runtime::ScriptScheduler,
+    script_runtime::{SchedulerYield, ScriptScheduler},
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -79,7 +79,7 @@ impl<'a> Editor<'a> {
         Ok(())
     }
 
-    pub fn run_scripts(&mut self) -> Result<bool> {
+    pub fn run_scripts(&mut self) -> Result<SchedulerYield> {
         self.script_scheduler
             .run_schedule(&mut self.state, &mut self.hook_map)
     }

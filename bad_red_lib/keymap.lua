@@ -44,31 +44,11 @@ function P.event(key_event)
         P.sequence = nil
     elseif type(event_handler) == "table" then
         P.sequence = event_handler
+    elseif event_handler == nil then
+        return
     else
         error("Can only treat function and table as key event handlers. Found: " .. tostring(event_handler))
     end
-end
-
-function Root_map(map)
-    map["C+Delete"] = function()
-        red.buffer:clear()
-    end
-    map["C+w"] = (function()
-        local pane_map = map:new_map()
-        pane_map["v"] = function(_) red.pane:v_split() end
-        pane_map["h"] = function(_) red.pane:h_split() end
-        pane_map["u"] = function(_) red.pane:parent():set_active() end
-        pane_map["l"] = function(_) red.pane:child(true):set_active() end
-        pane_map["r"] = function(_) red.pane:child(false):set_active() end
-        pane_map["s"] = function(_) red.pane:sibling():set_active() end
-        pane_map["+"] = function(_) red.pane:increase_size() end
-        pane_map["-"] = function(_) red.pane:decrease_size() end
-        return pane_map
-    end)()
-    map["C+l"] = function(_) red.command.start_command() end
-    map.parent = nil
-    setmetatable(map, map)
-    return map
 end
 
 P.raw_input_map = (function()
@@ -78,6 +58,7 @@ P.raw_input_map = (function()
             red.buffer:insert_at_cursor(key)
         end
     end
+    map.new = P.new_map
     setmetatable(map, map)
 
     map["Backspace"] = function(_)

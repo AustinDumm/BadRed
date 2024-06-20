@@ -25,6 +25,12 @@ struct ScriptProcess<'lua> {
     awaiting: RedCall<'lua>,
 }
 
+pub enum SchedulerYield {
+    Skip,
+    Run,
+    Quit,
+}
+
 impl<'lua> ScriptScheduler<'lua> {
     pub fn new(lua: &'lua Lua, init: Function<'lua>) -> Result<Self> {
         let thread = lua.create_thread(init).map_err(|e| {
@@ -77,9 +83,9 @@ impl<'lua> ScriptScheduler<'lua> {
         &mut self,
         editor_state: &mut EditorState,
         hook_map: &mut HookMap<'lua>,
-    ) -> Result<bool> {
+    ) -> Result<SchedulerYield> {
         if self.active.len() == 0 {
-            return Ok(false);
+            return Ok(SchedulerYield::Skip);
         }
 
         'script_loop: for _ in 0..Self::MAX_SCRIPT_CALLS {
@@ -89,12 +95,15 @@ impl<'lua> ScriptScheduler<'lua> {
                     awaiting: red_call,
                 }) = self.active.pop_front()
                 else {
-                    return Ok(true);
+                    return Ok(SchedulerYield::Run);
                 };
 
                 let is_script_done = match red_call {
                     RedCall::None => self.run_script(next, ()),
                     RedCall::Yield => self.yield_script(next, ()),
+
+                    RedCall::EditorExit => return Ok(SchedulerYield::Quit),
+
                     RedCall::PaneVSplit { index: pane_index } => {
                         editor_state.vsplit(pane_index)?;
                         self.run_script(next, ())
@@ -324,7 +333,10 @@ impl<'lua> ScriptScheduler<'lua> {
                     }
                     RedCall::PaneBufferIndex { index } => {
                         let Some(pane) = editor_state.pane_tree.pane_by_index(index) else {
-                            return Ok(true);
+                            return Err(Error::Script(format!(
+                                "Attempted to retrieve buffer of pane at invalid index: {}",
+                                index
+                            )));
                         };
 
                         self.run_script(next, pane.buffer_id)
@@ -360,16 +372,21 @@ impl<'lua> ScriptScheduler<'lua> {
                                 pane.buffer_id = buffer_index;
                                 self.run_script(next, ())
                             }
-                            PaneNodeType::VSplit(_) |
-                            PaneNodeType::HSplit(_) => {
-                                Err(Error::Script(format!("Attempted to set buffer {} for split pane at index {}", buffer_index, pane_index)))
-                            },
+                            PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => {
+                                Err(Error::Script(format!(
+                                    "Attempted to set buffer {} for split pane at index {}",
+                                    buffer_index, pane_index
+                                )))
+                            }
                         }
                     }
 
                     RedCall::BufferInsert { buffer_id, content } => {
                         let Some(buffer) = editor_state.mut_buffer_by_id(buffer_id) else {
-                            return Ok(true);
+                            return Err(Error::Script(format!(
+                                "Attempted to insert text into a buffer with invalid id: {}",
+                                buffer_id
+                            )));
                         };
                         buffer.insert_at_cursor(&content);
 
@@ -514,7 +531,7 @@ impl<'lua> ScriptScheduler<'lua> {
             }
         }
 
-        Ok(true)
+        Ok(SchedulerYield::Run)
     }
 
     fn run_script<A>(&mut self, thread: Thread<'lua>, arg: A) -> Result<bool>

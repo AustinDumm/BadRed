@@ -29,7 +29,7 @@ function P:close()
 end
 
 function P:current()
-    id = coroutine.yield(red.call.current_buffer_id())
+    local id = coroutine.yield(red.call.current_buffer_id())
     return self:new(id)
 end
 

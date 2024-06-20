@@ -13,7 +13,7 @@ use std::{
 use bad_red_lib::{
     display::Display,
     editor_state::{self, Editor},
-    script_handler::ScriptHandler,
+    script_handler::ScriptHandler, script_runtime::SchedulerYield,
 };
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 
@@ -62,7 +62,8 @@ fn run(init_path: String, init_file: String) -> io::Result<()> {
     let mut editor = Editor::new(&script_handler.lua, init_script)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     'editor_loop: loop {
-        let mut did_input = false;
+        let var_name = false;
+        let mut did_input = var_name;
         if event::poll(editor.state.input_poll_rate)? {
             did_input = true;
             for _ in 0..10 {
@@ -98,7 +99,9 @@ fn run(init_path: String, init_file: String) -> io::Result<()> {
 
         let script_result = editor.run_scripts();
         let did_run_script = match script_result {
-            Ok(did_run) => did_run,
+            Ok(SchedulerYield::Run) => true,
+            Ok(SchedulerYield::Skip) => false,
+            Ok(SchedulerYield::Quit) => return Ok(()),
             Err(editor_state::Error::Unrecoverable(message)) => {
                 Err(io::Error::new(
                     io::ErrorKind::Other,

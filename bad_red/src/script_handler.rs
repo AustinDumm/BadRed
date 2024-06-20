@@ -25,6 +25,9 @@ pub enum RedCall<'lua> {
     #[default]
     None,
     Yield,
+
+    EditorExit,
+    
     PaneVSplit {
         index: usize,
     },
