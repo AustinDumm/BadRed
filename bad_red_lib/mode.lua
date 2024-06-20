@@ -17,9 +17,11 @@ local function normal_mode(command_handler, input_map)
     map[":"] = function(key) command_handler:start_command(key) end
     map["i"] = function(_) red.keymap.current = input_map end
     map["a"] = function(_)
-        red.buffer:cursor_left(1)
+        red.buffer:cursor_right(1)
         red.keymap.current = input_map
     end
+    map["h"] = function(_) red.buffer:cursor_left(1) end
+    map["l"] = function(_) red.buffer:cursor_right(1) end
     map["d"] = (function()
         local delete_map = red.keymap:new_map()
 
