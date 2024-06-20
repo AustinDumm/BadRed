@@ -71,7 +71,7 @@ function Root_map(map)
     return map
 end
 
-function P.raw_input_map()
+P.raw_input_map = (function()
     local map = P:new_map()
     map.__index = function(_, _)
         return function(key)
@@ -106,8 +106,8 @@ function P.raw_input_map()
     end
 
     return map
-end
+end)()
 
-P.current = P.raw_input_map()
+P.current = P.raw_input_map
 P.sequence = nil
 return Keymap
