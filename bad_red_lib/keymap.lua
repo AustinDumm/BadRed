@@ -16,6 +16,7 @@ local MetaKeymap = {
 
 function P:new_map()
     local instance = { parent = self }
+    instance.new_map = P.new_map
     setmetatable(instance, MetaKeymap)
     return instance
 end
@@ -28,6 +29,12 @@ function P.pop_map()
     P.current = P.current.parent or P.current
 end
 
+function P.push_map(update_function)
+    local map = P.current:new_map()
+    update_function(map)
+    P.current = map
+end
+
 function P.event(key_event)
     local map = P.sequence or P.current
     local event_handler = map[key_event]
@@ -38,62 +45,14 @@ function P.event(key_event)
     elseif type(event_handler) == "table" then
         P.sequence = event_handler
     else
-        error("Can only treat function and table as key event handlers")
+        error("Can only treat function and table as key event handlers. Found: " .. tostring(event_handler))
     end
 end
 
-local function root_map()
-    local map = P:new_map()
-
-    map.__index = function(_, _)
-        return function(key)
-            coroutine.yield(red.buffer:insert_at_cursor(key))
-        end
-    end
-    map["Backspace"] = function()
-        if red.buffer:cursor_index() == 0 then
-            return
-        end
-
-        red.buffer:cursor_left(1)
-        _ = red.buffer:delete(1)
-    end
+function Root_map(map)
     map["C+Delete"] = function()
         red.buffer:clear()
     end
-    map["Delete"] = function()
-        _ = red.buffer:delete(1)
-    end
-    map["Enter"] = function()
-        red.buffer:insert_at_cursor("\n")
-    end
-    map["Left"] = function()
-        red.buffer:cursor_left(1)
-    end
-    map["Right"] = function()
-        red.buffer:cursor_right(1)
-    end
-    map["C+r"] = (function()
-        local nested = map:new_map()
-        nested["_loop_count"] = 0
-        setmetatable(nested, nested)
-
-        nested.__index = function(_, key_event)
-            local number = tonumber(key_event)
-            if number == nil then
-                return function(k_e)
-                    for _=1,nested._loop_count do
-                        nested.parent[k_e](k_e)
-                    end
-                end
-            else
-                nested._loop_count = nested._loop_count * 10 + number
-                return nested
-            end
-        end
-
-        return nested
-    end)()
     map["C+w"] = (function()
         local pane_map = map:new_map()
         pane_map["v"] = function(_) red.pane:v_split() end
@@ -106,15 +65,49 @@ local function root_map()
         pane_map["-"] = function(_) red.pane:decrease_size() end
         return pane_map
     end)()
-    map["C+e"] = function()
-        red.buffer:current():execute()
-    end
     map["C+l"] = function(_) red.command.start_command() end
     map.parent = nil
     setmetatable(map, map)
     return map
 end
 
-P.current = root_map()
+function P.raw_input_map()
+    local map = P:new_map()
+    map.__index = function(_, _)
+        return function(key)
+            red.buffer:insert_at_cursor(key)
+        end
+    end
+    setmetatable(map, map)
+
+    map["Backspace"] = function(_)
+        if red.buffer:cursor_index() == 0 then
+            return
+        end
+
+        red.buffer:cursor_left(1)
+        _ = red.buffer:delete(1)
+    end
+    map["Delete"] = function(_)
+        _ = red.buffer:delete(1)
+    end
+
+    map["Left"] = function(_)
+        red.buffer:cursor_left(1)
+    end
+    map["Right"] = function(_)
+        red.buffer:cursor_right(1)
+    end
+    map["Enter"] = function(_)
+        red.buffer:insert_at_cursor("\n")
+    end
+    map["C+e"] = function()
+        red.buffer:current():execute()
+    end
+
+    return map
+end
+
+P.current = P.raw_input_map()
 P.sequence = nil
 return Keymap

@@ -11,7 +11,7 @@ local function command_keymap(origin_pane, root_pane, old_map, command_buffer)
     local new_map = red.keymap:new_map()
     new_map.__index = function(_, _)
         return function(key)
-            coroutine.yield(red.buffer:current():insert_at_cursor(key))
+            red.buffer:current():insert_at_cursor(key)
         end
     end
 

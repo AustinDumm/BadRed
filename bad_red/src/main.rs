@@ -1,7 +1,7 @@
 // This file is part of BadRed.
 
 // BadRed is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-// 
+//
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 use std::{
@@ -15,7 +15,7 @@ use bad_red_lib::{
     editor_state::{self, Editor},
     script_handler::ScriptHandler,
 };
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 
 use clap::Parser;
 
@@ -67,7 +67,13 @@ fn run(init_path: String, init_file: String) -> io::Result<()> {
             did_input = true;
             for _ in 0..10 {
                 match event::read()? {
-                    Event::Key(event) if event.code == KeyCode::Esc => break 'editor_loop,
+                    Event::Key(event)
+                        if event.code == KeyCode::Delete
+                            && event.modifiers.contains(KeyModifiers::CONTROL)
+                            && event.modifiers.contains(KeyModifiers::ALT) =>
+                    {
+                        break 'editor_loop
+                    }
                     Event::Key(event) => {
                         match editor.handle_key_event(event) {
                             Ok(_) => Ok(()),
