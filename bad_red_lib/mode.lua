@@ -36,17 +36,17 @@ end
 
 -- Initializes a the modal input style into the provided keymap. Builds onto
 -- keymap's current keymap to be used for default text input.
-function P.InitMode(keymap)
+function P:InitMode(keymap)
     local base_map = keymap.current
 
-    local command_handler = red.command.command_handler(base_map)
-    local input_map = base_map:new()
-    local normal_map = normal_mode(command_handler, input_map)
+    self.command_handler = red.command.command_handler(base_map)
+    self.input_map = base_map:new()
+    self.normal_map = normal_mode(self.command_handler, self.input_map)
 
-    command_handler:set_exit(normal_map)
-    input_map["Esc"] = function(_) keymap.current = normal_map end
+    self.command_handler:set_exit(self.normal_map)
+    self.input_map["Esc"] = function(_) keymap.current = self.normal_map end
 
-    red.keymap.current = normal_map
+    red.keymap.current = self.normal_map
 end
 
 return P
