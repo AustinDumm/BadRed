@@ -22,6 +22,8 @@ local function normal_mode(command_handler, input_map)
     end
     map["h"] = function(_) red.buffer:cursor_left(1) end
     map["l"] = function(_) red.buffer:cursor_right(1) end
+    map["k"] = function(_) red.buffer:cursor_up(1) end
+    map["j"] = function(_) red.buffer:cursor_down(1) end
     map["d"] = (function()
         local delete_map = red.keymap:new_map()
 

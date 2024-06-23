@@ -470,6 +470,22 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(next, ())
                     }
+                    RedCall::BufferCursorMoveLine {
+                        buffer_id,
+                        line_count,
+                        move_up,
+                    } => {
+                        let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferCursorMoveLine for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        buffer.move_cursor_line(line_count, move_up);
+
+                        self.run_script(next, ())
+                    }
                     RedCall::BufferLength { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(

@@ -99,6 +99,11 @@ pub enum RedCall<'lua> {
         char_count: usize,
         move_left: bool,
     },
+    BufferCursorMoveLine {
+        buffer_id: usize,
+        line_count: usize,
+        move_up: bool,
+    },
     BufferLength {
         buffer_id: usize,
     },

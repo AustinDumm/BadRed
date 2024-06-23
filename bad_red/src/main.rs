@@ -46,7 +46,7 @@ fn main() -> io::Result<()> {
     });
 
     if let Err(panic_err) = result {
-        write!(io::stderr(), "Panic: {:?}", panic_err)?;
+        write!(io::stderr(), "Panic: {:#?}", panic_err)?;
     }
 
     Ok(())
