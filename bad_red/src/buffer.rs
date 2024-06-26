@@ -4,12 +4,18 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
+use std::io::Read;
+
+use crate::file_handle::FileWrite;
+
 pub struct Buffer {
     pub title: String,
     pub cursor_index: usize,
     pub cursor_line_index: usize,
     pub content: String,
-    pub is_dirty: bool,
+
+    pub is_render_dirty: bool,
+    pub is_content_dirty: bool,
 }
 
 pub enum BufferUpdate {
@@ -25,7 +31,8 @@ impl Buffer {
             cursor_index: 0,
             cursor_line_index: 0,
             content: String::new(),
-            is_dirty: false,
+            is_render_dirty: false,
+            is_content_dirty: false,
         }
     }
 
@@ -37,7 +44,8 @@ impl Buffer {
         }
         self.cursor_index += content.len();
         self.cursor_line_index = self.cursor_line_index_for_cursor(self.cursor_index);
-        self.is_dirty = true;
+        self.is_render_dirty = true;
+        self.is_content_dirty = true;
     }
 
     fn cursor_line_index_for_cursor(&self, mut cursor_index: usize) -> usize {
@@ -65,7 +73,8 @@ impl Buffer {
             &self.content[first_non_delete..]
         );
         self.content = new_content;
-        self.is_dirty = true;
+        self.is_render_dirty = true;
+        self.is_content_dirty = true;
 
         string_to_delete
     }
@@ -81,7 +90,7 @@ impl Buffer {
 
         self.cursor_line_index = self.cursor_line_index_for_cursor(self.cursor_index);
 
-        self.is_dirty = true;
+        self.is_render_dirty = true;
     }
 
     pub fn move_cursor_line(&mut self, line_count: usize, move_up: bool) {
@@ -99,11 +108,18 @@ impl Buffer {
                     }
                 }
             }
+
             let mut new_index = index_iter.next().map(|i| i + 2).unwrap_or(0);
             let mut current_line_index = 0;
 
             while let Some(c) = content_chars.get(new_index) {
-                if *c == '\n' || current_line_index == self.cursor_line_index - 1 {
+                if *c == '\n'
+                    || self
+                        .cursor_line_index
+                        .checked_sub(1)
+                        .map(|i| i == current_line_index)
+                        .unwrap_or(false)
+                {
                     break;
                 }
 
@@ -133,7 +149,13 @@ impl Buffer {
 
             let mut current_line_index = 0;
             while let Some(c) = content_chars.get(new_index) {
-                if *c == '\n' || current_line_index == self.cursor_line_index - 1 {
+                if *c == '\n'
+                    || self
+                        .cursor_line_index
+                        .checked_sub(1)
+                        .map(|i| i == current_line_index)
+                        .unwrap_or(false)
+                {
                     break;
                 }
 
@@ -143,21 +165,6 @@ impl Buffer {
 
             self.cursor_index = new_index
         }
-    }
-
-    fn line_count_containing_index(&self, index: usize) -> usize {
-        let mut line_count = 0;
-        for (current_index, char) in self.content.chars().enumerate() {
-            if current_index == index {
-                break;
-            }
-
-            if char == '\n' {
-                line_count += 1
-            }
-        }
-
-        line_count
     }
 
     pub fn content_length(&self) -> usize {
@@ -174,5 +181,25 @@ impl Buffer {
 
     pub fn set_cursor_content_index(&mut self, index: usize) {
         self.cursor_index = index.min(self.content_length());
+    }
+
+    pub fn populate_from_read(&mut self, read: &mut impl Read) -> std::io::Result<()> {
+        let mut string = String::new();
+        read.read_to_string(&mut string)?;
+        self.content = string;
+        self.cursor_index = 0;
+        self.cursor_line_index = 0;
+
+        self.is_content_dirty = false;
+        self.is_render_dirty = true;
+
+        Ok(())
+    }
+
+    pub fn flush_to_write(&mut self, write: &mut impl FileWrite) -> std::io::Result<()> {
+        write.write_file(self.content.as_bytes())?;
+        self.is_content_dirty = false;
+
+        Ok(())
     }
 }

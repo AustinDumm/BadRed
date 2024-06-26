@@ -89,4 +89,16 @@ function P:execute()
     self:clear()
 end
 
+function P:link_file(file, preserve_buffer)
+    coroutine.yield(red.call.buffer_link_file(self:id(), file:id(), not preserve_buffer))
+end
+
+function P:unlink_file()
+    coroutine.yield(red.call.buffer_unlink_file(self:id()))
+end
+
+function P:write_to_file()
+    coroutine.yield(red.call.buffer_write_to_file(self:id()))
+end
+
 return Buffer

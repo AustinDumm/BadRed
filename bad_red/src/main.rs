@@ -13,7 +13,8 @@ use std::{
 use bad_red_lib::{
     display::Display,
     editor_state::{self, Editor},
-    script_handler::ScriptHandler, script_runtime::SchedulerYield,
+    script_handler::ScriptHandler,
+    script_runtime::SchedulerYield,
 };
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 
@@ -33,29 +34,27 @@ const DEFAULT_INIT_SCRIPT: &'static str = "init.lua";
 
 fn main() -> io::Result<()> {
     let args = Args::parse();
+    let stdout = io::stdout();
+    let mut display = Display::new(stdout)?;
 
-    let result = panic::catch_unwind(|| {
-        let result = run(
-            args.init_path.unwrap_or(DEFAULT_INIT_PATH.to_string()),
-            args.init_name.unwrap_or(DEFAULT_INIT_SCRIPT.to_string()),
-        );
-        if let Err(ref error) = result {
-            write!(io::stderr(), "{:?}", error)?;
-        }
-        result
-    });
+    let default_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |panic_info| {
+        Display::new(io::stdout())
+            .unwrap()
+            .cleanup_display()
+            .unwrap();
+        default_hook(panic_info);
+    }));
 
-    if let Err(panic_err) = result {
-        write!(io::stderr(), "Panic: {:#?}", panic_err)?;
-    }
-
-    Ok(())
+    run(
+        args.init_path.unwrap_or(DEFAULT_INIT_PATH.to_string()),
+        args.init_name.unwrap_or(DEFAULT_INIT_SCRIPT.to_string()),
+        &mut display,
+    )
 }
 
-fn run(init_path: String, init_file: String) -> io::Result<()> {
-    let stdout = io::stdout();
+fn run(init_path: String, init_file: String, display: &mut Display) -> io::Result<()> {
     let init_script = load_init_script(format!("{}/{}", init_path, init_file))?;
-    let mut display = Display::new(stdout)?;
 
     let script_handler = ScriptHandler::new(init_path)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to init Lua: {}", e)))?;
@@ -122,7 +121,6 @@ fn run(init_path: String, init_file: String) -> io::Result<()> {
         editor.state.clear_dirty();
     }
 
-    drop(display);
     Ok(())
 }
 

@@ -121,6 +121,32 @@ pub enum RedCall<'lua> {
     BufferClose {
         buffer_id: usize,
     },
+    BufferLinkFile {
+        buffer_id: usize,
+        file_id: usize,
+        should_overwrite_buffer: bool,
+    },
+    BufferUnlinkFile {
+        buffer_id: usize,
+        should_force: bool,
+    },
+    BufferWriteToFile {
+        buffer_id: usize,
+    },
+    BufferCurrentFile {
+        buffer_id: usize,
+    },
+
+    FileOpen {
+        path_string: String
+    },
+    FileClose {
+        file_id: usize,
+        should_force_close: bool,
+    },
+    FileCurrentBuffer {
+        file_id: usize,
+    },
 }
 
 impl ScriptHandler {

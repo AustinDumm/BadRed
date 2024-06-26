@@ -223,7 +223,8 @@ impl PaneTree {
         }
     }
 
-    fn close_with_children(&mut self, index: usize, active_pane_index: usize) -> bool {
+    // TODO: Update with implementation to clean up closed panes
+    fn close_with_children(&mut self, _index: usize, _active_pane_index: usize) -> bool {
         true
     }
 }

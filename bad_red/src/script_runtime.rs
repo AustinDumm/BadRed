@@ -4,7 +4,7 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-use std::collections::VecDeque;
+use std::{collections::VecDeque, path::Path};
 
 use mlua::{Function, IntoLuaMulti, Lua, Thread};
 
@@ -538,6 +538,58 @@ impl<'lua> ScriptScheduler<'lua> {
                     RedCall::BufferClose { buffer_id } => {
                         editor_state.remove_buffer(buffer_id)?;
                         self.run_script(next, ())
+                    }
+                    RedCall::BufferLinkFile {
+                        buffer_id,
+                        file_id,
+                        should_overwrite_buffer,
+                    } => {
+                        editor_state.link_buffer(buffer_id, file_id, should_overwrite_buffer)?;
+                        self.run_script(next, ())
+                    }
+                    RedCall::BufferUnlinkFile {
+                        buffer_id,
+                        should_force,
+                    } => {
+                        let file_id = editor_state.unlink_buffer(buffer_id, should_force)?;
+                        self.run_script(next, file_id)
+                    }
+                    RedCall::BufferWriteToFile { buffer_id } => {
+                        editor_state.write_buffer(buffer_id)?;
+                        self.run_script(next, ())
+                    }
+                    RedCall::BufferCurrentFile { buffer_id } => {
+                        let file_id = editor_state.buffer_file_map.get_by_left(&buffer_id).ok_or_else(||
+                            Error::Recoverable(format!("Attempted to get current file id for buffer without linked file id: {}", buffer_id))
+                        )?;
+
+                        self.run_script(next, *file_id)
+                    }
+                    RedCall::FileOpen { path_string } => {
+                        let id = editor_state.open_file(Path::new(&path_string))?;
+
+                        self.run_script(next, id)
+                    }
+                    RedCall::FileClose {
+                        file_id,
+                        should_force_close,
+                    } => {
+                        editor_state.close_file(file_id, should_force_close)?;
+
+                        self.run_script(next, ())
+                    }
+                    RedCall::FileCurrentBuffer { file_id } => {
+                        let buffer_id = editor_state
+                            .buffer_file_map
+                            .get_by_right(&file_id)
+                            .ok_or_else(|| {
+                                Error::Recoverable(format!(
+                                    "Attempted to get current buffer id for file at id: {}",
+                                    file_id
+                                ))
+                            })?;
+
+                        self.run_script(next, *buffer_id)
                     }
                 }?;
 

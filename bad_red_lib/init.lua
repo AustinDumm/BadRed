@@ -9,6 +9,7 @@ red.keymap = require("keymap")
 red.pane = require("pane")
 red.command = require("command")
 red.mode = require("mode")
+red.file = require("file")
 
 for k,v in pairs(require("editor")) do
     red[k] = v

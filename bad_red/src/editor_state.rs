@@ -4,13 +4,15 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-use std::{sync::Arc, time::Duration};
+use std::{path::Path, sync::Arc, time::Duration};
 
+use bimap::BiMap;
 use crossterm::event::KeyEvent;
 use mlua::Lua;
 
 use crate::{
     buffer::Buffer,
+    file_handle::FileHandle,
     hook_map::{Hook, HookMap, HookName},
     keymap::RedKeyEvent,
     pane::{self, PaneTree, Split},
@@ -89,7 +91,10 @@ pub struct EditorState {
     pub active_pane_index: usize,
     pub input_poll_rate: Duration,
     pub buffers: Vec<Option<Buffer>>,
+    pub files: Vec<Option<FileHandle>>,
     pub pane_tree: PaneTree,
+
+    pub buffer_file_map: BiMap<usize, usize>,
 }
 
 impl EditorState {
@@ -98,7 +103,10 @@ impl EditorState {
             active_pane_index: 0,
             input_poll_rate,
             buffers: vec![Some(Buffer::new("root".to_string()))],
+            files: vec![],
             pane_tree: PaneTree::new(0),
+
+            buffer_file_map: BiMap::new(),
         }
     }
 
@@ -109,7 +117,7 @@ impl EditorState {
         };
 
         buffer.content.push_str(&content);
-        buffer.is_dirty = true;
+        buffer.is_render_dirty = true;
     }
 
     pub fn buffer_by_id(&self, id: usize) -> Option<&Buffer> {
@@ -132,7 +140,7 @@ impl EditorState {
     pub fn clear_dirty(&mut self) {
         for buffer in &mut self.buffers {
             if let Some(buffer) = buffer {
-                buffer.is_dirty = false;
+                buffer.is_render_dirty = false;
             }
         }
     }
@@ -160,6 +168,195 @@ impl EditorState {
             self.buffers[index] = None;
             Ok(())
         }
+    }
+
+    pub fn open_file(&mut self, path: &Path) -> Result<usize> {
+        if self
+            .files
+            .iter()
+            .find(|handle| handle.as_ref().map(|h| *h.path == *path).unwrap_or(false))
+            .is_some()
+        {
+            return Err(Error::Recoverable(format!(
+                "Attempted to open file that is already open: {:?}",
+                path
+            )));
+        }
+
+        let handle = FileHandle::new(path)
+            .map_err(|e| Error::Recoverable(format!("Failed to open file at path: {:#?}. {:#?}", path, e)))?;
+        let handle_id = self.files.len();
+        self.files.push(Some(handle));
+
+        Ok(handle_id)
+    }
+
+    pub fn close_file(&mut self, file_id: usize, should_force: bool) -> Result<()> {
+        if self
+            .files
+            .get(file_id)
+            .map(|f| f.as_ref())
+            .flatten()
+            .is_none()
+        {
+            return Err(Error::Recoverable(format!(
+                "Attempted to close non-existent file at id: {}",
+                file_id
+            )));
+        }
+
+        if let Some(buffer_id) = self.buffer_file_map.get_by_right(&file_id) {
+            let buffer_id = *buffer_id;
+            if let Some(buffer) = self.mut_buffer_by_id(buffer_id) {
+                if buffer.is_content_dirty && !should_force {
+                        return Err(Error::Recoverable(format!("Attempted to close file with dirty buffer unforced. File id: {}, buffer id: {}", file_id, buffer_id)));
+
+                }
+
+                buffer.is_content_dirty = false;
+            }
+
+            self.buffer_file_map.remove_by_right(&file_id);
+        }
+
+        self.files[file_id] = None;
+
+        Ok(())
+    }
+
+    pub fn link_buffer(
+        &mut self,
+        buffer_id: usize,
+        file_id: usize,
+        should_populate_buffer: bool,
+    ) -> Result<()> {
+        if self.buffer_file_map.contains_left(&buffer_id) {
+            return Err(Error::Recoverable(format!(
+                "Attempted to link buffer id that already has file associated. Buffer id: {}",
+                buffer_id
+            )));
+        }
+        if self.buffer_file_map.contains_right(&file_id) {
+            return Err(Error::Recoverable(format!(
+                "Attempted to link file id that already has file associated. File id: {}",
+                file_id
+            )));
+        }
+
+        let buffer = self
+            .buffers
+            .get_mut(buffer_id)
+            .map(|b| b.as_mut())
+            .flatten()
+            .ok_or_else(|| {
+                Error::Recoverable(format!(
+                    "Attempted to link invalid buffer id to file. Buffer id: {}",
+                    buffer_id
+                ))
+            })?;
+        let mut file_handle = self
+            .files
+            .get_mut(file_id)
+            .map(|b| b.as_mut())
+            .flatten()
+            .ok_or_else(|| {
+                Error::Recoverable(format!(
+                    "Attempted to link invalid file id to buffer: File id: {}",
+                    file_id
+                ))
+            })?;
+
+        self.buffer_file_map.insert(buffer_id, file_id);
+
+        if should_populate_buffer {
+            buffer
+                .populate_from_read(&mut file_handle)
+                .map_err(|e| Error::Recoverable(format!("Failed to read from file: {:#?}", e)))?;
+        }
+
+        Ok(())
+    }
+
+    pub fn unlink_buffer(&mut self, buffer_id: usize, force: bool) -> Result<usize> {
+        let buffer = self
+            .buffers
+            .get_mut(buffer_id)
+            .map(|b| b.as_mut())
+            .flatten()
+            .ok_or_else(|| {
+                Error::Recoverable(format!(
+                    "Attempted to unlink buffer with invalid buffer id: {}",
+                    buffer_id
+                ))
+            })?;
+
+        if !self.buffer_file_map.contains_left(&buffer_id) {
+            return Err(Error::Recoverable(format!(
+                "Attempted to unlink buffer that is not linked to a file. Buffer id: {}",
+                buffer_id
+            )));
+        }
+
+        if buffer.is_content_dirty && !force {
+            return Err(Error::Recoverable(format!(
+                "Attempted to unlink dirty buffer id {} without force",
+                buffer_id
+            )));
+        }
+
+        buffer.is_content_dirty = false;
+
+        self.buffer_file_map
+            .remove_by_left(&buffer_id)
+            .map(|(_, file_id)| file_id)
+            .ok_or_else(|| {
+                Error::Recoverable(format!(
+                    "Failed to find link for buffer id {} to unlink with",
+                    buffer_id
+                ))
+            })
+    }
+
+    pub fn write_buffer(&mut self, buffer_id: usize) -> Result<()> {
+        let Some(file_id) = self.buffer_file_map.get_by_left(&buffer_id) else {
+            return Err(Error::Recoverable(format!(
+                "Attempted to write from buffer id that has no file associated. Buffer id: {}",
+                buffer_id
+            )));
+        };
+        let buffer = self
+            .buffers
+            .get_mut(buffer_id)
+            .map(|b| b.as_mut())
+            .flatten()
+            .ok_or_else(|| {
+                Error::Recoverable(format!(
+                    "Attempted to write from invalid buffer id: {}",
+                    buffer_id
+                ))
+            })?;
+        if !buffer.is_content_dirty {
+            return Ok(());
+        }
+
+        let file_handle = self
+            .files
+            .get_mut(*file_id)
+            .map(|f| f.as_mut())
+            .flatten()
+            .ok_or_else(|| {
+                Error::Recoverable(format!(
+                    "Attempted to write from buffer id {} to invalid file id: {}",
+                    buffer_id, file_id
+                ))
+            })?;
+
+        buffer.flush_to_write(file_handle).map_err(|e| {
+            Error::Recoverable(format!(
+                "Failed to write buffer id {} contents out to file id {}. {}",
+                buffer_id, file_id, e
+            ))
+        })
     }
 }
 

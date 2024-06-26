@@ -50,7 +50,7 @@ impl Display {
         enable_raw_mode()
     }
 
-    fn cleanup_display(&mut self) -> io::Result<()> {
+    pub fn cleanup_display(&mut self) -> io::Result<()> {
         queue!(self.stdout, LeaveAlternateScreen, cursor::Show)?;
 
         disable_raw_mode()?;
@@ -283,7 +283,7 @@ impl Display {
                 ),
             ));
         };
-        if !buffer.is_dirty && !pane_node.is_dirty && editor_state.active_pane_index != pane_id {
+        if !buffer.is_render_dirty && !pane_node.is_dirty && editor_state.active_pane_index != pane_id {
             return Ok(None);
         }
 
