@@ -36,7 +36,24 @@ impl Buffer {
             self.content.insert_str(self.cursor_index, content);
         }
         self.cursor_index += content.len();
+        self.cursor_line_index = self.cursor_line_index_for_cursor(self.cursor_index);
         self.is_dirty = true;
+    }
+
+    fn cursor_line_index_for_cursor(&self, mut cursor_index: usize) -> usize {
+        let chars = self.content.chars().collect::<Vec<_>>();
+        let mut line_char_count = 0;
+
+        while chars.get(cursor_index).map(|c| *c != '\n').unwrap_or(false) {
+            line_char_count += 1;
+
+            let Some(new_cursor_index) = cursor_index.checked_sub(1) else {
+                break;
+            };
+            cursor_index = new_cursor_index
+        }
+
+        line_char_count
     }
 
     pub fn delete_at_cursor(&mut self, char_count: usize) -> String {
@@ -62,33 +79,7 @@ impl Buffer {
                 .min(self.content.len())
         };
 
-        self.cursor_line_index = if move_left {
-            if let Some(cursor_char) = self.content.chars().nth(self.cursor_index) {
-                if cursor_char == '\n' {
-                    self.line_count_containing_index(self.cursor_index)
-                } else {
-                    self.cursor_line_index.saturating_sub(char_count)
-                }
-            } else {
-                panic!("Inconsistent state for cursor index and characters moving left.")
-            }
-        } else {
-            if self.cursor_index > 0 {
-                if let Some(cursor_char) = self.content.chars().nth(self.cursor_index - 1) {
-                    if cursor_char == '\n' {
-                        0
-                    } else {
-                        self.cursor_line_index
-                            .saturating_add(char_count)
-                            .min(self.content.len())
-                    }
-                } else {
-                    panic!("Inconsistent state for cursor index and characters moving right.")
-                }
-            } else {
-                0
-            }
-        };
+        self.cursor_line_index = self.cursor_line_index_for_cursor(self.cursor_index);
 
         self.is_dirty = true;
     }
@@ -98,7 +89,7 @@ impl Buffer {
             let mut lines_left = line_count;
             let content_chars = self.content.chars().collect::<Vec<_>>();
 
-            let mut index_iter = (0..=self.cursor_index).rev();
+            let mut index_iter = (0..=self.cursor_index).rev().skip(1);
             while let Some(i) = index_iter.next() {
                 if content_chars.get(i).map(|c| *c == '\n').unwrap_or(false) {
                     if let Some(l) = lines_left.checked_sub(1) {
@@ -112,7 +103,7 @@ impl Buffer {
             let mut current_line_index = 0;
 
             while let Some(c) = content_chars.get(new_index) {
-                if *c == '\n' || current_line_index == self.cursor_line_index {
+                if *c == '\n' || current_line_index == self.cursor_line_index - 1 {
                     break;
                 }
 
@@ -142,7 +133,7 @@ impl Buffer {
 
             let mut current_line_index = 0;
             while let Some(c) = content_chars.get(new_index) {
-                if *c == '\n' || current_line_index == self.cursor_line_index {
+                if *c == '\n' || current_line_index == self.cursor_line_index - 1 {
                     break;
                 }
 
