@@ -341,6 +341,7 @@ impl Display {
                     if handle_newline(*peeked, &mut char_count, &mut chars) {
                         break;
                     } else {
+                        char_count += 1;
                         _ = chars.next()
                     }
                 }
