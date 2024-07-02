@@ -9,10 +9,7 @@ use std::{collections::VecDeque, path::Path};
 use mlua::{Function, IntoLuaMulti, Lua, Thread};
 
 use crate::{
-    editor_state::{EditorState, Error, Result},
-    hook_map::{Hook, HookMap},
-    pane::{PaneNodeType, Split, SplitType},
-    script_handler::RedCall,
+    buffer::ContentBuffer, editor_state::{EditorState, Error, Result}, hook_map::{Hook, HookMap}, pane::{PaneNodeType, Split, SplitType}, script_handler::RedCall
 };
 
 pub struct ScriptScheduler<'lua> {
@@ -504,7 +501,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(next, buffer.cursor_content_index())
+                        self.run_script(next, buffer.cursor_char_index())
                     }
                     RedCall::BufferSetCursorIndex {
                         buffer_id,
@@ -517,7 +514,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        buffer.set_cursor_content_index(cursor_index);
+                        buffer.set_cursor_char_index(cursor_index);
 
                         self.run_script(next, ())
                     }
@@ -529,7 +526,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(next, buffer.content())
+                        self.run_script(next, buffer.content_copy())
                     }
                     RedCall::BufferOpen => {
                         let new_buffer_id = editor_state.create_buffer();

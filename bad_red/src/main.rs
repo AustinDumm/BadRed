@@ -11,10 +11,7 @@ use std::{
 };
 
 use bad_red_lib::{
-    display::Display,
-    editor_state::{self, Editor},
-    script_handler::ScriptHandler,
-    script_runtime::SchedulerYield,
+    buffer::ContentBuffer, display::Display, editor_state::{self, Editor}, script_handler::ScriptHandler, script_runtime::SchedulerYield
 };
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 
@@ -109,7 +106,9 @@ fn run(init_path: String, init_file: String, display: &mut Display) -> io::Resul
                 false
             }
             Err(e) => {
-                editor.state.push_to_buffer(format!("{}", e), 0);
+                if let Some(buffer) = editor.state.active_buffer() {
+                    buffer.insert_at_cursor(&format!("{}", e));
+                }
                 true
             }
         };

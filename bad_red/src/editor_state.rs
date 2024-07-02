@@ -11,7 +11,7 @@ use crossterm::event::KeyEvent;
 use mlua::Lua;
 
 use crate::{
-    buffer::Buffer,
+    buffer::{ContentBuffer, EditorBuffer},
     file_handle::FileHandle,
     hook_map::{Hook, HookMap, HookName},
     keymap::RedKeyEvent,
@@ -90,7 +90,7 @@ impl<'a> Editor<'a> {
 pub struct EditorState {
     pub active_pane_index: usize,
     pub input_poll_rate: Duration,
-    pub buffers: Vec<Option<Buffer>>,
+    pub buffers: Vec<Option<EditorBuffer>>,
     pub files: Vec<Option<FileHandle>>,
     pub pane_tree: PaneTree,
 
@@ -102,7 +102,7 @@ impl EditorState {
         Self {
             active_pane_index: 0,
             input_poll_rate,
-            buffers: vec![Some(Buffer::new("root".to_string()))],
+            buffers: vec![Some(EditorBuffer::new())],
             files: vec![],
             pane_tree: PaneTree::new(0),
 
@@ -110,25 +110,15 @@ impl EditorState {
         }
     }
 
-    pub fn push_to_buffer(&mut self, content: String, index: usize) {
-        let Some(ref mut buffer) = &mut self.buffers.get_mut(index).map(|b| b.as_mut()).flatten()
-        else {
-            return;
-        };
-
-        buffer.content.push_str(&content);
-        buffer.is_render_dirty = true;
-    }
-
-    pub fn buffer_by_id(&self, id: usize) -> Option<&Buffer> {
+    pub fn buffer_by_id(&self, id: usize) -> Option<&EditorBuffer> {
         self.buffers.get(id).map(|b| b.as_ref()).flatten()
     }
 
-    pub fn mut_buffer_by_id(&mut self, id: usize) -> Option<&mut Buffer> {
+    pub fn mut_buffer_by_id(&mut self, id: usize) -> Option<&mut EditorBuffer> {
         self.buffers.get_mut(id).map(|b| b.as_mut()).flatten()
     }
 
-    pub fn active_buffer(&mut self) -> Option<&mut Buffer> {
+    pub fn active_buffer(&mut self) -> Option<&mut EditorBuffer> {
         let pane = self.pane_tree.pane_by_index(self.active_pane_index)?;
 
         self.buffers
@@ -147,7 +137,7 @@ impl EditorState {
 
     pub fn create_buffer(&mut self) -> usize {
         let new_buffer_id = self.buffers.len();
-        self.buffers.push(Some(Buffer::new("".to_string())));
+        self.buffers.push(Some(EditorBuffer::new()));
 
         new_buffer_id
     }
@@ -232,7 +222,7 @@ impl EditorState {
     ) -> Result<()> {
         if self.buffer_file_map.contains_left(&buffer_id) {
             return Err(Error::Recoverable(format!(
-                "Attempted to link buffer id that already has file associated. Buffer id: {}",
+                "Attempted to link buffer id that already has file associated. NaiveBuffer id: {}",
                 buffer_id
             )));
         }

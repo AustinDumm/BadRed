@@ -15,9 +15,7 @@ use std::{
 };
 
 use crate::{
-    editor_frame::EditorFrame,
-    editor_state::{Editor, EditorState},
-    pane::{Pane, PaneNode, PaneNodeType, PaneTree, Split},
+    buffer::ContentBuffer, editor_frame::EditorFrame, editor_state::{Editor, EditorState}, pane::{Pane, PaneNode, PaneNodeType, PaneTree, Split}
 };
 
 pub struct Display {
@@ -274,20 +272,21 @@ impl Display {
         editor_state: &EditorState,
         editor_frame: &EditorFrame,
     ) -> io::Result<Option<(u16, u16)>> {
-        let Some(buffer) = &editor_state.buffer_by_id(pane.buffer_id) else {
-            return Err(io::Error::new(
+        let buffer = editor_state.buffer_by_id(pane.buffer_id).ok_or_else(|| {
+            io::Error::new(
                 io::ErrorKind::Other,
                 format!(
                     "Failed to find buffer id {} associated with pane",
                     pane.buffer_id
                 ),
-            ));
-        };
+            )
+        })?;
+
         if !buffer.is_render_dirty && !pane_node.is_dirty && editor_state.active_pane_index != pane_id {
             return Ok(None);
         }
 
-        let mut chars = buffer.content.chars().peekable();
+        let mut chars = buffer.chars().peekable();
         let mut char_count = 0;
 
         let mut line_count = 0;
@@ -310,7 +309,7 @@ impl Display {
             let mut did_end_line = false;
 
             'col_loop: for col in editor_frame.x_col..(editor_frame.x_col + editor_frame.cols) {
-                if char_count == buffer.cursor_index && cursor_position.is_none() {
+                if char_count == buffer.cursor_char_index() && cursor_position.is_none() {
                     cursor_position = Some((row, col));
                 }
 
