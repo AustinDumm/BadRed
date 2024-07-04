@@ -12,10 +12,15 @@ use crossterm::{
 use std::{
     io::{self, ErrorKind, Stdout, Write},
     iter::Peekable,
+    str::Chars,
 };
+use unicode_width::UnicodeWidthChar;
 
 use crate::{
-    buffer::ContentBuffer, editor_frame::EditorFrame, editor_state::{Editor, EditorState}, pane::{Pane, PaneNode, PaneNodeType, PaneTree, Split}
+    buffer::ContentBuffer,
+    editor_frame::EditorFrame,
+    editor_state::{Editor, EditorState},
+    pane::{Pane, PaneNode, PaneNodeType, PaneTree, Split},
 };
 
 pub struct Display {
@@ -264,6 +269,24 @@ impl Display {
         Ok(top_cursor.or(bottom_cursor))
     }
 
+    fn scan_to_first_line<'a>(
+        &self,
+        byte_count: &mut usize,
+        pane: &Pane,
+        chars: &mut Peekable<Chars<'a>>,
+    ) {
+        let mut line_count = 0;
+        while let Some(char) = chars.peek() {
+            if line_count == pane.top_line {
+                break;
+            }
+
+            if handle_newline(*char, byte_count, chars) {
+                line_count += 1;
+            }
+        }
+    }
+
     fn render_leaf_pane(
         &mut self,
         pane_node: &PaneNode,
@@ -276,83 +299,98 @@ impl Display {
             io::Error::new(
                 io::ErrorKind::Other,
                 format!(
-                    "Failed to find buffer id {} associated with pane",
+                    "Failed to find buffer id {} associated with leaf pane",
                     pane.buffer_id
                 ),
             )
         })?;
 
-        if !buffer.is_render_dirty && !pane_node.is_dirty && editor_state.active_pane_index != pane_id {
+        if !buffer.is_render_dirty
+            && !pane_node.is_dirty
+            && editor_state.active_pane_index != pane_id
+        {
             return Ok(None);
         }
 
         let mut chars = buffer.chars().peekable();
-        let mut char_count = 0;
-
-        let mut line_count = 0;
-        while let Some(char) = chars.peek() {
-            if line_count == pane.top_line {
-                break;
-            }
-
-            if handle_newline(*char, &mut char_count, &mut chars) {
-                line_count += 1;
-            }
-        }
+        let mut byte_count = 0;
+        self.scan_to_first_line(&mut byte_count, pane, &mut chars);
 
         queue!(
             self.stdout,
-            cursor::MoveTo(editor_frame.x_col, editor_frame.y_row),
+            cursor::MoveTo(editor_frame.x_col, editor_frame.y_row)
         )?;
+
+        let mut is_cursor_offscreen = false;
         let mut cursor_position: Option<(u16, u16)> = None;
         for row in editor_frame.y_row..(editor_frame.y_row + editor_frame.rows) {
-            let mut did_end_line = false;
-
-            'col_loop: for col in editor_frame.x_col..(editor_frame.x_col + editor_frame.cols) {
-                if char_count == buffer.cursor_char_index() && cursor_position.is_none() {
+            let mut col = editor_frame.x_col;
+            while col < editor_frame.x_col + editor_frame.cols {
+                if byte_count == buffer.cursor_byte_index() && cursor_position.is_none() {
                     cursor_position = Some((row, col));
                 }
 
-                let Some(char) = chars.peek() else {
-                    for _ in col..(editor_frame.x_col + editor_frame.cols) {
-                        queue!(self.stdout, style::Print(" "),)?;
-                    }
-                    break 'col_loop;
+                let Some(peeked) = chars.peek().map(|c| *c) else {
+                    break;
                 };
-                let char = *char;
 
-                let is_newline = handle_newline(char, &mut char_count, &mut chars);
-                if is_newline {
-                    did_end_line = true;
-                    for _ in col..(editor_frame.x_col + editor_frame.cols) {
-                        queue!(self.stdout, style::Print(" "),)?;
-                    }
-                    break 'col_loop;
+                if handle_newline(peeked, &mut byte_count, &mut chars) {
+                    break;
+                }
+
+                let char_width = peeked.width().unwrap_or(1);
+                if char_width == 0 {
+                    // Print as utf8 code point to handle display
+                    let code_point_literal = peeked.escape_unicode().to_string();
+                    col += code_point_literal
+                        .chars()
+                        .map(|c| c.width().unwrap_or(1) as u16)
+                        .sum::<u16>();
+                    queue!(self.stdout, style::Print(code_point_literal))?;
                 } else {
-                    _ = chars.next();
-                    char_count += 1;
-                    queue!(self.stdout, style::Print(char),)?;
+                    col += char_width as u16;
+                    queue!(self.stdout, style::Print(peeked))?;
                 }
+
+                byte_count += peeked.len_utf8();
+                _ = chars.next();
             }
 
-            if !did_end_line {
-                while let Some(peeked) = chars.peek() {
-                    if handle_newline(*peeked, &mut char_count, &mut chars) {
-                        break;
-                    } else {
-                        char_count += 1;
-                        _ = chars.next()
+            let line_clear = if col < (editor_frame.x_col + editor_frame.cols) {
+                vec![" "; (editor_frame.x_col + editor_frame.cols - col).into()].join("")
+            } else {
+                if !pane.should_wrap {
+                    if byte_count == buffer.cursor_byte_index() {
+                        is_cursor_offscreen = true;
+                    }
+                    while let Some(peeked) = chars.peek().map(|c| *c) {
+                        if handle_newline(peeked, &mut byte_count, &mut chars) {
+                            break;
+                        }
+
+                        if byte_count+1 == buffer.cursor_byte_index() {
+                            is_cursor_offscreen = true;
+                        }
+
+                        byte_count += peeked.len_utf8();
+                        _ = chars.next();
                     }
                 }
-            }
+                "".to_string()
+            };
             queue!(
                 self.stdout,
+                style::Print(line_clear),
                 cursor::MoveDown(1),
                 cursor::MoveToColumn(editor_frame.x_col)
             )?;
         }
 
-        Ok(cursor_position)
+        if is_cursor_offscreen {
+            Ok(None)
+        } else {
+            Ok(cursor_position)
+        }
     }
 
     fn render_frame_v_gap(
@@ -410,20 +448,24 @@ impl Display {
     }
 }
 
-fn handle_newline<I>(char: char, char_count: &mut usize, chars: &mut Peekable<I>) -> bool
+fn handle_newline<I>(
+    char: char,
+    byte_count: &mut usize,
+    chars: &mut Peekable<I>,
+) -> bool
 where
     I: Iterator<Item = char>,
 {
     if char == '\r' {
         _ = chars.next();
-        *char_count += 1;
+        *byte_count += 1;
         if chars.peek() == Some(&'\n') {
-            *char_count += 1;
+            *byte_count += 1;
             _ = chars.next();
         }
         true
     } else if char == '\n' {
-        *char_count += 1;
+        *byte_count += 1;
         _ = chars.next();
         true
     } else {

@@ -42,11 +42,11 @@ function P:delete(count)
 end
 
 function P:cursor_right(count)
-    coroutine.yield(red.call.buffer_cursor_move_char(self:id(), count, false))
+    coroutine.yield(red.call.buffer_cursor_move_char(self:id(), count))
 end
 
 function P:cursor_left(count)
-    coroutine.yield(red.call.buffer_cursor_move_char(self:id(), count, true))
+    coroutine.yield(red.call.buffer_cursor_move_char(self:id(), -count))
 end
 
 function P:cursor_up(count)
@@ -58,11 +58,11 @@ function P:cursor_down(count)
 end
 
 function P:cursor_index()
-    return coroutine.yield(red.call.buffer_cursor_index(self:id()))
+    return coroutine.yield(red.call.buffer_cursor_byte_index(self:id()))
 end
 
 function P:set_cursor_index(index)
-    coroutine.yield(red.call.buffer_set_cursor_index(self:id(), index))
+    coroutine.yield(red.call.buffer_set_cursor_byte_index(self:id(), index))
 end
 
 function P:length()

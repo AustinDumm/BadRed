@@ -96,8 +96,7 @@ pub enum RedCall<'lua> {
     },
     BufferCursorMoveChar {
         buffer_id: usize,
-        char_count: usize,
-        move_left: bool,
+        char_count: isize,
     },
     BufferCursorMoveLine {
         buffer_id: usize,
@@ -107,10 +106,10 @@ pub enum RedCall<'lua> {
     BufferLength {
         buffer_id: usize,
     },
-    BufferCursorIndex {
+    BufferCursorByteIndex {
         buffer_id: usize,
     },
-    BufferSetCursorIndex {
+    BufferSetCursorByteIndex {
         buffer_id: usize,
         cursor_index: usize,
     },

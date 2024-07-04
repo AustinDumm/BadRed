@@ -9,7 +9,11 @@ use std::{collections::VecDeque, path::Path};
 use mlua::{Function, IntoLuaMulti, Lua, Thread};
 
 use crate::{
-    buffer::ContentBuffer, editor_state::{EditorState, Error, Result}, hook_map::{Hook, HookMap}, pane::{PaneNodeType, Split, SplitType}, script_handler::RedCall
+    buffer::ContentBuffer,
+    editor_state::{EditorState, Error, Result},
+    hook_map::{Hook, HookMap},
+    pane::{PaneNodeType, Split, SplitType},
+    script_handler::RedCall,
 };
 
 pub struct ScriptScheduler<'lua> {
@@ -454,7 +458,6 @@ impl<'lua> ScriptScheduler<'lua> {
                     RedCall::BufferCursorMoveChar {
                         buffer_id,
                         char_count,
-                        move_left,
                     } => {
                         let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
@@ -463,7 +466,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        buffer.move_cursor(char_count, move_left);
+                        buffer.move_cursor(char_count);
 
                         self.run_script(next, ())
                     }
@@ -491,9 +494,9 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(next, buffer.content_length())
+                        self.run_script(next, buffer.content_char_length())
                     }
-                    RedCall::BufferCursorIndex { buffer_id } => {
+                    RedCall::BufferCursorByteIndex { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
                                 "Attempted BufferCursorIndex for non-existent buffer: {}",
@@ -501,9 +504,9 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(next, buffer.cursor_char_index())
+                        self.run_script(next, buffer.cursor_byte_index())
                     }
-                    RedCall::BufferSetCursorIndex {
+                    RedCall::BufferSetCursorByteIndex {
                         buffer_id,
                         cursor_index,
                     } => {
@@ -514,7 +517,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        buffer.set_cursor_char_index(cursor_index);
+                        buffer.set_cursor_byte_index(cursor_index);
 
                         self.run_script(next, ())
                     }

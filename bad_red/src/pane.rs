@@ -99,6 +99,7 @@ impl PaneTree {
             node_type: PaneNodeType::Leaf(Pane {
                 top_line: 0,
                 buffer_id: new_pane_buffer,
+                should_wrap: false,
             }),
             parent_index: Some(split_root_index),
             is_dirty: true,
@@ -270,6 +271,7 @@ pub enum SplitType {
 pub struct Pane {
     pub top_line: u16,
     pub buffer_id: usize,
+    pub should_wrap: bool,
 }
 
 impl Pane {
@@ -277,6 +279,7 @@ impl Pane {
         Self {
             top_line: 0,
             buffer_id,
+            should_wrap: false,
         }
     }
 }

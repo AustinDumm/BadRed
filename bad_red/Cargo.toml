@@ -27,6 +27,7 @@ etcetera = "0.8.0"
 clap = { version = "4.5.4", features = ["derive"] }
 bad_red_proc_macros = { path = "../bad_red_proc_macros/" }
 bimap = "0.6.3"
+unicode-width = "0.1.13"
 
 [dependencies.mlua]
 version = "0.9.8"
