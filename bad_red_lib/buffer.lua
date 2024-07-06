@@ -1,7 +1,7 @@
 -- This file is part of BadRed.
 
 -- BadRed is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
--- 
+--
 -- BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 local P = {}
@@ -9,7 +9,7 @@ Buffer = {}
 Buffer = P
 
 function P:new(id)
-    local instance = {_id = id}
+    local instance = { _id = id }
     setmetatable(instance, self)
     self.__index = self
     return instance
@@ -42,23 +42,27 @@ function P:delete(count)
 end
 
 function P:cursor_right(count)
-    coroutine.yield(red.call.buffer_cursor_move_char(self:id(), count))
+    local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), count))
+    coroutine.yield(red.call.buffer_set_cursor(self:id(), new_cursor))
 end
 
 function P:cursor_left(count)
-    coroutine.yield(red.call.buffer_cursor_move_char(self:id(), -count))
+    local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), -count))
+    coroutine.yield(red.call.buffer_set_cursor(self:id(), new_cursor))
 end
 
 function P:cursor_up(count)
-    coroutine.yield(red.call.buffer_cursor_move_line(self:id(), count, true))
+    local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_line(self:id(), count, true))
+    coroutine.yield(red.call.buffer_set_cursor(self:id(), new_cursor))
 end
 
 function P:cursor_down(count)
-    coroutine.yield(red.call.buffer_cursor_move_line(self:id(), count, false))
+    local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_line(self:id(), count, false))
+    coroutine.yield(red.call.buffer_set_cursor(self:id(), new_cursor))
 end
 
 function P:cursor_index()
-    return coroutine.yield(red.call.buffer_cursor_byte_index(self:id()))
+    return coroutine.yield(red.call.buffer_cursor(self:id()))
 end
 
 function P:set_cursor_index(index)

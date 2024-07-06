@@ -455,7 +455,7 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(next, deleted_string)
                     }
-                    RedCall::BufferCursorMoveChar {
+                    RedCall::BufferCursorMovedByChar {
                         buffer_id,
                         char_count,
                     } => {
@@ -466,11 +466,11 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        buffer.move_cursor(char_count);
+                        let moved_cursor = buffer.cursor_moved_by_char(char_count);
 
-                        self.run_script(next, ())
+                        self.run_script(next, moved_cursor)
                     }
-                    RedCall::BufferCursorMoveLine {
+                    RedCall::BufferCursorMovedByLine {
                         buffer_id,
                         line_count,
                         move_up,
@@ -482,9 +482,9 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        buffer.move_cursor_line(line_count, move_up);
+                        let moved_cursor = buffer.cursor_moved_by_line(line_count, move_up);
 
-                        self.run_script(next, ())
+                        self.run_script(next, moved_cursor)
                     }
                     RedCall::BufferLength { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
@@ -496,7 +496,7 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(next, buffer.content_char_length())
                     }
-                    RedCall::BufferCursorByteIndex { buffer_id } => {
+                    RedCall::BufferCursor { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
                                 "Attempted BufferCursorIndex for non-existent buffer: {}",
@@ -506,7 +506,7 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(next, buffer.cursor_byte_index())
                     }
-                    RedCall::BufferSetCursorByteIndex {
+                    RedCall::BufferSetCursor {
                         buffer_id,
                         cursor_index,
                     } => {

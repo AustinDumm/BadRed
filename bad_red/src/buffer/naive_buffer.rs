@@ -132,14 +132,12 @@ impl ContentBuffer for NaiveBuffer {
         string_to_delete
     }
 
-    fn move_cursor(&mut self, char_count: isize) {
-        self.cursor_byte_index = self
-            .shift_byte_cursor_by_character(self.cursor_byte_index, char_count)
-            .unwrap_or(0);
-        self.cursor_line_index = self.cursor_line_index_for_cursor(self.cursor_byte_index);
+    fn cursor_moved_by_char(&mut self, char_count: isize) -> usize {
+        self.shift_byte_cursor_by_character(self.cursor_byte_index, char_count)
+            .unwrap_or(0)
     }
 
-    fn move_cursor_line(&mut self, line_count: usize, move_up: bool) {
+    fn cursor_moved_by_line(&mut self, line_count: usize, move_up: bool) -> usize {
         if move_up {
             let mut lines_left = line_count;
             let content_chars = self.content.chars().collect::<Vec<_>>();
@@ -173,7 +171,7 @@ impl ContentBuffer for NaiveBuffer {
                 current_line_index += 1;
             }
 
-            self.cursor_byte_index = new_index
+            new_index
         } else {
             let mut lines_left = line_count;
             let content_chars = self.content.chars().collect::<Vec<_>>();
@@ -189,8 +187,7 @@ impl ContentBuffer for NaiveBuffer {
                 }
             }
             let Some(mut new_index) = index_iter.next() else {
-                self.cursor_byte_index = content_chars.len();
-                return;
+                return content_chars.len();
             };
 
             let mut current_line_index = 0;
@@ -209,7 +206,7 @@ impl ContentBuffer for NaiveBuffer {
                 current_line_index += 1;
             }
 
-            self.cursor_byte_index = new_index
+             new_index
         }
     }
     fn populate_from_read(&mut self, read: &mut dyn Read) -> std::io::Result<()> {

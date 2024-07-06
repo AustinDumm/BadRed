@@ -19,8 +19,8 @@ pub trait ContentBuffer {
     fn set_cursor_byte_index(&mut self, index: usize);
     fn cursor_byte_index(&self) -> usize;
 
-    fn move_cursor(&mut self, char_count: isize);
-    fn move_cursor_line(&mut self, line_count: usize, move_up: bool);
+    fn cursor_moved_by_char(&mut self, char_count: isize) -> usize;
+    fn cursor_moved_by_line(&mut self, line_count: usize, move_up: bool) -> usize;
 
     fn populate_from_read(&mut self, read: &mut dyn Read) -> std::io::Result<()>;
     fn flush_to_write(&mut self, write: &mut dyn FileWrite) -> std::io::Result<()>;

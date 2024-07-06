@@ -54,16 +54,16 @@ impl ContentBuffer for EditorBuffer {
         self.content.cursor_byte_index()
     }
 
-    fn move_cursor(&mut self, char_count: isize) {
+    fn cursor_moved_by_char(&mut self, char_count: isize) -> usize {
         self.is_render_dirty = true;
 
-        self.content.move_cursor(char_count)
+        self.content.cursor_moved_by_char(char_count)
     }
 
-    fn move_cursor_line(&mut self, line_count: usize, move_up: bool) {
+    fn cursor_moved_by_line(&mut self, line_count: usize, move_up: bool) -> usize {
         self.is_render_dirty = true;
 
-        self.content.move_cursor_line(line_count, move_up);
+        self.content.cursor_moved_by_line(line_count, move_up)
     }
 
     fn populate_from_read(&mut self, read: &mut dyn Read) -> std::io::Result<()> {
