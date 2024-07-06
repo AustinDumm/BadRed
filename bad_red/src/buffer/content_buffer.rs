@@ -4,7 +4,7 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-use std::{io::Read, str::Chars};
+use std::io::Read;
 
 use crate::file_handle::FileWrite;
 
@@ -12,8 +12,8 @@ pub trait ContentBuffer {
     fn insert_at_cursor(&mut self, content: &str);
     fn delete_at_cursor(&mut self, char_count: usize) -> String;
 
-    fn chars(&self) -> Chars;
-    fn content_char_length(&self) -> usize;
+    fn chars(&self) -> Box<dyn Iterator<Item = char> + '_>;
+    fn content_byte_length(&self) -> usize;
     fn content_copy(&self) -> String;
 
     fn set_cursor_byte_index(&mut self, index: usize);

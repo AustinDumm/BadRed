@@ -12,7 +12,6 @@ use crossterm::{
 use std::{
     io::{self, ErrorKind, Stdout, Write},
     iter::Peekable,
-    str::Chars,
 };
 use unicode_width::UnicodeWidthChar;
 
@@ -269,12 +268,13 @@ impl Display {
         Ok(top_cursor.or(bottom_cursor))
     }
 
-    fn scan_to_first_line<'a>(
+    fn scan_to_first_line<I>(
         &self,
         byte_count: &mut usize,
         pane: &Pane,
-        chars: &mut Peekable<Chars<'a>>,
-    ) {
+        chars: &mut Peekable<I>,
+    )
+    where I: Iterator<Item = char> {
         let mut line_count = 0;
         while let Some(char) = chars.peek() {
             if line_count == pane.top_line {
@@ -385,6 +385,8 @@ impl Display {
                 cursor::MoveToColumn(editor_frame.x_col)
             )?;
         }
+
+        drop(chars);
 
         if is_cursor_offscreen {
             Ok(None)

@@ -4,14 +4,16 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-pub use content_buffer::*;
-pub use editor_buffer::*;
+//! A gap buffer implementation intended for use in the BadRed text editor.
+//!
+//! [GapBuffer] is built for efficient insertion of elements within a block of contiguous memory
+//! through the use of a cursor. A gap buffer is a good solution for when elements need to be
+//! inserted in the middle of the buffer more often than the cursor insertion point needs to be
+//! moved, such as in a text editor.
 
-mod content_buffer;
-mod editor_buffer;
+#![warn(missing_docs)]
 
-mod naive_buffer;
+pub use gap_buffer::*;
+
 mod gap_buffer;
-
-pub const ZERO_WIDTH_JOINER: char = '\u{200D}';
 

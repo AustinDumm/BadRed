@@ -1,4 +1,10 @@
-use std::{io::Read, str::Chars};
+// This file is part of BadRed.
+
+// BadRed is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+//
+// BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+use std::io::Read;
 
 use crate::file_handle::FileWrite;
 
@@ -34,12 +40,12 @@ impl ContentBuffer for EditorBuffer {
         self.content.delete_at_cursor(char_count)
     }
 
-    fn chars(&self) -> Chars {
+    fn chars(&self) -> Box<dyn Iterator<Item = char> + '_> {
         self.content.chars()
     }
 
-    fn content_char_length(&self) -> usize {
-        self.content.content_char_length()
+    fn content_byte_length(&self) -> usize {
+        self.content.content_byte_length()
     }
 
     fn content_copy(&self) -> String {

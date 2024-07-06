@@ -494,7 +494,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(next, buffer.content_char_length())
+                        self.run_script(next, buffer.content_byte_length())
                     }
                     RedCall::BufferCursor { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {

@@ -66,7 +66,7 @@ function P:cursor_index()
 end
 
 function P:set_cursor_index(index)
-    coroutine.yield(red.call.buffer_set_cursor_byte_index(self:id(), index))
+    coroutine.yield(red.call.buffer_set_cursor(self:id(), index))
 end
 
 function P:length()

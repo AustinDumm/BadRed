@@ -26,6 +26,7 @@ strum_macros = "0.26.2"
 etcetera = "0.8.0"
 clap = { version = "4.5.4", features = ["derive"] }
 bad_red_proc_macros = { path = "../bad_red_proc_macros/" }
+bad_gap = { path = "../bad_gap/" }
 bimap = "0.6.3"
 unicode-width = "0.1.13"
 
