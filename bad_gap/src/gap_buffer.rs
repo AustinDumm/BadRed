@@ -4,7 +4,12 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-use std::{collections::VecDeque, ops::Index, slice::SliceIndex};
+use std::{
+    collections::{vec_deque, VecDeque},
+    iter,
+    ops::Index,
+    slice::SliceIndex,
+};
 
 type Iter<'a, T> = std::collections::vec_deque::Iter<'a, T>;
 
@@ -14,26 +19,32 @@ type Iter<'a, T> = std::collections::vec_deque::Iter<'a, T>;
 ///
 /// # Examples
 /// ```
+/// use bad_gap::GapBuffer;
+///
 /// let mut gap_buffer = GapBuffer::new();
 ///
 /// gap_buffer.push_before_cursor(0);
 /// gap_buffer.push_before_cursor(1);
 ///
-/// gap_buffer.push_after_cursor(2);
 /// gap_buffer.push_after_cursor(3);
+/// gap_buffer.push_after_cursor(2);
 ///
+/// let collected: Vec<_> = gap_buffer.iter().collect();
 /// assert_eq!(
-///     gap_buffer.iter().collect(),
-///     [0, 1, 2, 3]
+///     collected,
+///     [&0, &1, &2, &3]
 /// );
 ///
+/// let collected: Vec<_> = gap_buffer.precursor_iter().collect();
 /// assert_eq!(
-///     gap_buffer.precursor_iter().collect(),
-///     [0, 1]
+///     collected,
+///     [&0, &1]
 /// );
+///
+/// let collected: Vec<_> = gap_buffer.postcursor_iter().collect();
 /// assert_eq!(
-///     gap_buffer.precursor_iter().collect(),
-///     [2, 3]
+///     collected,
+///     [&2, &3]
 /// );
 ///
 /// assert_eq!(
@@ -42,12 +53,13 @@ type Iter<'a, T> = std::collections::vec_deque::Iter<'a, T>;
 /// );
 ///
 /// gap_buffer.set_cursor(0);
-/// gap_buffer.push_before_cursor(4);
+/// gap_buffer.push_before_cursor(-2);
 /// gap_buffer.push_after_cursor(-1);
 ///
+/// let collected: Vec<_> = gap_buffer.into_iter().collect();
 /// assert_eq!(
-///     gap_buffer.iter().collect(),
-///     [-1, 0, 1, 2, 3, 4]
+///     collected,
+///     [-2, -1, 0, 1, 2, 3]
 /// );
 /// ```
 ///
@@ -68,6 +80,8 @@ type Iter<'a, T> = std::collections::vec_deque::Iter<'a, T>;
 ///
 /// For example:
 /// ```
+/// use bad_gap::GapBuffer;
+///
 /// let mut buf1 = GapBuffer::from([0, 1, 2, 3]);
 /// buf1.set_cursor(0);
 ///
@@ -106,6 +120,8 @@ type Iter<'a, T> = std::collections::vec_deque::Iter<'a, T>;
 ///
 /// ### Examples
 /// ```
+/// use bad_gap::GapBuffer;
+///
 /// let mut gap_buffer = GapBuffer::from([0, 1, 2, 3]);
 /// assert_eq!(gap_buffer[0], 0);
 /// gap_buffer.set_cursor(2);
@@ -116,6 +132,7 @@ type Iter<'a, T> = std::collections::vec_deque::Iter<'a, T>;
 ///
 pub struct GapBuffer<T> {
     deque: VecDeque<T>,
+    start_index: usize,
 }
 
 impl<T> GapBuffer<T> {
@@ -123,19 +140,28 @@ impl<T> GapBuffer<T> {
     ///
     /// ### Examples
     /// ```
-    /// let buffer = GapBuffer::new();
+    /// use bad_gap::GapBuffer;
     ///
-    /// assert_eq!(
-    ///     buffer.iter().collect(),
-    ///     []
-    /// );
+    /// let buffer = GapBuffer::<i32>::new();
+    ///
     /// assert_eq!(
     ///     buffer.cursor_index(),
     ///     0
     /// );
+    ///
+    /// let collected: Vec<i32> = buffer.into_iter().collect();
+    /// let empty: [_; 0] = [];
+    ///
+    /// assert_eq!(
+    ///     collected,
+    ///     &empty
+    /// );
     /// ```
     pub fn new() -> Self {
-        todo!()
+        Self {
+            deque: VecDeque::new(),
+            start_index: 0,
+        }
     }
 
     /// Adds a value to the GapBuffer at the index immediately after the cursor. Does not move
@@ -143,21 +169,26 @@ impl<T> GapBuffer<T> {
     ///
     /// ### Examples
     /// ```
+    /// use bad_gap::GapBuffer;
+    ///
     /// let mut buffer = GapBuffer::new();
     /// buffer.push_after_cursor(0);
     /// buffer.push_after_cursor(1);
     ///
     /// assert_eq!(
-    ///     buffer.iter().collect(),
-    ///     [1, 0]
-    /// );
-    /// assert_eq!(
     ///     buffer.cursor_index(),
     ///     0
     /// );
+    ///
+    /// let collected: Vec<_> = buffer.into_iter().collect();
+    /// assert_eq!(
+    ///     collected,
+    ///     [1, 0]
+    /// );
     /// ```
     pub fn push_after_cursor(&mut self, item: T) {
-        todo!()
+        self.deque.push_front(item);
+        self.start_index += 1;
     }
 
     /// Adds a value to the GapBuffer at the index immediately before the cursor. Moves the cursor
@@ -165,21 +196,25 @@ impl<T> GapBuffer<T> {
     ///
     /// ### Examples
     /// ```
+    /// use bad_gap::GapBuffer;
+    ///
     /// let mut buffer = GapBuffer::new();
     /// buffer.push_before_cursor(0);
     /// buffer.push_before_cursor(1);
     ///
     /// assert_eq!(
-    ///     buffer.iter().collect(),
-    ///     [0, 1]
-    /// );
-    /// assert_eq!(
     ///     buffer.cursor_index(),
     ///     2
     /// );
+    ///
+    /// let collected: Vec<_> = buffer.into_iter().collect();
+    /// assert_eq!(
+    ///     collected,
+    ///     [0, 1]
+    /// );
     /// ```
     pub fn push_before_cursor(&mut self, item: T) {
-        todo!()
+        self.deque.push_back(item);
     }
 
     /// Removes the value from the GapBuffer at the index immediately after the cursor. Does not
@@ -187,23 +222,33 @@ impl<T> GapBuffer<T> {
     ///
     /// ### Examples
     /// ```
-    /// let mut buffer = GapBuffer::from([0, 1, 2, 3])
+    /// use bad_gap::GapBuffer;
+    ///
+    /// let mut buffer = GapBuffer::from([0, 1, 2, 3]);
     /// buffer.set_cursor(2);
     ///
     /// buffer.pop_after_cursor();
     /// buffer.pop_after_cursor();
     ///
     /// assert_eq!(
-    ///     buffer.iter().collect(),
-    ///     [0, 1],
-    /// );
-    /// assert_eq!(
     ///     buffer.cursor_index(),
     ///     2
     /// );
+    ///
+    /// let collected: Vec<_> = buffer.into_iter().collect();
+    /// assert_eq!(
+    ///     collected,
+    ///     [0, 1],
+    /// );
     /// ```
     pub fn pop_after_cursor(&mut self) -> Option<T> {
-        todo!()
+        if self.start_index == 0 {
+            None
+        } else {
+            let popped = self.deque.pop_front();
+            self.start_index -= 1;
+            popped
+        }
     }
 
     /// Removes the value from the GapBuffer at the index immediately before the cursor. Moves the
@@ -212,23 +257,31 @@ impl<T> GapBuffer<T> {
     ///
     /// ### Examples
     /// ```
-    /// let mut buffer = GapBuffer::from([0, 1, 2, 3])
+    /// use bad_gap::GapBuffer;
+    ///
+    /// let mut buffer = GapBuffer::from([0, 1, 2, 3]);
     /// buffer.set_cursor(2);
     ///
     /// buffer.pop_before_cursor();
     /// buffer.pop_before_cursor();
     ///
     /// assert_eq!(
-    ///     buffer.iter().collect(),
-    ///     [2, 3],
-    /// );
-    /// assert_eq!(
     ///     buffer.cursor_index(),
     ///     0
     /// );
+    ///
+    /// let collected: Vec<_> = buffer.into_iter().collect();
+    /// assert_eq!(
+    ///     collected,
+    ///     [2, 3],
+    /// );
     /// ```
     pub fn pop_before_cursor(&mut self) -> Option<T> {
-        todo!()
+        if self.start_index == self.deque.len() {
+            None
+        } else {
+            self.deque.pop_back()
+        }
     }
 
     /// Returns an iterator over the gap buffer with respect to the buffers intended order, not
@@ -236,39 +289,42 @@ impl<T> GapBuffer<T> {
     ///
     /// ### Examples
     /// ```
+    /// use bad_gap::GapBuffer;
+    ///
     /// let mut buffer = GapBuffer::from([0, 1, 2]);
     ///
     /// let mut iter = buffer.iter();
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(0)
+    ///     Some(&0)
     /// );
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(1)
+    ///     Some(&1)
     /// );
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(2)
+    ///     Some(&2)
     /// );
     /// assert_eq!(
     ///     iter.next(),
     ///     None
     /// );
+    /// drop(iter);
     ///
     /// buffer.set_cursor(2);
     /// let mut iter = buffer.iter();
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(0)
+    ///     Some(&0)
     /// );
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(1)
+    ///     Some(&1)
     /// );
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(2)
+    ///     Some(&2)
     /// );
     /// assert_eq!(
     ///     iter.next(),
@@ -276,30 +332,34 @@ impl<T> GapBuffer<T> {
     /// );
     /// ```
     pub fn iter(&self) -> impl Iterator<Item = &'_ T> + '_ {
-        self.deque.iter()
+        self.precursor_iter().chain(self.postcursor_iter())
     }
 
     /// Returns an iterator over only the elements before the cursor in the gap buffer.
     ///
     /// ### Examples
     /// ```
-    /// let mut buffer = GapBuffer::from([0, 1, 2]);
+    /// use bad_gap::GapBuffer;
     ///
-    /// let mut iter = buffer.iter();
+    /// let mut buffer = GapBuffer::from([0, 1, 2]);
+    /// buffer.set_cursor(0);
+    ///
+    /// let mut iter = buffer.precursor_iter();
     /// assert_eq!(
     ///     iter.next(),
     ///     None,
     /// );
+    /// drop(iter);
     ///
     /// buffer.set_cursor(2);
-    /// let mut iter = buffer.iter();
+    /// let mut iter = buffer.precursor_iter();
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(0)
+    ///     Some(&0)
     /// );
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(1)
+    ///     Some(&1)
     /// );
     /// assert_eq!(
     ///     iter.next(),
@@ -307,38 +367,42 @@ impl<T> GapBuffer<T> {
     /// );
     /// ```
     pub fn precursor_iter(&self) -> impl Iterator<Item = &'_ T> + '_ {
-        self.deque.iter()
+        self.deque.iter().skip(self.start_index)
     }
 
     /// Returns an iterator over only the elements after the cursor in the buffer.
     ///
     /// ### Examples
     /// ```
-    /// let mut buffer = GapBuffer::from([0, 1, 2]);
+    /// use bad_gap::GapBuffer;
     ///
-    /// let mut iter = buffer.iter();
+    /// let mut buffer = GapBuffer::from([0, 1, 2]);
+    /// buffer.set_cursor(0);
+    ///
+    /// let mut iter = buffer.postcursor_iter();
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(0)
-    /// )
+    ///     Some(&0)
+    /// );
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(1)
-    /// )
+    ///     Some(&1)
+    /// );
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(2)
-    /// )
+    ///     Some(&2)
+    /// );
     /// assert_eq!(
     ///     iter.next(),
     ///     None,
     /// );
+    /// drop(iter);
     ///
     /// buffer.set_cursor(2);
-    /// let mut iter = buffer.iter();
+    /// let mut iter = buffer.postcursor_iter();
     /// assert_eq!(
     ///     iter.next(),
-    ///     Some(2)
+    ///     Some(&2)
     /// );
     /// assert_eq!(
     ///     iter.next(),
@@ -346,13 +410,15 @@ impl<T> GapBuffer<T> {
     /// );
     /// ```
     pub fn postcursor_iter(&self) -> impl Iterator<Item = &'_ T> + '_ {
-        self.deque.iter()
+        self.deque.iter().take(self.start_index)
     }
 
     /// Returns the number of elements currently stored in the gap buffer.
     ///
     /// ### Examples
     /// ```
+    /// use bad_gap::GapBuffer;
+    ///
     /// let buffer = GapBuffer::from([0, 1, 2, 3]);
     ///
     /// assert_eq!(
@@ -361,20 +427,27 @@ impl<T> GapBuffer<T> {
     /// );
     /// ```
     pub fn len(&self) -> usize {
-        todo!()
+        self.deque.len()
     }
 
     /// Changes the cursor location. Runs in O(|I-N|) where I is the current cursor index of the
     /// gap buffer and N is the new index.
     ///
+    /// Panics if the index provided is an invalid cursor index (i.e., is strictly greater than
+    /// length of the buffer).
+    ///
     /// ### Examples
     /// ```
+    /// use bad_gap::GapBuffer;
+    ///
     /// let mut buffer = GapBuffer::from([0]);
     ///
     /// buffer.push_before_cursor(1);
+    ///
+    /// let collected: Vec<_> = buffer.iter().collect();
     /// assert_eq!(
-    ///     buffer.iter().collect();
-    ///     [1, 0]
+    ///     collected,
+    ///     [&1, &0]
     /// );
     /// assert_eq!(
     ///     buffer.cursor_index(),
@@ -383,9 +456,11 @@ impl<T> GapBuffer<T> {
     ///
     /// buffer.set_cursor(0);
     /// buffer.push_before_cursor(2);
+    ///
+    /// let collected: Vec<_> = buffer.iter().collect();
     /// assert_eq!(
-    ///     buffer.iter().collect();
-    ///     [2, 1, 0]
+    ///     collected,
+    ///     [&2, &1, &0]
     /// );
     /// assert_eq!(
     ///     buffer.cursor_index(),
@@ -393,47 +468,71 @@ impl<T> GapBuffer<T> {
     /// );
     /// ```
     pub fn set_cursor(&mut self, index: usize) {
-        todo!()
+        if index > self.deque.len() {
+            panic!("Expected cursor index ({}) for set_cursor to be within the bounds of GapBuffer (len: {})", index, self.len());
+        }
+
+        let current_cursor = self.cursor_index();
+
+        if index == current_cursor {
+            return;
+        } else if index > current_cursor {
+            // Move cursor towards end of buffer
+            let cursor_diff = index - current_cursor;
+            self.deque.rotate_left(cursor_diff);
+            self.start_index -= cursor_diff;
+        } else {
+            // Move cursor towards the start of buffer
+            let cursor_diff = current_cursor - index;
+            self.deque.rotate_right(cursor_diff);
+            self.start_index += cursor_diff;
+        }
     }
 
     /// Returns the current cursor index.
     ///
     /// ### Examples
     /// ```
+    /// use bad_gap::GapBuffer;
+    ///
     /// let mut buffer = GapBuffer::from([0]);
     /// assert_eq!(
-    ///     buffer.cursor_index,
+    ///     buffer.cursor_index(),
     ///     0
     /// );
     ///
     /// buffer.push_after_cursor(1);
+    /// let collected: Vec<_> = buffer.iter().collect();
     /// assert_eq!(
-    ///     buffer.iter().collect(),
-    ///     [1, 0]
+    ///     collected,
+    ///     [&1, &0]
     /// );
     /// assert_eq!(
-    ///     buffer.cursor_index,
+    ///     buffer.cursor_index(),
     ///     0
     /// );
     ///
     /// buffer.push_before_cursor(2);
+    /// let collected: Vec<_> = buffer.iter().collect();
     /// assert_eq!(
-    ///     buffer.iter().collect(),
-    ///     [2, 1, 0]
+    ///     collected,
+    ///     [&2, &1, &0]
     /// );
     /// assert_eq!(
-    ///     buffer.cursor_index,
+    ///     buffer.cursor_index(),
     ///     1
     /// );
     /// ```
     pub fn cursor_index(&self) -> usize {
-        todo!()
+        self.deque.len() - self.start_index
     }
 
     /// Returns the value immediately before the cursor if one exists
     ///
     /// ### Examples
     /// ```
+    /// use bad_gap::GapBuffer;
+    ///
     /// let mut buffer = GapBuffer::new();
     /// assert_eq!(
     ///     buffer.precursor(),
@@ -449,59 +548,75 @@ impl<T> GapBuffer<T> {
     /// buffer.push_before_cursor(1);
     /// assert_eq!(
     ///     buffer.precursor(),
-    ///     Some(1)
+    ///     Some(&1)
     /// );
     ///
+    /// let collected: Vec<_> = buffer.into_iter().collect();
     /// assert_eq!(
-    ///     buffer.iter().collect(),
+    ///     collected,
     ///     [1, 0]
     /// );
     /// ```
-    pub fn precursor(&self) -> Option<T> {
+    pub fn precursor(&self) -> Option<&T> {
         self.get_precursor(0)
     }
 
-    /// Returns the value N values before the cursor if one exists
+    /// Returns the value indexed from N starting at the cursor moving towards the start of the
+    /// buffer. Given that the cursor sits between two values in the gap buffer, the value
+    /// immediately before the cursor is considered precursor element 0. This makes
+    /// `precursor(CursorIndex - 1)` the first element in the gap buffer. `precursor(CursorIndex)`
+    /// will always be `None`, analogous to `vec.len() - 1` being the index just off the end of the
+    /// vector and always indexing to None.
     ///
     /// ### Examples
     /// ```
+    /// use bad_gap::GapBuffer;
+    ///
     /// let mut buffer = GapBuffer::new();
     /// assert_eq!(
-    ///     buffer.get_precursor(1),
+    ///     buffer.get_precursor(0),
     ///     None
     /// );
     ///
     /// buffer.push_after_cursor(0);
     /// assert_eq!(
-    ///     buffer.get_precursor(1),
+    ///     buffer.get_precursor(0),
     ///     None
     /// );
     ///
     /// buffer.push_before_cursor(1);
     /// assert_eq!(
-    ///     buffer.get_precursor(1),
-    ///     None
+    ///     buffer.get_precursor(0),
+    ///     Some(&1)
     /// );
     ///
     /// buffer.push_before_cursor(2);
     /// assert_eq!(
-    ///     buffer.get_precursor(1),
-    ///     Some(2)
+    ///     buffer.get_precursor(0),
+    ///     Some(&2)
     /// );
     ///
+    /// let collected: Vec<_> = buffer.into_iter().collect();
     /// assert_eq!(
-    ///     buffer.iter().collect(),
-    ///     [2, 1, 0]
+    ///     collected,
+    ///     [1, 2, 0]
     /// );
     /// ```
-    pub fn get_precursor(&self, index: usize) -> Option<T> {
-        todo!()
+    pub fn get_precursor(&self, index: usize) -> Option<&T> {
+        let cursor_index = self.cursor_index();
+        if index >= cursor_index {
+            None
+        } else {
+            self.get(cursor_index - index - 1)
+        }
     }
 
     /// Returns the value immediately after the cursor if one exists
     ///
     /// ### Examples
     /// ```
+    /// use bad_gap::GapBuffer;
+    ///
     /// let mut buffer = GapBuffer::new();
     /// assert_eq!(
     ///     buffer.postcursor(),
@@ -517,112 +632,138 @@ impl<T> GapBuffer<T> {
     /// buffer.push_after_cursor(1);
     /// assert_eq!(
     ///     buffer.postcursor(),
-    ///     Some(1)
+    ///     Some(&1)
     /// );
     ///
+    /// let collected: Vec<_> = buffer.into_iter().collect();
     /// assert_eq!(
-    ///     buffer.iter().collect(),
+    ///     collected,
     ///     [0, 1]
     /// );
     /// ```
-    pub fn postcursor(&self) -> Option<T> {
+    pub fn postcursor(&self) -> Option<&T> {
         self.get_postcursor(0)
     }
 
-    /// Returns the value N values after the cursor if one exists
+    /// Returns the value indexed from N starting at the cursor moving towards the end of the
+    /// buffer. Given that the cursor sits between two values in the gap buffer, the value
+    /// immediately following the cursor is considered postcursor element 0. This makes
+    /// `postcursor(buffer.len() - CursorIndex - 1)` the last element in the gap buffer.
+    /// `precursor(buffer.len() - CursorIndex)` will always be `None`, analogous to
+    /// `vec.len() - 1` being the index just off the end of the vector and always indexing to None.
     ///
     /// ### Examples
     /// ```
+    /// use bad_gap::GapBuffer;
+    ///
     /// let mut buffer = GapBuffer::new();
     /// assert_eq!(
-    ///     buffer.get_postcursor(1),
+    ///     buffer.get_postcursor(0),
     ///     None
     /// );
     ///
     /// buffer.push_before_cursor(0);
     /// assert_eq!(
-    ///     buffer.get_postcursor(1),
+    ///     buffer.get_postcursor(0),
     ///     None
     /// );
     ///
     /// buffer.push_after_cursor(1);
     /// assert_eq!(
-    ///     buffer.get_postcursor(1),
-    ///     None
+    ///     buffer.get_postcursor(0),
+    ///     Some(&1)
     /// );
     ///
     /// buffer.push_after_cursor(2);
     /// assert_eq!(
-    ///     buffer.get_postcursor(1),
-    ///     Some(2)
+    ///     buffer.get_postcursor(0),
+    ///     Some(&2)
     /// );
     ///
+    /// let collected: Vec<_> = buffer.into_iter().collect();
     /// assert_eq!(
-    ///     buffer.iter().collect(),
-    ///     [0, 1, 2]
+    ///     collected,
+    ///     [0, 2, 1]
     /// );
     /// ```
-    pub fn get_postcursor(&self, index: usize) -> Option<T> {
-        todo!()
+    pub fn get_postcursor(&self, index: usize) -> Option<&T> {
+        let cursor_index = self.cursor_index();
+        if index >= self.start_index {
+            None
+        } else {
+            self.get(cursor_index + index)
+        }
     }
 
-    /// Returns a reference to an element or subslice depending on type of index.
+    /// Returns a reference to an element at the given index, or None if index out of bounds.
     ///
-    /// - If given a position, returns a reference to the element at that position or `None` if out
-    /// of bounds
-    /// - If given a range, returns the subslice corresponding to that range, or `None` if out of
-    /// bounds.
+    /// Index is with respect to the beginning of the gap buffer data, not to the cursor.
     ///
     /// ### Examples
     /// ```
-    /// let buffer = GapBuffer::from([0, 1, 2, 3]);
+    /// use bad_gap::GapBuffer;
+    ///
+    /// let mut buffer = GapBuffer::from([0, 1, 2, 3]);
+    /// buffer.set_cursor(2);
     ///
     /// assert_eq!(
-    ///     buffer.get(0),
-    ///     Some(&0)
+    ///     buffer.get(2),
+    ///     Some(&2)
     /// );
-    /// assert_eq!(
-    ///     buffer.get(1..3),
-    ///     Some(&[1, 2])
-    /// );
+    ///
     /// assert_eq!(
     ///     buffer.get(4),
-    ///     None,
-    /// );
-    /// assert_eq!(
-    ///     buffer.get(3..5),
     ///     None
     /// );
     /// ```
-    pub fn get<I>(&self, index: I) -> Option<&<I as SliceIndex<[T]>>::Output> 
-    where I: SliceIndex<[T]> {
-        todo!()
+    pub fn get(&self, index: usize) -> Option<&T> {
+        self.deque_index_from_buffer_index(index)
+            .map(|i| self.deque.get(i))
+            .flatten()
     }
 
-    /// Returns a mutable reference to an element or subslice depending on the type of index (see
-    /// [get](GapBuffer::get)) or `None` if index is out of bounds.
+    /// Returns a mutable reference to an element at the given index, or None if index is out of
+    /// bounds.
+    ///
+    /// Index is with respect to the beginning of the gap buffer data, not to the cursor.
     ///
     /// ### Examples
     /// ```
+    /// use bad_gap::GapBuffer;
+    ///
     /// let mut buffer = GapBuffer::from([0, 1, 2, 3, 4]);
+    /// buffer.set_cursor(3);
     ///
     /// if let Some(element) = buffer.get_mut(1) {
     ///     *element = 10;
     /// }
     ///
-    /// if let Some(slice) = buffer.get_mut(2..4) {
-    ///     *slice[0] = 20;
-    ///     *slice[1] = 30;
+    /// if let Some(element) = buffer.get_mut(5) {
+    ///     panic!("Will not run. Index provided to get_mut was out of bounds");
     /// }
     ///
+    /// let collected: Vec<_> = buffer.into_iter().collect();
     /// assert_eq!(
-    ///     buffer.iter().collect(),
-    ///     [0, 10, 20, 30, 4]
+    ///     collected,
+    ///     [0, 10, 2, 3, 4]
     /// );
     /// ```
-    pub fn get_mut<I>(&self, index: I) -> Option<&mut <I as SliceIndex<[T]>>::Output>
-    where I: SliceIndex<[T]> {
-        todo!()
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        self.deque_index_from_buffer_index(index)
+            .map(|i| self.deque.get_mut(i))
+            .flatten()
+    }
+}
+
+impl<T> GapBuffer<T> {
+    /// Returns the index into the deque's current state that matches the index into the buffer's
+    /// content expected state (i.e. indexed from 0 in the GapBuffer's content).
+    fn deque_index_from_buffer_index(&self, buffer_index: usize) -> Option<usize> {
+        if buffer_index >= self.deque.len() {
+            None
+        } else {
+            Some((buffer_index + self.start_index) % self.len())
+        }
     }
 }
 
@@ -630,33 +771,76 @@ impl<T> Index<usize> for GapBuffer<T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
-        todo!()
+        self.get(index).expect("Out of bounds index provided to GapBuffer")
     }
 }
 
 impl<T> From<VecDeque<T>> for GapBuffer<T> {
     fn from(value: VecDeque<T>) -> Self {
-        todo!()
+        let start_index = value.len();
+        Self {
+            deque: value,
+            start_index,
+        }
     }
 }
 
 impl<T> From<Vec<T>> for GapBuffer<T> {
     fn from(value: Vec<T>) -> Self {
-        todo!()
+        let start_index = value.len();
+        Self {
+            deque: VecDeque::from(value),
+            start_index,
+        }
     }
 }
 
 impl<T> From<&[T]> for GapBuffer<T>
 where
-    T: Clone
+    T: Clone,
 {
     fn from(value: &[T]) -> Self {
-        todo!()
+        let start_index = value.len();
+        Self {
+            deque: VecDeque::from(Vec::from(value)),
+            start_index,
+        }
     }
 }
 
 impl<T, const N: usize> From<[T; N]> for GapBuffer<T> {
     fn from(value: [T; N]) -> Self {
-        todo!()
+        let start_index = value.len();
+        Self {
+            deque: VecDeque::from(value),
+            start_index,
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a GapBuffer<T> {
+    type Item = &'a T;
+
+    type IntoIter =
+        iter::Chain<iter::Skip<vec_deque::Iter<'a, T>>, iter::Take<vec_deque::Iter<'a, T>>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let first_section = self.deque.iter().skip(self.start_index);
+        let second_section = self.deque.iter().take(self.len() - self.start_index);
+
+        first_section.chain(second_section)
+    }
+}
+
+impl<T> IntoIterator for GapBuffer<T> {
+    type Item = T;
+
+    type IntoIter = vec_deque::IntoIter<T>;
+
+    fn into_iter(mut self) -> Self::IntoIter {
+        // Cursor of len() puts the elements in expected order
+        self.set_cursor(self.len());
+
+        self.deque.into_iter()
     }
 }
