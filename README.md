@@ -9,11 +9,12 @@ integrated into the editor.
 
 - Research and experimentation around efficient text storage and manipulation algorithms
     [x] Naive String Storage
-    [ ] Gap Buffer
+    [x] Gap Buffer
     [ ] Piece Table
     [ ] Ropes
 - Run Lua scripts safely (and potentially concurrently) with the core Rust editor code
 - Allow for editor self-extension through Lua
+- Self documentation
 
 ## Non-goals
 
