@@ -5,10 +5,7 @@
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 use std::{
-    collections::{vec_deque, VecDeque},
-    iter,
-    ops::Index,
-    slice::SliceIndex,
+    collections::{vec_deque, VecDeque}, io::Write, iter, ops::Index, slice::SliceIndex
 };
 
 type Iter<'a, T> = std::collections::vec_deque::Iter<'a, T>;
@@ -844,3 +841,4 @@ impl<T> IntoIterator for GapBuffer<T> {
         self.deque.into_iter()
     }
 }
+

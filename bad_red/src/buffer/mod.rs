@@ -6,12 +6,15 @@
 
 pub use content_buffer::*;
 pub use editor_buffer::*;
+pub use byte_char_iter::expected_byte_length_from_starting;
 
 mod content_buffer;
 mod editor_buffer;
 
 mod naive_buffer;
 mod gap_buffer;
+
+mod byte_char_iter;
 
 pub const ZERO_WIDTH_JOINER: char = '\u{200D}';
 
