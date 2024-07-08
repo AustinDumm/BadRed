@@ -79,30 +79,9 @@ impl NaiveBuffer {
 }
 
 impl ContentBuffer for NaiveBuffer {
-    fn chars(&self) -> Box<dyn Iterator<Item = char> + '_> {
-        Box::new(self.content.chars())
-    }
-
-    fn content_copy(&self) -> String {
-        self.content.clone()
-    }
-
-    fn content_byte_length(&self) -> usize {
-        self.content.len()
-    }
-
-    fn set_cursor_byte_index(&mut self, index: usize) {
-        self.cursor_byte_index = index;
-    }
-
-    fn cursor_byte_index(&self) -> usize {
-        self.cursor_byte_index
-    }
-
     fn insert_at_cursor(&mut self, content: &str) {
         if self.cursor_byte_index == self.content.chars().count() {
             self.content.push_str(content);
-            //self.content.push_str("👩‍❤️‍👨");
         } else {
             self.content.insert_str(self.cursor_byte_index, content);
         }
@@ -138,83 +117,115 @@ impl ContentBuffer for NaiveBuffer {
         string_to_delete
     }
 
+    fn chars(&self) -> Box<dyn Iterator<Item = char> + '_> {
+        Box::new(self.content.chars())
+    }
+
+    fn content_byte_length(&self) -> usize {
+        self.content.len()
+    }
+
+    fn content_line_count(&self) -> usize {
+        let mut count = 0;
+
+        for char in self.content.chars() {
+            if char == '\n' {
+                count += 1
+            }
+        }
+
+        count + 1
+    }
+
+    fn content_copy(&self) -> String {
+        self.content.clone()
+    }
+
+    fn set_cursor_byte_index(&mut self, index: usize) {
+        self.cursor_byte_index = index;
+
+        let mut col_index = 0;
+        for (char_index, char) in self.content.char_indices() {
+            if char_index == index {
+                break;
+            }
+
+            col_index += 1;
+            if char == '\n' {
+                col_index = 0;
+            }
+
+        }
+
+        self.cursor_line_index = col_index;
+    }
+
+    fn set_cursor_line_index(&mut self, index: usize) {
+        let mut newline_count = 0;
+        let mut new_byte_index: Option<usize> = None;
+
+        let mut char_iter = self.content.char_indices();
+        for (char_index, char) in &mut char_iter {
+            if newline_count == index {
+                new_byte_index = Some(char_index);
+                break;
+            }
+
+            if char == '\n' {
+                newline_count += 1;
+            }
+        }
+
+        let new_byte_index =
+        match new_byte_index {
+            Some(mut last_byte_index) => {
+                let mut line_count = 0;
+                for (char_index, char) in &mut char_iter {
+                    if line_count == self.cursor_line_index {
+                        break;
+                    }
+
+                    line_count += 1;
+                    if char == '\n' {
+                        break;
+                    }
+                    last_byte_index = char_index;
+                }
+                last_byte_index
+            }
+            None => {
+                self.content_byte_length()
+            }
+        };
+
+        self.cursor_byte_index = new_byte_index;
+    }
+
+    fn cursor_byte_index(&self) -> usize {
+        self.cursor_byte_index
+    }
+
+    fn cursor_line_index(&self) -> usize {
+        let mut newline_count = 0;
+
+        for (char_index, char) in self.content.char_indices() {
+            if char_index == self.cursor_byte_index {
+                break;
+            }
+
+            if char == '\n' {
+                newline_count += 1;
+            }
+        }
+
+        newline_count
+    }
+
     fn cursor_moved_by_char(&mut self, char_count: isize) -> usize {
         self.shift_byte_cursor_by_character(self.cursor_byte_index, char_count)
             .unwrap_or(0)
     }
 
-    fn cursor_moved_by_line(&mut self, line_count: usize, move_up: bool) -> usize {
-        if move_up {
-            let mut lines_left = line_count;
-            let content_chars = self.content.chars().collect::<Vec<_>>();
-
-            let mut index_iter = (0..=self.cursor_byte_index).rev().skip(1);
-            while let Some(i) = index_iter.next() {
-                if content_chars.get(i).map(|c| *c == '\n').unwrap_or(false) {
-                    if let Some(l) = lines_left.checked_sub(1) {
-                        lines_left = l
-                    } else {
-                        break;
-                    }
-                }
-            }
-
-            let mut new_index = index_iter.next().map(|i| i + 2).unwrap_or(0);
-            let mut current_line_index = 0;
-
-            while let Some(c) = content_chars.get(new_index) {
-                if *c == '\n'
-                    || self
-                        .cursor_line_index
-                        .checked_sub(1)
-                        .map(|i| i == current_line_index)
-                        .unwrap_or(false)
-                {
-                    break;
-                }
-
-                new_index += 1;
-                current_line_index += 1;
-            }
-
-            new_index
-        } else {
-            let mut lines_left = line_count;
-            let content_chars = self.content.chars().collect::<Vec<_>>();
-
-            let mut index_iter = self.cursor_byte_index..content_chars.len();
-            while let Some(i) = index_iter.next() {
-                if content_chars.get(i).map(|c| *c == '\n').unwrap_or(false) {
-                    lines_left -= 1;
-
-                    if lines_left == 0 {
-                        break;
-                    }
-                }
-            }
-            let Some(mut new_index) = index_iter.next() else {
-                return content_chars.len();
-            };
-
-            let mut current_line_index = 0;
-            while let Some(c) = content_chars.get(new_index) {
-                if *c == '\n'
-                    || self
-                        .cursor_line_index
-                        .checked_sub(1)
-                        .map(|i| i == current_line_index)
-                        .unwrap_or(false)
-                {
-                    break;
-                }
-
-                new_index += 1;
-                current_line_index += 1;
-            }
-
-             new_index
-        }
-    }
     fn populate_from_read(&mut self, read: &mut dyn Read) -> std::io::Result<()> {
         let mut string = String::new();
         read.read_to_string(&mut string)?;

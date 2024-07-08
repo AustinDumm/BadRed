@@ -8,7 +8,7 @@ use std::io::Read;
 
 use crate::file_handle::FileWrite;
 
-use super::{content_buffer::ContentBuffer, naive_buffer::NaiveBuffer};
+use super::{content_buffer::ContentBuffer, gap_buffer::GapBuffer, naive_buffer::NaiveBuffer};
 
 pub struct EditorBuffer {
     pub content: Box<dyn ContentBuffer>,
@@ -20,7 +20,7 @@ pub struct EditorBuffer {
 impl EditorBuffer {
     pub fn new() -> Self {
         Self {
-            content: Box::new(NaiveBuffer::new()),
+            content: Box::new(GapBuffer::new()),
             is_render_dirty: false,
             is_content_dirty: false,
         }
@@ -56,20 +56,24 @@ impl ContentBuffer for EditorBuffer {
         self.content.set_cursor_byte_index(index);
     }
 
+    fn set_cursor_line_index(&mut self, index: usize) {
+        self.is_render_dirty = true;
+
+        self.content.set_cursor_line_index(index);
+    }
+
     fn cursor_byte_index(&self) -> usize {
         self.content.cursor_byte_index()
+    }
+
+    fn cursor_line_index(&self) -> usize {
+        self.content.cursor_line_index()
     }
 
     fn cursor_moved_by_char(&mut self, char_count: isize) -> usize {
         self.is_render_dirty = true;
 
         self.content.cursor_moved_by_char(char_count)
-    }
-
-    fn cursor_moved_by_line(&mut self, line_count: usize, move_up: bool) -> usize {
-        self.is_render_dirty = true;
-
-        self.content.cursor_moved_by_line(line_count, move_up)
     }
 
     fn populate_from_read(&mut self, read: &mut dyn Read) -> std::io::Result<()> {
@@ -83,5 +87,9 @@ impl ContentBuffer for EditorBuffer {
         self.is_content_dirty = false;
 
         self.content.flush_to_write(write)
+    }
+
+    fn content_line_count(&self) -> usize {
+        self.content.content_line_count()
     }
 }

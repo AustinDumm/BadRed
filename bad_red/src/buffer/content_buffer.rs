@@ -14,13 +14,15 @@ pub trait ContentBuffer {
 
     fn chars(&self) -> Box<dyn Iterator<Item = char> + '_>;
     fn content_byte_length(&self) -> usize;
+    fn content_line_count(&self) -> usize;
     fn content_copy(&self) -> String;
 
     fn set_cursor_byte_index(&mut self, index: usize);
+    fn set_cursor_line_index(&mut self, index: usize);
     fn cursor_byte_index(&self) -> usize;
+    fn cursor_line_index(&self) -> usize;
 
     fn cursor_moved_by_char(&mut self, char_count: isize) -> usize;
-    fn cursor_moved_by_line(&mut self, line_count: usize, move_up: bool) -> usize;
 
     fn populate_from_read(&mut self, read: &mut dyn Read) -> std::io::Result<()>;
     fn flush_to_write(&mut self, write: &mut dyn FileWrite) -> std::io::Result<()>;

@@ -43,34 +43,57 @@ end
 
 function P:cursor_right(count)
     local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), count))
-    coroutine.yield(red.call.buffer_set_cursor(self:id(), new_cursor))
+    self:set_cursor_index(new_cursor)
 end
 
 function P:cursor_left(count)
     local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), -count))
-    coroutine.yield(red.call.buffer_set_cursor(self:id(), new_cursor))
+    self:set_cursor_index(new_cursor)
 end
 
 function P:cursor_up(count)
-    local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_line(self:id(), count, true))
-    coroutine.yield(red.call.buffer_set_cursor(self:id(), new_cursor))
+    local current_line = self:cursor_line()
+
+    if current_line == 0 then
+        self:set_cursor_index(0)
+    else
+        self:set_cursor_line(current_line - 1)
+    end
 end
 
 function P:cursor_down(count)
-    local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_line(self:id(), count, false))
-    coroutine.yield(red.call.buffer_set_cursor(self:id(), new_cursor))
+    local current_line = self:cursor_line()
+    local line_count = self:lines()
+
+    if current_line == line_count - 1 then
+        self:set_cursor_index(self:length())
+    else
+        self:set_cursor_line(current_line + 1)
+    end
 end
 
 function P:cursor_index()
     return coroutine.yield(red.call.buffer_cursor(self:id()))
 end
 
+function P:cursor_line()
+    return coroutine.yield(red.call.buffer_cursor_line(self:id()))
+end
+
 function P:set_cursor_index(index)
     coroutine.yield(red.call.buffer_set_cursor(self:id(), index))
 end
 
+function P:set_cursor_line(line)
+    coroutine.yield(red.call.buffer_set_cursor_line(self:id(), line))
+end
+
 function P:length()
     return coroutine.yield(red.call.buffer_length(self:id()))
+end
+
+function P:lines()
+    return coroutine.yield(red.call.buffer_line_count(self:id()))
 end
 
 function P:content()

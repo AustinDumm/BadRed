@@ -6,13 +6,65 @@
 
 #![allow(unused_variables)]
 
+use std::ops::Range;
+
 use bad_gap::GapBuffer as UnderlyingBuf;
 
 use super::{byte_char_iter::ByteCharIter, ContentBuffer};
 
-struct GapBuffer {
+pub struct GapBuffer {
     underlying_buf: UnderlyingBuf<u8>,
     sorted_newline_indices: Vec<usize>,
+
+    char_col_index: usize,
+    line_index: usize,
+}
+
+impl GapBuffer {
+    pub fn new() -> Self {
+        Self {
+            underlying_buf: UnderlyingBuf::new(),
+            sorted_newline_indices: Vec::new(),
+            char_col_index: 0,
+            line_index: 0,
+        }
+    }
+
+    fn lookup_index_of_preceeding_newline(&self, byte_index: usize) -> Option<usize> {
+        let found = self.sorted_newline_indices.binary_search(&byte_index);
+
+        match found {
+            Ok(0) =>
+                // Being on the index of the first newline means there is no preceeding newline
+                None,
+            Ok(found_idx) => Some(found_idx - 1),
+            Err(expected_idx) => {
+                if expected_idx > 0 {
+                    Some(expected_idx - 1)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn char_count_in(&self, range: Range<usize>) -> u32 {
+        let mut char_count = 0;
+
+        let mut byte_index = range.start;
+        while byte_index < range.end {
+            let byte = self.underlying_buf[byte_index];
+            match super::expected_byte_length_from_starting(byte) {
+                None => panic!("Attempted to find char count in range with invalid utf8 encoding"),
+                Some(length) => {
+                    byte_index += length as usize;
+                    char_count += 1;
+                }
+            }
+        }
+
+        char_count
+    }
 }
 
 impl ContentBuffer for GapBuffer {
@@ -32,16 +84,19 @@ impl ContentBuffer for GapBuffer {
             *newline_index += content_bytes.len();
         }
 
-        for content_index in content
-            .char_indices()
-            .filter(|(_, c)| *c == '\n')
-            .map(|(i, _)| i)
-        {
-            let insert_index = self
-                .sorted_newline_indices
-                .partition_point(|i| *i < content_index);
-            self.sorted_newline_indices
-                .insert(insert_index, content_index);
+        for (content_index, content_char) in content.char_indices() {
+            if content_char == '\n' {
+                let newline_index = content_index + cursor_byte_index;
+                let insert_index = self
+                    .sorted_newline_indices
+                    .partition_point(|i| *i < newline_index);
+                self.sorted_newline_indices
+                    .insert(insert_index, newline_index);
+                self.char_col_index = 0;
+                self.line_index += 1;
+            } else {
+                self.char_col_index += 1;
+            }
         }
     }
 
@@ -73,7 +128,7 @@ impl ContentBuffer for GapBuffer {
         let removed_newlines = VecDeque::from(removed_newlines);
         let mut removed_bytes = Vec::<u8>::new();
         for i in 0..char_count {
-            let Some(removed_byte) = self.underlying_buf.pop_before_cursor() else {
+            let Some(removed_byte) = self.underlying_buf.pop_after_cursor() else {
                 assert!(
                     removed_newlines.is_empty(),
                     "Reached the end of bytes pre-cursor but still had more newlines expected to be hit."
@@ -127,7 +182,7 @@ impl ContentBuffer for GapBuffer {
 
         let mut removed_bytes = Vec::<u8>::new();
         for i in 0..char_count {
-            let Some(removed_byte) = self.underlying_buf.pop_before_cursor() else {
+            let Some(removed_byte) = self.underlying_buf.pop_after_cursor() else {
                 break;
             };
             removed_bytes.push(removed_byte);
@@ -145,6 +200,10 @@ impl ContentBuffer for GapBuffer {
         self.underlying_buf.len()
     }
 
+    fn content_line_count(&self) -> usize {
+        self.sorted_newline_indices.len() + 1
+    }
+
     fn content_copy(&self) -> String {
         let utf8_bytes: Vec<u8> = self.underlying_buf.iter().map(|c| *c).collect();
 
@@ -153,10 +212,63 @@ impl ContentBuffer for GapBuffer {
 
     fn set_cursor_byte_index(&mut self, index: usize) {
         self.underlying_buf.set_cursor(index);
+
+        match self.lookup_index_of_preceeding_newline(index) {
+            Some(lookup_newline_index) => {
+                let preceeding_newline_index = self.sorted_newline_indices[lookup_newline_index];
+                let char_count = self.char_count_in((preceeding_newline_index + 1)..index);
+                self.char_col_index = char_count as usize;
+                self.line_index = lookup_newline_index + 1;
+            }
+            None => {
+                self.char_col_index = index;
+                self.line_index = 0;
+            }
+        }
+    }
+
+    fn set_cursor_line_index(&mut self, index: usize) {
+        self.line_index = index;
+
+        let mut byte_index = if index == 0 {
+            0
+        } else {
+            let Some(new_line_index) = self.sorted_newline_indices.get(index - 1) else {
+                return;
+            };
+
+            *new_line_index + 1
+        };
+
+        let mut line_char_count = 0;
+        while let Some(byte) = self.underlying_buf.get(byte_index) {
+            if line_char_count == self.char_col_index {
+                break;
+            }
+
+            match super::expected_byte_length_from_starting(*byte) {
+                Some(length) => {
+                    if length == 1 && *byte == 0xA {
+                        // Found newline. Out of characters in this line
+                        break;
+                    }
+
+                    line_char_count += 1;
+                    byte_index += length as usize;
+                },
+                None => panic!("Found invalid utf8 encoding while setting cursor_line_index"),
+            }
+        }
+
+        self.underlying_buf.set_cursor(byte_index);
     }
 
     fn cursor_byte_index(&self) -> usize {
         self.underlying_buf.cursor_index()
+    }
+
+    fn cursor_line_index(&self) -> usize {
+        self.line_index
     }
 
     fn cursor_moved_by_char(&mut self, mut char_count: isize) -> usize {
@@ -178,8 +290,7 @@ impl ContentBuffer for GapBuffer {
                 }
             }
 
-            byte_count
-
+            self.underlying_buf.cursor_index() - byte_count
         } else {
             let postcursor_iter = self.underlying_buf.postcursor_iter();
             let mut byte_count = 0;
@@ -196,12 +307,8 @@ impl ContentBuffer for GapBuffer {
                 }
             }
 
-            byte_count
+            self.underlying_buf.cursor_index() + byte_count
         }
-    }
-
-    fn cursor_moved_by_line(&mut self, line_count: usize, move_up: bool) -> usize {
-        todo!()
     }
 
     fn populate_from_read(&mut self, read: &mut dyn std::io::prelude::Read) -> std::io::Result<()> {
@@ -210,6 +317,18 @@ impl ContentBuffer for GapBuffer {
 
         self.underlying_buf = UnderlyingBuf::from(read_vec);
 
+        let mut char_byte_index = 0;
+        let mut newline_indices = vec![];
+        for char in self.chars() {
+            if char == '\n' {
+                newline_indices.push(char_byte_index);
+            }
+
+            char_byte_index += char.len_utf8();
+        }
+
+        self.sorted_newline_indices = newline_indices;
+
         Ok(())
     }
 
@@ -217,10 +336,7 @@ impl ContentBuffer for GapBuffer {
         &mut self,
         write: &mut dyn crate::file_handle::FileWrite,
     ) -> std::io::Result<()> {
-        let write_buffer: Vec<_> = self.underlying_buf
-            .iter()
-            .map(|b| *b)
-            .collect();
+        let write_buffer: Vec<_> = self.underlying_buf.iter().map(|b| *b).collect();
 
         write.write_file(write_buffer.as_slice())
     }

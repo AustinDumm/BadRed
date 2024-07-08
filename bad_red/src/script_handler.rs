@@ -98,19 +98,24 @@ pub enum RedCall<'lua> {
         buffer_id: usize,
         char_count: isize,
     },
-    BufferCursorMovedByLine {
-        buffer_id: usize,
-        line_count: usize,
-        move_up: bool,
-    },
     BufferSetCursor {
         buffer_id: usize,
         cursor_index: usize,
     },
+    BufferSetCursorLine {
+        buffer_id: usize,
+        line_index: usize,
+    },
     BufferLength {
         buffer_id: usize,
     },
+    BufferLineCount {
+        buffer_id: usize,
+    },
     BufferCursor {
+        buffer_id: usize,
+    },
+    BufferCursorLine {
         buffer_id: usize,
     },
     BufferContent {

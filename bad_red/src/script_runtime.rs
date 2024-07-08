@@ -470,22 +470,6 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(next, moved_cursor)
                     }
-                    RedCall::BufferCursorMovedByLine {
-                        buffer_id,
-                        line_count,
-                        move_up,
-                    } => {
-                        let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
-                            Error::Script(format!(
-                                "Attempted BufferCursorMoveLine for non-existent buffer: {}",
-                                buffer_id
-                            ))
-                        })?;
-
-                        let moved_cursor = buffer.cursor_moved_by_line(line_count, move_up);
-
-                        self.run_script(next, moved_cursor)
-                    }
                     RedCall::BufferLength { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
@@ -496,6 +480,16 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(next, buffer.content_byte_length())
                     }
+                    RedCall::BufferLineCount { buffer_id } => {
+                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferLinecount for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        self.run_script(next, buffer.content_line_count())
+                    }
                     RedCall::BufferCursor { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
@@ -505,6 +499,16 @@ impl<'lua> ScriptScheduler<'lua> {
                         })?;
 
                         self.run_script(next, buffer.cursor_byte_index())
+                    }
+                    RedCall::BufferCursorLine { buffer_id } => {
+                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferCursorLine for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        self.run_script(next, buffer.cursor_line_index())
                     }
                     RedCall::BufferSetCursor {
                         buffer_id,
@@ -518,6 +522,21 @@ impl<'lua> ScriptScheduler<'lua> {
                         })?;
 
                         buffer.set_cursor_byte_index(cursor_index);
+
+                        self.run_script(next, ())
+                    }
+                    RedCall::BufferSetCursorLine {
+                        buffer_id,
+                        line_index,
+                    } => {
+                        let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferSeCursorLine for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        buffer.set_cursor_line_index(line_index);
 
                         self.run_script(next, ())
                     }

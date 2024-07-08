@@ -3,7 +3,7 @@ pub struct ByteCharIter<I> {
 }
 
 pub fn expected_byte_length_from_starting(starting_byte: u8) -> Option<u8> {
-    if starting_byte & 0b1000_000 == 0 {
+    if starting_byte & 0b1000_0000 == 0 {
         Some(1)
     } else if starting_byte & 0b1100_0000 == 0b1000_0000 {
         // Found "following byte" 2 byte starting code
@@ -45,7 +45,7 @@ where
         };
 
         byte_buf.push(*next_byte);
-        for _ in 0..char_byte_length {
+        for _ in 0..char_byte_length-1 {
             let Some(following_byte) = self.iter.next() else {
                 panic!("Invalid utf8 encoding. Reached end of byte stream with partial utf8 char parsed");
             };
