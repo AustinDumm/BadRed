@@ -106,28 +106,49 @@ impl ContentBuffer for GapBuffer {
 
         let cursor_byte_index = self.cursor_byte_index();
 
+        let mut bytes_to_remove = 0;
+        let mut chars_remaining = char_count;
+        while chars_remaining > 0 {
+            let byte = self.underlying_buf[cursor_byte_index + bytes_to_remove];
+            match super::expected_byte_length_from_starting(byte) {
+                Some(length) => {
+                    bytes_to_remove += length as usize;
+                    chars_remaining -= 1;
+                }
+                None => panic!("Found invalid utf8 encoded bytes while deleting at cursor"),
+            }
+        }
+
+        let bytes_to_remove = bytes_to_remove;
         let first_remove_index = self
             .sorted_newline_indices
             .partition_point(|i| *i < cursor_byte_index);
         let first_unremove_index = self
             .sorted_newline_indices
-            .partition_point(|i| (cursor_byte_index + char_count) <= *i);
+            .partition_point(|i| *i < (cursor_byte_index + bytes_to_remove));
 
         let old_newlines = mem::take(&mut self.sorted_newline_indices);
-        let (removed_newlines, kept_newlines): (Vec<_>, Vec<_>) = old_newlines
+
+        let (kept_newlines, removed_newlines): (Vec<_>, Vec<_>) = old_newlines
             .into_iter()
             .enumerate()
             .partition(|(i, newline_index)| {
                 !(first_remove_index <= *i && *i < first_unremove_index)
             });
+
         self.sorted_newline_indices = kept_newlines
             .into_iter()
             .map(|(_, newline_index)| newline_index)
             .collect();
 
-        let removed_newlines = VecDeque::from(removed_newlines);
+        for shifted_newline_index in first_remove_index..self.sorted_newline_indices.len() {
+            self.sorted_newline_indices[shifted_newline_index] -= bytes_to_remove;
+        }
+
+
+        let mut removed_newlines = VecDeque::from(removed_newlines);
         let mut removed_bytes = Vec::<u8>::new();
-        for i in 0..char_count {
+        for i in 0..bytes_to_remove {
             let Some(removed_byte) = self.underlying_buf.pop_after_cursor() else {
                 assert!(
                     removed_newlines.is_empty(),
@@ -146,9 +167,15 @@ impl ContentBuffer for GapBuffer {
                         '\n',
                         "Expected newline character at stored newline while removing. Found: non newline"
                     );
+                    _ = removed_newlines.pop_front();
                 }
             }
         }
+
+        assert!(
+            removed_newlines.is_empty(),
+            "Expected all removed newlines to be found while removing bytes from buffer."
+        );
 
         String::from_utf8(removed_bytes)
             .expect("Expected valid utf-8 string to be removed from buffer. Found: invalid string")
@@ -156,23 +183,38 @@ impl ContentBuffer for GapBuffer {
 
     #[cfg(not(debug_assertions))]
     fn delete_at_cursor(&mut self, char_count: usize) -> String {
-        use std::mem;
+        use std::{collections::VecDeque, mem};
 
         let cursor_byte_index = self.cursor_byte_index();
 
+        let mut bytes_to_remove = 0;
+        let mut chars_remaining = char_count;
+        while chars_remaining > 0 {
+            let byte = self.underlying_buf[cursor_byte_index + bytes_to_remove];
+            match super::expected_byte_length_from_starting(byte) {
+                Some(length) => {
+                    bytes_to_remove += length as usize;
+                    chars_remaining -= 1;
+                }
+                None => panic!("Found invalid utf8 encoded bytes while deleting at cursor"),
+            }
+        }
+
+        let bytes_to_remove = bytes_to_remove;
         let first_remove_index = self
             .sorted_newline_indices
             .partition_point(|i| *i < cursor_byte_index);
         let first_unremove_index = self
             .sorted_newline_indices
-            .partition_point(|i| (cursor_byte_index + char_count) <= *i);
+            .partition_point(|i| *i < (cursor_byte_index + bytes_to_remove));
 
         let old_newlines = mem::take(&mut self.sorted_newline_indices);
-        self.sorted_newline_indices = old_newlines
+
+        let kept_newlines: Vec<_> = old_newlines
             .into_iter()
             .enumerate()
             .filter_map(|(i, newline_index)| {
-                if !(first_remove_index <= i && i < first_unremove_index) {
+                if first_remove_index <= i && i < first_unremove_index {
                     None
                 } else {
                     Some(newline_index)
@@ -180,8 +222,14 @@ impl ContentBuffer for GapBuffer {
             })
             .collect();
 
+        self.sorted_newline_indices = kept_newlines;
+
+        for shifted_newline_index in first_remove_index..self.sorted_newline_indices.len() {
+            self.sorted_newline_indices[shifted_newline_index] -= bytes_to_remove;
+        }
+
         let mut removed_bytes = Vec::<u8>::new();
-        for i in 0..char_count {
+        for i in 0..bytes_to_remove {
             let Some(removed_byte) = self.underlying_buf.pop_after_cursor() else {
                 break;
             };
