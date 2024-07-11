@@ -176,4 +176,22 @@ function P:write_to_file()
     coroutine.yield(red.call.buffer_write_to_file(self:id()))
 end
 
+function P:type()
+    return coroutine.yield(red.call.buffer_type(self:id()))
+end
+
+function P:set_type(type)
+    return coroutine.yield(red.call.buffer_set_type(self:id(), type))
+end
+
+P.naive = {
+    type = "EditorBufferType",
+    variant = "naive"
+}
+
+P.gap = {
+    type = "EditorBufferType",
+    variant = "gap"
+}
+
 return Buffer

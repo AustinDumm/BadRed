@@ -67,6 +67,22 @@ impl GapBuffer {
 
         char_count
     }
+
+    pub fn populate_from_vec(&mut self, vec: &[u8]) {
+        self.underlying_buf = UnderlyingBuf::from(vec);
+
+        let mut char_byte_index = 0;
+        let mut newline_indices = vec![];
+        for char in self.chars() {
+            if char == '\n' {
+                newline_indices.push(char_byte_index);
+            }
+
+            char_byte_index += char.len_utf8();
+        }
+
+        self.sorted_newline_indices = newline_indices;
+    }
 }
 
 impl ContentBuffer for GapBuffer {
@@ -424,19 +440,7 @@ impl ContentBuffer for GapBuffer {
         let mut read_vec = Vec::new();
         read.read_to_end(&mut read_vec)?;
 
-        self.underlying_buf = UnderlyingBuf::from(read_vec);
-
-        let mut char_byte_index = 0;
-        let mut newline_indices = vec![];
-        for char in self.chars() {
-            if char == '\n' {
-                newline_indices.push(char_byte_index);
-            }
-
-            char_byte_index += char.len_utf8();
-        }
-
-        self.sorted_newline_indices = newline_indices;
+        self.populate_from_vec(&read_vec);
 
         Ok(())
     }

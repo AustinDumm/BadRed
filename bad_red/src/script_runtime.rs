@@ -639,6 +639,28 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(next, content)
                     },
+                    RedCall::BufferSetType { buffer_id, buffer_type } => {
+                        let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted to get buffer for type set with invalid id: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        buffer.set_type(buffer_type);
+
+                        self.run_script(next, ())
+                    },
+                    RedCall::BufferType { buffer_id } => {
+                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted to get buffer type with invalid id: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        self.run_script(next, buffer.buffer_type)
+                    },
                 }?;
 
                 if is_script_done {

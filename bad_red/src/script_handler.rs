@@ -8,7 +8,7 @@
 use bad_red_proc_macros::{auto_lua_defaulting, auto_script_table};
 use mlua::{Function, Lua, Table};
 
-use crate::hook_map::{Hook, HookName};
+use crate::{buffer::EditorBufferType, hook_map::{Hook, HookName}};
 
 pub struct ScriptHandler {
     pub lua: Lua,
@@ -97,6 +97,13 @@ pub enum RedCall<'lua> {
     BufferCursorMovedByChar {
         buffer_id: usize,
         char_count: isize,
+    },
+    BufferSetType {
+        buffer_id: usize,
+        buffer_type: EditorBufferType,
+    },
+    BufferType {
+        buffer_id: usize,
     },
     BufferSetCursor {
         buffer_id: usize,

@@ -6,6 +6,8 @@
 
 use std::io::Read;
 
+use bad_red_proc_macros::auto_lua;
+
 use crate::file_handle::FileWrite;
 
 use super::{content_buffer::ContentBuffer, gap_buffer::GapBuffer, naive_buffer::NaiveBuffer};
@@ -15,15 +17,57 @@ pub struct EditorBuffer {
 
     pub is_render_dirty: bool,
     pub is_content_dirty: bool,
+
+    pub buffer_type: EditorBufferType,
+}
+
+#[auto_lua]
+#[derive(PartialEq, Clone, Copy)]
+pub enum EditorBufferType {
+    Naive,
+    Gap,
 }
 
 impl EditorBuffer {
     pub fn new() -> Self {
+        Self::new_typed(EditorBufferType::Gap)
+    }
+
+    pub fn new_typed(buffer_type: EditorBufferType) -> Self {
+        let content: Box<dyn ContentBuffer> = match buffer_type {
+            EditorBufferType::Naive => Box::new(NaiveBuffer::new()),
+            EditorBufferType::Gap => Box::new(GapBuffer::new()),
+        };
+
         Self {
-            content: Box::new(GapBuffer::new()),
+            content,
             is_render_dirty: false,
             is_content_dirty: false,
+            buffer_type,
         }
+    }
+
+    pub fn set_type(&mut self, buffer_type: EditorBufferType) {
+        if buffer_type == self.buffer_type {
+            return
+        }
+
+        match buffer_type {
+            EditorBufferType::Naive => {
+                let mut new_buffer = NaiveBuffer::new();
+                let content = self.content.content_copy();
+                new_buffer.populate_from_string(content);
+                self.content = Box::new(new_buffer);
+            },
+            EditorBufferType::Gap => {
+                let mut new_buffer = GapBuffer::new();
+                let content = self.content.content_copy();
+                new_buffer.populate_from_vec(content.as_bytes());
+                self.content = Box::new(new_buffer);
+            },
+        }
+
+        self.buffer_type = buffer_type;
     }
 }
 
@@ -56,7 +100,7 @@ impl ContentBuffer for EditorBuffer {
         self.content.content_copy()
     }
 
-    fn content_copy_at_byte_index(&self, byte_index: usize, length: usize,) -> Option<String> {
+    fn content_copy_at_byte_index(&self, byte_index: usize, length: usize) -> Option<String> {
         self.content.content_copy_at_byte_index(byte_index, length)
     }
 

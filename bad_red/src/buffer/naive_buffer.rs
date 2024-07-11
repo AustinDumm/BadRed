@@ -76,6 +76,12 @@ impl NaiveBuffer {
 
         Some(byte_index)
     }
+
+    pub fn populate_from_string(&mut self, string: String) {
+        self.content = string;
+        self.cursor_byte_index = 0;
+        self.cursor_line_index = 0;
+    }
 }
 
 impl ContentBuffer for NaiveBuffer {
@@ -261,9 +267,7 @@ impl ContentBuffer for NaiveBuffer {
     fn populate_from_read(&mut self, read: &mut dyn Read) -> std::io::Result<()> {
         let mut string = String::new();
         read.read_to_string(&mut string)?;
-        self.content = string;
-        self.cursor_byte_index = 0;
-        self.cursor_line_index = 0;
+        self.populate_from_string(string);
 
         Ok(())
     }
