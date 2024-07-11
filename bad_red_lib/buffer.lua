@@ -41,14 +41,28 @@ function P:delete(count)
     coroutine.yield(red.call.buffer_delete(self:id(), count))
 end
 
-function P:cursor_right(count)
-    local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), count))
-    self:set_cursor_index(new_cursor)
+function P:cursor()
+    return coroutine.yield(red.call.buffer_cursor(self:id()))
 end
 
-function P:cursor_left(count)
-    local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), -count))
+function P:cursor_right(count, skip_newlines)
+    local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), count))
+    local cursor_char = self:content_at(new_cursor, 1)
     self:set_cursor_index(new_cursor)
+
+    if skip_newlines and cursor_char == "\n" then
+        self:cursor_right(1)
+    end
+end
+
+function P:cursor_left(count, skip_newlines)
+    local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), -count))
+    local cursor_char = self:content_at(new_cursor, 1)
+    self:set_cursor_index(new_cursor)
+
+    if skip_newlines and cursor_char == "\n" then
+        self:cursor_left(1)
+    end
 end
 
 function P:cursor_up(count)
@@ -61,7 +75,7 @@ function P:cursor_up(count)
     end
 end
 
-function P:cursor_down(count)
+function P:cursor_down(count, skip_newlines)
     local current_line = self:cursor_line()
     local line_count = self:lines()
 
@@ -98,6 +112,10 @@ end
 
 function P:content()
     return coroutine.yield(red.call.buffer_content(self:id()))
+end
+
+function P:content_at(byte_index, char_length)
+    return coroutine.yield(red.call.buffer_content_at(self:id(), byte_index, char_length))
 end
 
 function P:clear()

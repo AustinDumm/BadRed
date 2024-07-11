@@ -35,8 +35,10 @@ impl GapBuffer {
 
         match found {
             Ok(0) =>
-                // Being on the index of the first newline means there is no preceeding newline
-                None,
+            // Being on the index of the first newline means there is no preceeding newline
+            {
+                None
+            }
             Ok(found_idx) => Some(found_idx - 1),
             Err(expected_idx) => {
                 if expected_idx > 0 {
@@ -144,7 +146,6 @@ impl ContentBuffer for GapBuffer {
         for shifted_newline_index in first_remove_index..self.sorted_newline_indices.len() {
             self.sorted_newline_indices[shifted_newline_index] -= bytes_to_remove;
         }
-
 
         let mut removed_newlines = VecDeque::from(removed_newlines);
         let mut removed_bytes = Vec::<u8>::new();
@@ -258,6 +259,29 @@ impl ContentBuffer for GapBuffer {
         String::from_utf8(utf8_bytes).expect("Found invalid utf8 encoding in GapBuffer")
     }
 
+    fn content_copy_at_byte_index(
+        &self,
+        mut byte_index: usize,
+        mut char_count: usize,
+    ) -> Option<String> {
+        let mut bytes_copy = vec![];
+
+        while char_count > 0 {
+            let start_byte = *self.underlying_buf.get(byte_index)?;
+            let char_length = super::expected_byte_length_from_starting(start_byte)? as usize;
+
+            bytes_copy.push(start_byte);
+            for i in 0..(char_length - 1) {
+                bytes_copy.push(*self.underlying_buf.get(byte_index + i + 1)?);
+            }
+
+            byte_index += char_length;
+            char_count -= 1;
+        }
+
+        std::str::from_utf8(&bytes_copy).ok().map(|s| s.to_string())
+    }
+
     fn set_cursor_byte_index(&mut self, index: usize) {
         self.underlying_buf.set_cursor(index);
 
@@ -303,7 +327,7 @@ impl ContentBuffer for GapBuffer {
 
                     line_char_count += 1;
                     byte_index += length as usize;
-                },
+                }
                 None => panic!("Found invalid utf8 encoding while setting cursor_line_index"),
             }
         }

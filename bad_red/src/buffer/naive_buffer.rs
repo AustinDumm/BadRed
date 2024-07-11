@@ -141,6 +141,19 @@ impl ContentBuffer for NaiveBuffer {
         self.content.clone()
     }
 
+    fn content_copy_at_byte_index(&self, byte_index: usize, char_count: usize) -> Option<String> {
+        if let Some((first_excluded_char_byte_index, _)) = self
+            .content
+            .char_indices()
+            .skip_while(|(char_byte_index, _)| *char_byte_index < byte_index)
+            .skip(char_count)
+            .next() {
+                Some(self.content[byte_index..first_excluded_char_byte_index].to_string())
+        } else {
+            Some(self.content[byte_index..].to_string())
+        }
+    }
+
     fn set_cursor_byte_index(&mut self, index: usize) {
         self.cursor_byte_index = index;
 
@@ -154,7 +167,6 @@ impl ContentBuffer for NaiveBuffer {
             if char == '\n' {
                 col_index = 0;
             }
-
         }
 
         self.cursor_line_index = col_index;
@@ -176,8 +188,7 @@ impl ContentBuffer for NaiveBuffer {
             }
         }
 
-        let new_byte_index =
-        match new_byte_index {
+        let new_byte_index = match new_byte_index {
             Some(mut last_byte_index) => {
                 let mut line_count = 0;
                 for (char_index, char) in &mut char_iter {
@@ -193,9 +204,7 @@ impl ContentBuffer for NaiveBuffer {
                 }
                 last_byte_index
             }
-            None => {
-                self.content_byte_length()
-            }
+            None => self.content_byte_length(),
         };
 
         self.cursor_byte_index = new_byte_index;

@@ -16,6 +16,7 @@ pub trait ContentBuffer {
     fn content_byte_length(&self) -> usize;
     fn content_line_count(&self) -> usize;
     fn content_copy(&self) -> String;
+    fn content_copy_at_byte_index(&self, byte_index: usize, char_count: usize,) -> Option<String>;
 
     fn set_cursor_byte_index(&mut self, index: usize);
     fn set_cursor_line_index(&mut self, index: usize);

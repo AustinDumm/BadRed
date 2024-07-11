@@ -579,7 +579,7 @@ impl<'lua> ScriptScheduler<'lua> {
                     }
                     RedCall::BufferCurrentFile { buffer_id } => {
                         let file_id = editor_state.buffer_file_map.get_by_left(&buffer_id).ok_or_else(||
-                            Error::Recoverable(format!("Attempted to get current file id for buffer without linked file id: {}", buffer_id))
+                            Error::Script(format!("Attempted to get current file id for buffer without linked file id: {}", buffer_id))
                         )?;
 
                         self.run_script(next, *file_id)
@@ -602,13 +602,29 @@ impl<'lua> ScriptScheduler<'lua> {
                             .buffer_file_map
                             .get_by_right(&file_id)
                             .ok_or_else(|| {
-                                Error::Recoverable(format!(
+                                Error::Script(format!(
                                     "Attempted to get current buffer id for file at id: {}",
                                     file_id
                                 ))
                             })?;
 
                         self.run_script(next, *buffer_id)
+                    }
+                    RedCall::BufferContentAt {
+                        buffer_id,
+                        byte_index,
+                        char_count,
+                    } => {
+                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted to get current buffer with invalid id: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        let content = buffer.content_copy_at_byte_index(byte_index, char_count);
+
+                        self.run_script(next, content)
                     }
                 }?;
 

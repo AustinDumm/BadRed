@@ -48,8 +48,16 @@ impl ContentBuffer for EditorBuffer {
         self.content.content_byte_length()
     }
 
+    fn content_line_count(&self) -> usize {
+        self.content.content_line_count()
+    }
+
     fn content_copy(&self) -> String {
         self.content.content_copy()
+    }
+
+    fn content_copy_at_byte_index(&self, byte_index: usize, length: usize,) -> Option<String> {
+        self.content.content_copy_at_byte_index(byte_index, length)
     }
 
     fn set_cursor_byte_index(&mut self, index: usize) {
@@ -87,9 +95,5 @@ impl ContentBuffer for EditorBuffer {
         self.is_content_dirty = false;
 
         self.content.flush_to_write(write)
-    }
-
-    fn content_line_count(&self) -> usize {
-        self.content.content_line_count()
     }
 }

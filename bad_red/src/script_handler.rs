@@ -121,6 +121,11 @@ pub enum RedCall<'lua> {
     BufferContent {
         buffer_id: usize,
     },
+    BufferContentAt {
+        buffer_id: usize,
+        byte_index: usize,
+        char_count: usize,
+    },
     BufferOpen,
     BufferClose {
         buffer_id: usize,
