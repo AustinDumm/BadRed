@@ -147,29 +147,52 @@ impl ContentBuffer for NaiveBuffer {
             .char_indices()
             .skip_while(|(char_byte_index, _)| *char_byte_index < byte_index)
             .skip(char_count)
-            .next() {
-                Some(self.content[byte_index..first_excluded_char_byte_index].to_string())
+            .next()
+        {
+            Some(self.content[byte_index..first_excluded_char_byte_index].to_string())
         } else {
             Some(self.content[byte_index..].to_string())
         }
     }
 
-    fn set_cursor_byte_index(&mut self, index: usize) {
-        self.cursor_byte_index = index;
-
-        let mut col_index = 0;
-        for (char_index, char) in self.content.char_indices() {
-            if char_index == index {
-                break;
-            }
-
-            col_index += 1;
-            if char == '\n' {
-                col_index = 0;
+    fn content_copy_line(&self, mut line_index: usize) -> Option<String> {
+        let mut chars = self.content.chars();
+        while line_index > 0 {
+            let c = chars.next()?;
+            if c == '\n' {
+                line_index -= 1;
             }
         }
 
-        self.cursor_line_index = col_index;
+        let mut line_copy = String::new();
+        while let Some(c) = chars.next() {
+            line_copy.push(c);
+            if c == '\n' {
+                break;
+            }
+        }
+
+        Some(line_copy)
+    }
+
+    fn set_cursor_byte_index(&mut self, index: usize, keep_col_index: bool) {
+        self.cursor_byte_index = index;
+
+        if keep_col_index {
+            let mut col_index = 0;
+            for (char_index, char) in self.content.char_indices() {
+                if char_index == index {
+                    break;
+                }
+
+                col_index += 1;
+                if char == '\n' {
+                    col_index = 0;
+                }
+            }
+
+            self.cursor_line_index = col_index;
+        }
     }
 
     fn set_cursor_line_index(&mut self, index: usize) {

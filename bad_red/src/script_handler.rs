@@ -101,6 +101,7 @@ pub enum RedCall<'lua> {
     BufferSetCursor {
         buffer_id: usize,
         cursor_index: usize,
+        keep_col_index: bool,
     },
     BufferSetCursorLine {
         buffer_id: usize,
@@ -125,6 +126,10 @@ pub enum RedCall<'lua> {
         buffer_id: usize,
         byte_index: usize,
         char_count: usize,
+    },
+    BufferLineContent {
+        buffer_id: usize,
+        line_index: usize,
     },
     BufferOpen,
     BufferClose {

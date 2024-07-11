@@ -45,44 +45,62 @@ function P:cursor()
     return coroutine.yield(red.call.buffer_cursor(self:id()))
 end
 
-function P:cursor_right(count, skip_newlines)
+function P:cursor_right(count, skip_newlines, keep_col_index)
     local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), count))
     local cursor_char = self:content_at(new_cursor, 1)
-    self:set_cursor_index(new_cursor)
+    self:set_cursor_index(new_cursor, keep_col_index)
 
-    if skip_newlines and cursor_char == "\n" then
-        self:cursor_right(1)
+    if skip_newlines then
+        local line_content = self:line_content(self:cursor_line())
+
+        if cursor_char == "\n" and line_content ~= "\n" then
+            self:cursor_right(1)
+        end
     end
 end
 
-function P:cursor_left(count, skip_newlines)
+function P:cursor_left(count, skip_newlines, keep_col_index)
     local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), -count))
     local cursor_char = self:content_at(new_cursor, 1)
-    self:set_cursor_index(new_cursor)
+    self:set_cursor_index(new_cursor, keep_col_index)
 
-    if skip_newlines and cursor_char == "\n" then
-        self:cursor_left(1)
+    if skip_newlines then
+        local line_content = self:line_content(self:cursor_line())
+
+        if cursor_char == "\n" and line_content ~= "\n" then
+            self:cursor_left(1)
+        end
     end
 end
 
-function P:cursor_up(count)
+function P:cursor_up(count, skip_newlines)
     local current_line = self:cursor_line()
+    local to_line = current_line - count
 
-    if current_line == 0 then
+    if to_line < 0 then
         self:set_cursor_index(0)
     else
         self:set_cursor_line(current_line - 1)
+    end
+
+    if skip_newlines and self:cursor_content() == "\n" and self:cursor_line_content() ~= "\n" then
+        self:cursor_left(1, false, true)
     end
 end
 
 function P:cursor_down(count, skip_newlines)
     local current_line = self:cursor_line()
+    local to_line = current_line + count
     local line_count = self:lines()
 
-    if current_line == line_count - 1 then
+    if to_line >= line_count then
         self:set_cursor_index(self:length())
     else
         self:set_cursor_line(current_line + 1)
+    end
+
+    if skip_newlines and self:cursor_content() == "\n" and self:cursor_line_content() ~= "\n" then
+        self:cursor_left(1, false, true)
     end
 end
 
@@ -94,8 +112,8 @@ function P:cursor_line()
     return coroutine.yield(red.call.buffer_cursor_line(self:id()))
 end
 
-function P:set_cursor_index(index)
-    coroutine.yield(red.call.buffer_set_cursor(self:id(), index))
+function P:set_cursor_index(index, keep_col_index)
+    coroutine.yield(red.call.buffer_set_cursor(self:id(), index, keep_col_index))
 end
 
 function P:set_cursor_line(line)
@@ -116,6 +134,18 @@ end
 
 function P:content_at(byte_index, char_length)
     return coroutine.yield(red.call.buffer_content_at(self:id(), byte_index, char_length))
+end
+
+function P:line_content(line_index)
+    return coroutine.yield(red.call.buffer_line_content(self:id(), line_index))
+end
+
+function P:cursor_line_content()
+    return self:line_content(self:cursor_line())
+end
+
+function P:cursor_content()
+    return self:content_at(self:cursor(), 1)
 end
 
 function P:clear()

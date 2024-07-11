@@ -282,19 +282,56 @@ impl ContentBuffer for GapBuffer {
         std::str::from_utf8(&bytes_copy).ok().map(|s| s.to_string())
     }
 
-    fn set_cursor_byte_index(&mut self, index: usize) {
+    fn content_copy_line(&self, line_index: usize) -> Option<String> {
+        let mut start_index = line_index
+            .checked_sub(1)
+            .map(|newline_index| {
+                self.sorted_newline_indices
+                    .get(newline_index)
+                    .map(|newline| newline + 1)
+            })
+            .flatten()?;
+        let end_index = self
+            .sorted_newline_indices
+            .get(line_index)
+            .map(|newline| newline + 1)?;
+
+        let mut bytes = vec![];
+        while start_index < end_index {
+            let byte = self.underlying_buf[start_index];
+            match super::expected_byte_length_from_starting(byte) {
+                Some(length) => {
+                    bytes.push(byte);
+                    for i in 1..length {
+                        bytes.push(self.underlying_buf[start_index + i as usize]);
+                    }
+                    start_index += length as usize;
+                }
+                None => panic!(
+                    "Invalid utf8 encoding. Found non-start byte at expected character byte index"
+                ),
+            }
+        }
+
+        std::str::from_utf8(&bytes).map(|str| str.to_string()).ok()
+    }
+
+    fn set_cursor_byte_index(&mut self, index: usize, keep_col_index: bool) {
         self.underlying_buf.set_cursor(index);
 
-        match self.lookup_index_of_preceeding_newline(index) {
-            Some(lookup_newline_index) => {
-                let preceeding_newline_index = self.sorted_newline_indices[lookup_newline_index];
-                let char_count = self.char_count_in((preceeding_newline_index + 1)..index);
-                self.char_col_index = char_count as usize;
-                self.line_index = lookup_newline_index + 1;
-            }
-            None => {
-                self.char_col_index = index;
-                self.line_index = 0;
+        if !keep_col_index {
+            match self.lookup_index_of_preceeding_newline(index) {
+                Some(lookup_newline_index) => {
+                    let preceeding_newline_index =
+                        self.sorted_newline_indices[lookup_newline_index];
+                    let char_count = self.char_count_in((preceeding_newline_index + 1)..index);
+                    self.char_col_index = char_count as usize;
+                    self.line_index = lookup_newline_index + 1;
+                }
+                None => {
+                    self.char_col_index = index;
+                    self.line_index = 0;
+                }
             }
         }
     }

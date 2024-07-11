@@ -513,6 +513,7 @@ impl<'lua> ScriptScheduler<'lua> {
                     RedCall::BufferSetCursor {
                         buffer_id,
                         cursor_index,
+                        keep_col_index,
                     } => {
                         let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
@@ -521,7 +522,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        buffer.set_cursor_byte_index(cursor_index);
+                        buffer.set_cursor_byte_index(cursor_index, keep_col_index);
 
                         self.run_script(next, ())
                     }
@@ -626,6 +627,18 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(next, content)
                     }
+                    RedCall::BufferLineContent { buffer_id, line_index } => {
+                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted to get buffer line content with invalid id: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        let content = buffer.content_copy_line(line_index);
+
+                        self.run_script(next, content)
+                    },
                 }?;
 
                 if is_script_done {

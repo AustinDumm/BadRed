@@ -60,8 +60,12 @@ impl ContentBuffer for EditorBuffer {
         self.content.content_copy_at_byte_index(byte_index, length)
     }
 
-    fn set_cursor_byte_index(&mut self, index: usize) {
-        self.content.set_cursor_byte_index(index);
+    fn content_copy_line(&self, line_index: usize) -> Option<String> {
+        self.content.content_copy_line(line_index)
+    }
+
+    fn set_cursor_byte_index(&mut self, index: usize, keep_col_index: bool) {
+        self.content.set_cursor_byte_index(index, keep_col_index);
     }
 
     fn set_cursor_line_index(&mut self, index: usize) {
