@@ -24,6 +24,8 @@ struct Args {
     init_path: Option<String>,
     #[arg(long)]
     init_name: Option<String>,
+    #[arg(short, long)]
+    startup_path: Option<String>,
 }
 
 const DEFAULT_INIT_PATH: &'static str = "../bad_red_lib";
@@ -46,17 +48,30 @@ fn main() -> io::Result<()> {
     run(
         args.init_path.unwrap_or(DEFAULT_INIT_PATH.to_string()),
         args.init_name.unwrap_or(DEFAULT_INIT_SCRIPT.to_string()),
+        args.startup_path,
         &mut display,
     )
 }
 
-fn run(init_path: String, init_file: String, display: &mut Display) -> io::Result<()> {
+fn run(init_path: String, init_file: String, startup_path: Option<String>, display: &mut Display) -> io::Result<()> {
     let init_script = load_init_script(format!("{}/{}", init_path, init_file))?;
 
     let script_handler = ScriptHandler::new(init_path)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to init Lua: {}", e)))?;
     let mut editor = Editor::new(&script_handler.lua, init_script)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    if let Some(startup_path) = startup_path {
+        let startup = load_init_script(startup_path)?;
+        let result = editor.script_scheduler.spawn_script(startup);
+        match result {
+            Ok(_) => (),
+            Err(err) => {
+                if let Some(buffer) = editor.state.active_buffer() {
+                    buffer.insert_at_cursor(&format!("{}", err));
+                }
+            }
+        }
+    }
     'editor_loop: loop {
         let var_name = false;
         let mut did_input = var_name;
