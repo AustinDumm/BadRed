@@ -200,7 +200,7 @@ impl ContentBuffer for GapBuffer {
 
     #[cfg(not(debug_assertions))]
     fn delete_at_cursor(&mut self, char_count: usize) -> String {
-        use std::{collections::VecDeque, mem};
+        use std::mem;
 
         let cursor_byte_index = self.cursor_byte_index();
 
