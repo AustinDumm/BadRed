@@ -437,10 +437,10 @@ impl ContentBuffer for GapBuffer {
     }
 
     fn populate_from_read(&mut self, read: &mut dyn std::io::prelude::Read) -> std::io::Result<()> {
-        let mut read_vec = Vec::new();
-        read.read_to_end(&mut read_vec)?;
+        let mut string = String::new();
+        read.read_to_string(&mut string)?;
 
-        self.populate_from_vec(&read_vec);
+        self.populate_from_vec(string.as_bytes());
 
         Ok(())
     }
