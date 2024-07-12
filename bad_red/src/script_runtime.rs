@@ -11,18 +11,23 @@ use mlua::{Function, IntoLuaMulti, Lua, Thread};
 use crate::{
     buffer::ContentBuffer,
     editor_state::{EditorState, Error, Result},
-    hook_map::{Hook, HookMap},
+    hook_map::{Hook, HookMap, HookName},
     pane::{PaneNodeType, Split, SplitType},
     script_handler::RedCall,
 };
 
 pub struct ScriptScheduler<'lua> {
     lua: &'lua Lua,
-    active: VecDeque<ScriptProcess<'lua>>,
+    active: VecDeque<ProcessAwaiting<'lua>>,
 }
 
 struct ScriptProcess<'lua> {
     thread: Thread<'lua>,
+    cause: Option<HookName>,
+}
+
+struct ProcessAwaiting<'lua> {
+    process: ScriptProcess<'lua>,
     awaiting: RedCall<'lua>,
 }
 
@@ -38,12 +43,28 @@ impl<'lua> ScriptScheduler<'lua> {
             Error::Unrecoverable(format!("Failed to initialize init thread: {}", e))
         })?;
         let mut active = VecDeque::new();
-        active.push_back(ScriptProcess {
-            thread,
+        active.push_back(ProcessAwaiting {
+            process: ScriptProcess {
+                thread,
+                cause: None,
+            },
             awaiting: RedCall::None,
         });
 
         Ok(Self { lua, active })
+    }
+
+    pub fn spawn_all_hooks<'f>(&mut self, hook_map: &HookMap, hook: Hook) -> Result<()> {
+        let name = HookName::from(&hook);
+
+        let Some(function_iter) = hook_map.function_iter(name) else {
+            return Ok(());
+        };
+        for function in function_iter {
+            self.spawn_hook(function.clone(), hook.clone())?
+        }
+
+        Ok(())
     }
 
     pub fn spawn_hook<'f>(&mut self, function: Function<'f>, hook: Hook) -> Result<()> {
@@ -52,8 +73,11 @@ impl<'lua> ScriptScheduler<'lua> {
             .create_thread(function)
             .map_err(|e| Error::Unrecoverable(format!("Failed to spawn function thread: {}", e)))?;
 
-        self.active.push_back(ScriptProcess {
-            thread,
+        self.active.push_back(ProcessAwaiting {
+            process: ScriptProcess {
+                thread,
+                cause: Some(hook.clone().into()),
+            },
             awaiting: RedCall::RunHook { hook },
         });
 
@@ -71,8 +95,11 @@ impl<'lua> ScriptScheduler<'lua> {
             )
             .map_err(|e| Error::Unrecoverable(format!("Failed to spawn script thread: {}", e)))?;
 
-        self.active.push_back(ScriptProcess {
-            thread,
+        self.active.push_back(ProcessAwaiting {
+            process: ScriptProcess {
+                thread,
+                cause: None,
+            },
             awaiting: RedCall::None,
         });
 
@@ -91,8 +118,8 @@ impl<'lua> ScriptScheduler<'lua> {
 
         'script_loop: for _ in 0..Self::MAX_SCRIPT_CALLS {
             for _ in 0..(self.active.len().min(10)) {
-                let Some(ScriptProcess {
-                    thread: next,
+                let Some(ProcessAwaiting {
+                    process,
                     awaiting: red_call,
                 }) = self.active.pop_front()
                 else {
@@ -100,26 +127,26 @@ impl<'lua> ScriptScheduler<'lua> {
                 };
 
                 let is_script_done = match red_call {
-                    RedCall::None => self.run_script(next, ()),
-                    RedCall::Yield => self.yield_script(next, ()),
+                    RedCall::None => self.run_script(process, hook_map, ()),
+                    RedCall::Yield => self.yield_script(process, hook_map, ()),
 
                     RedCall::EditorExit => return Ok(SchedulerYield::Quit),
 
                     RedCall::PaneVSplit { index: pane_index } => {
                         editor_state.vsplit(pane_index)?;
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::PaneHSplit { index: pane_index } => {
                         editor_state.hsplit(pane_index)?;
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::ActivePaneIndex => {
                         let active_index = editor_state.active_pane_index;
-                        self.run_script(next, active_index)
+                        self.run_script(process, hook_map, active_index)
                     }
                     RedCall::RootPaneIndex => {
                         let root_index = editor_state.pane_tree.root_index();
-                        self.run_script(next, root_index)
+                        self.run_script(process, hook_map, root_index)
                     }
                     RedCall::PaneIsFirst { index } => {
                         let node = editor_state
@@ -148,7 +175,7 @@ impl<'lua> ScriptScheduler<'lua> {
                                 }
                             });
 
-                        self.run_script(next, is_first)
+                        self.run_script(process, hook_map, is_first)
                     }
                     RedCall::SetActivePane { index } => {
                         if editor_state.pane_tree.tree.len() <= index {
@@ -158,7 +185,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             )))
                         } else {
                             editor_state.active_pane_index = index;
-                            self.run_script(next, ())
+                            self.run_script(process, hook_map, ())
                         }
                     }
                     RedCall::PaneIndexUpFrom { index } => {
@@ -173,7 +200,7 @@ impl<'lua> ScriptScheduler<'lua> {
                                 .pane_node_by_index(index)
                                 .map(|node| node.parent_index);
 
-                            self.run_script(next, up_index)
+                            self.run_script(process, hook_map, up_index)
                         }
                     }
                     RedCall::PaneIndexDownFrom { index, to_first } => {
@@ -199,7 +226,7 @@ impl<'lua> ScriptScheduler<'lua> {
                                     }
                                 });
 
-                            self.run_script(next, down_index)
+                            self.run_script(process, hook_map, down_index)
                         }
                     }
                     RedCall::PaneType { index } => {
@@ -215,7 +242,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             .node_type
                             .clone();
 
-                        self.run_script(next, node_type)
+                        self.run_script(process, hook_map, node_type)
                     }
                     RedCall::PaneSetSplitPercent { index, percent } => {
                         let node = editor_state
@@ -280,7 +307,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             })?
                             .is_dirty = true;
 
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::PaneSetSplitFixed {
                         index,
@@ -330,7 +357,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             }
                         }?;
 
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::PaneBufferIndex { index } => {
                         let Some(pane) = editor_state.pane_tree.pane_by_index(index) else {
@@ -340,7 +367,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             )));
                         };
 
-                        self.run_script(next, pane.buffer_id)
+                        self.run_script(process, hook_map, pane.buffer_id)
                     }
                     RedCall::PaneCloseChild { index, first_child } => {
                         let new_active_pane_index = editor_state
@@ -353,7 +380,7 @@ impl<'lua> ScriptScheduler<'lua> {
                         editor_state.active_pane_index =
                             new_active_pane_index.unwrap_or(editor_state.active_pane_index);
 
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::PaneSetBuffer {
                         pane_index,
@@ -371,7 +398,7 @@ impl<'lua> ScriptScheduler<'lua> {
                         match pane.node_type {
                             PaneNodeType::Leaf(ref mut pane) => {
                                 pane.buffer_id = buffer_index;
-                                self.run_script(next, ())
+                                self.run_script(process, hook_map, ())
                             }
                             PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => {
                                 Err(Error::Script(format!(
@@ -391,7 +418,7 @@ impl<'lua> ScriptScheduler<'lua> {
                         };
                         buffer.insert_at_cursor(&content);
 
-                        self.run_script(next, RedCall::None)
+                        self.run_script(process, hook_map, RedCall::None)
                     }
                     RedCall::CurrentBufferId => {
                         let pane = editor_state
@@ -403,7 +430,7 @@ impl<'lua> ScriptScheduler<'lua> {
                                 ))
                             })?;
 
-                        self.run_script(next, pane.buffer_id)
+                        self.run_script(process, hook_map, pane.buffer_id)
                     }
                     RedCall::SetHook {
                         hook_name,
@@ -411,10 +438,16 @@ impl<'lua> ScriptScheduler<'lua> {
                     } => {
                         hook_map.add_hook(hook_name, function);
 
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::RunHook { hook } => match hook {
-                        Hook::KeyEvent(event) => self.run_script(next, event),
+                        Hook::KeyEvent(event) => self.run_script(process, hook_map, event),
+                        Hook::Error(error_description) => {
+                            self.run_script(process, hook_map, error_description)
+                        }
+                        Hook::SecondaryError(error_description) => {
+                            self.run_script(process, hook_map, error_description)
+                        }
                     },
 
                     RedCall::RunScript { script } => {
@@ -431,15 +464,25 @@ impl<'lua> ScriptScheduler<'lua> {
                                 "Failed to create Lua thread for RunScript: {}",
                                 e
                             ))
-                        })?;
-
-                        self.active.push_back(ScriptProcess {
-                            thread: script_thread,
-                            awaiting: RedCall::None,
                         });
-                        self.run_script(next, ())
-                    }
 
+                        match script_thread {
+                            Ok(script_thread) => {
+                                self.active.push_back(ProcessAwaiting {
+                                    process: ScriptProcess {
+                                        thread: script_thread,
+                                        cause: None,
+                                    },
+                                    awaiting: RedCall::None,
+                                });
+                                self.run_script(process, hook_map, ())
+                            }
+                            Err(error) => {
+                                self.spawn_all_hooks(hook_map, Hook::Error(format!("{}", error)))
+                                    .map(|_| true)
+                            }
+                        }
+                    }
                     RedCall::BufferDelete {
                         buffer_id,
                         char_count,
@@ -453,7 +496,7 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         let deleted_string = buffer.delete_at_cursor(char_count);
 
-                        self.run_script(next, deleted_string)
+                        self.run_script(process, hook_map, deleted_string)
                     }
                     RedCall::BufferCursorMovedByChar {
                         buffer_id,
@@ -468,7 +511,7 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         let moved_cursor = buffer.cursor_moved_by_char(char_count);
 
-                        self.run_script(next, moved_cursor)
+                        self.run_script(process, hook_map, moved_cursor)
                     }
                     RedCall::BufferLength { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
@@ -478,7 +521,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(next, buffer.content_byte_length())
+                        self.run_script(process, hook_map, buffer.content_byte_length())
                     }
                     RedCall::BufferLineCount { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
@@ -488,7 +531,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(next, buffer.content_line_count())
+                        self.run_script(process, hook_map, buffer.content_line_count())
                     }
                     RedCall::BufferCursor { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
@@ -498,7 +541,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(next, buffer.cursor_byte_index())
+                        self.run_script(process, hook_map, buffer.cursor_byte_index())
                     }
                     RedCall::BufferCursorLine { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
@@ -508,7 +551,7 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(next, buffer.cursor_line_index())
+                        self.run_script(process, hook_map, buffer.cursor_line_index())
                     }
                     RedCall::BufferSetCursor {
                         buffer_id,
@@ -524,7 +567,7 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         buffer.set_cursor_byte_index(cursor_index, keep_col_index);
 
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::BufferSetCursorLine {
                         buffer_id,
@@ -539,7 +582,7 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         buffer.set_cursor_line_index(line_index);
 
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::BufferContent { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
@@ -549,15 +592,15 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(next, buffer.content_copy())
+                        self.run_script(process, hook_map, buffer.content_copy())
                     }
                     RedCall::BufferOpen => {
                         let new_buffer_id = editor_state.create_buffer();
-                        self.run_script(next, new_buffer_id)
+                        self.run_script(process, hook_map, new_buffer_id)
                     }
                     RedCall::BufferClose { buffer_id } => {
                         editor_state.remove_buffer(buffer_id)?;
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::BufferLinkFile {
                         buffer_id,
@@ -565,30 +608,30 @@ impl<'lua> ScriptScheduler<'lua> {
                         should_overwrite_buffer,
                     } => {
                         editor_state.link_buffer(buffer_id, file_id, should_overwrite_buffer)?;
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::BufferUnlinkFile {
                         buffer_id,
                         should_force,
                     } => {
                         let file_id = editor_state.unlink_buffer(buffer_id, should_force)?;
-                        self.run_script(next, file_id)
+                        self.run_script(process, hook_map, file_id)
                     }
                     RedCall::BufferWriteToFile { buffer_id } => {
                         editor_state.write_buffer(buffer_id)?;
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::BufferCurrentFile { buffer_id } => {
                         let file_id = editor_state.buffer_file_map.get_by_left(&buffer_id).ok_or_else(||
                             Error::Script(format!("Attempted to get current file id for buffer without linked file id: {}", buffer_id))
                         )?;
 
-                        self.run_script(next, *file_id)
+                        self.run_script(process, hook_map, *file_id)
                     }
                     RedCall::FileOpen { path_string } => {
                         let id = editor_state.open_file(Path::new(&path_string))?;
 
-                        self.run_script(next, id)
+                        self.run_script(process, hook_map, id)
                     }
                     RedCall::FileClose {
                         file_id,
@@ -596,7 +639,7 @@ impl<'lua> ScriptScheduler<'lua> {
                     } => {
                         editor_state.close_file(file_id, should_force_close)?;
 
-                        self.run_script(next, ())
+                        self.run_script(process, hook_map, ())
                     }
                     RedCall::FileCurrentBuffer { file_id } => {
                         let buffer_id = editor_state
@@ -609,7 +652,7 @@ impl<'lua> ScriptScheduler<'lua> {
                                 ))
                             })?;
 
-                        self.run_script(next, *buffer_id)
+                        self.run_script(process, hook_map, *buffer_id)
                     }
                     RedCall::BufferContentAt {
                         buffer_id,
@@ -625,9 +668,12 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         let content = buffer.content_copy_at_byte_index(byte_index, char_count);
 
-                        self.run_script(next, content)
+                        self.run_script(process, hook_map, content)
                     }
-                    RedCall::BufferLineContent { buffer_id, line_index } => {
+                    RedCall::BufferLineContent {
+                        buffer_id,
+                        line_index,
+                    } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
                                 "Attempted to get buffer line content with invalid id: {}",
@@ -637,9 +683,12 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         let content = buffer.content_copy_line(line_index);
 
-                        self.run_script(next, content)
-                    },
-                    RedCall::BufferSetType { buffer_id, buffer_type } => {
+                        self.run_script(process, hook_map, content)
+                    }
+                    RedCall::BufferSetType {
+                        buffer_id,
+                        buffer_type,
+                    } => {
                         let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
                                 "Attempted to get buffer for type set with invalid id: {}",
@@ -649,8 +698,8 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         buffer.set_type(buffer_type);
 
-                        self.run_script(next, ())
-                    },
+                        self.run_script(process, hook_map, ())
+                    }
                     RedCall::BufferType { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
@@ -659,8 +708,8 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(next, buffer.buffer_type)
-                    },
+                        self.run_script(process, hook_map, buffer.buffer_type)
+                    }
                 }?;
 
                 if is_script_done {
@@ -672,48 +721,77 @@ impl<'lua> ScriptScheduler<'lua> {
         Ok(SchedulerYield::Run)
     }
 
-    fn run_script<A>(&mut self, thread: Thread<'lua>, arg: A) -> Result<bool>
+    fn run_script<A>(
+        &mut self,
+        process: ScriptProcess<'lua>,
+        hook_map: &HookMap,
+        arg: A,
+    ) -> Result<bool>
     where
         A: IntoLuaMulti<'lua>,
     {
-        self.execute_script(thread, arg, false)
+        self.execute_script(process, hook_map, arg, false)
     }
 
-    fn yield_script<A>(&mut self, thread: Thread<'lua>, arg: A) -> Result<bool>
+    fn yield_script<A>(
+        &mut self,
+        process: ScriptProcess<'lua>,
+        hook_map: &HookMap,
+        arg: A,
+    ) -> Result<bool>
     where
         A: IntoLuaMulti<'lua>,
     {
-        self.execute_script(thread, arg, true)
+        self.execute_script(process, hook_map, arg, true)
     }
 
     fn execute_script<A>(
         &mut self,
-        thread: Thread<'lua>,
+        process: ScriptProcess<'lua>,
+        hook_map: &HookMap,
         arg: A,
         should_yield: bool,
     ) -> Result<bool>
     where
         A: IntoLuaMulti<'lua>,
     {
-        match thread.status() {
+        match process.thread.status() {
             mlua::ThreadStatus::Resumable => {
-                let red_call = thread
+                match process
+                    .thread
                     .resume(arg)
-                    .map_err(|e| Error::Script(format!("{}", e)))?;
-
-                if should_yield {
-                    self.active.push_back(ScriptProcess {
-                        thread,
-                        awaiting: red_call,
-                    });
-                } else {
-                    self.active.push_front(ScriptProcess {
-                        thread,
-                        awaiting: red_call,
-                    });
+                    .map_err(|e| Error::Script(format!("{}", e)))
+                {
+                    Ok(red_call) => {
+                        if should_yield {
+                            self.active.push_back(ProcessAwaiting {
+                                process: ScriptProcess {
+                                    thread: process.thread,
+                                    cause: process.cause,
+                                },
+                                awaiting: red_call,
+                            });
+                        } else {
+                            self.active.push_front(ProcessAwaiting {
+                                process: ScriptProcess {
+                                    thread: process.thread,
+                                    cause: process.cause,
+                                },
+                                awaiting: red_call,
+                            });
+                        }
+                    }
+                    Err(err) => match process.cause {
+                        Some(HookName::Error) => self
+                            .spawn_all_hooks(hook_map, Hook::SecondaryError(format!("{}", err)))?,
+                        Some(HookName::SecondaryError) => Err(err)?,
+                        Some(_) | None => {
+                            self.spawn_all_hooks(hook_map, Hook::Error(format!("{}", err)))?
+                        }
+                    },
                 }
 
-                Ok(false || should_yield)
+                Ok(should_yield)
             }
             mlua::ThreadStatus::Unresumable => Ok(true),
             mlua::ThreadStatus::Error => Err(Error::Unrecoverable(format!(

@@ -15,6 +15,8 @@ use crate::keymap::RedKeyEvent;
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub enum Hook {
     KeyEvent(RedKeyEvent),
+    Error(String),
+    SecondaryError(String),
 }
 
 pub struct HookMap<'lua> {

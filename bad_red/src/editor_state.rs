@@ -81,6 +81,28 @@ impl<'a> Editor<'a> {
         Ok(())
     }
 
+    pub fn handle_error(&mut self, error_description: String) -> Result<()> {
+        let function_iter = self.hook_map.function_iter(HookName::Error)
+            .ok_or_else(|| Error::Recoverable(format!("No error hook set for {}", error_description)))?;
+
+        for hook_function in function_iter {
+            self.script_scheduler
+                .spawn_hook(hook_function.clone(), Hook::Error(error_description.clone()))?;
+        }
+        Ok(())
+    }
+
+    pub fn handle_secondary_error(&mut self, error_description: String) -> Result<()> {
+        let function_iter = self.hook_map.function_iter(HookName::SecondaryError)
+            .ok_or_else(|| Error::Unrecoverable(format!("No secondary error hook set for {}", error_description)))?;
+
+        for hook_function in function_iter {
+            self.script_scheduler
+                .spawn_hook(hook_function.clone(), Hook::Error(error_description.clone()))?;
+        }
+        Ok(())
+    }
+
     pub fn run_scripts(&mut self) -> Result<SchedulerYield> {
         self.script_scheduler
             .run_schedule(&mut self.state, &mut self.hook_map)

@@ -4,14 +4,14 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-use std::{
-    io,
-    panic,
-    time::Duration,
-};
+use std::{io, panic, time::Duration};
 
 use bad_red_lib::{
-    buffer::ContentBuffer, display::Display, editor_state::{self, Editor}, script_handler::ScriptHandler, script_runtime::SchedulerYield
+    buffer::ContentBuffer,
+    display::Display,
+    editor_state::{self, Editor},
+    script_handler::ScriptHandler,
+    script_runtime::SchedulerYield,
 };
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 
@@ -53,7 +53,12 @@ fn main() -> io::Result<()> {
     )
 }
 
-fn run(init_path: String, init_file: String, startup_path: Option<String>, display: &mut Display) -> io::Result<()> {
+fn run(
+    init_path: String,
+    init_file: String,
+    startup_path: Option<String>,
+    display: &mut Display,
+) -> io::Result<()> {
     let init_script = load_init_script(format!("{}/{}", init_path, init_file))?;
 
     let script_handler = ScriptHandler::new(init_path)
@@ -113,18 +118,14 @@ fn run(init_path: String, init_file: String, startup_path: Option<String>, displ
             Ok(SchedulerYield::Run) => true,
             Ok(SchedulerYield::Skip) => false,
             Ok(SchedulerYield::Quit) => return Ok(()),
-            Err(editor_state::Error::Unrecoverable(message)) => {
+            Err(editor_state::Error::Unrecoverable(message)) |
+                Err(editor_state::Error::Recoverable(message)) |
+                Err(editor_state::Error::Script(message)) => {
                 Err(io::Error::new(
                     io::ErrorKind::Other,
-                    format!("{:#?}", message),
+                    format!("Error found without hook capture: {:#?}", message),
                 ))?;
                 false
-            }
-            Err(e) => {
-                if let Some(buffer) = editor.state.active_buffer() {
-                    buffer.insert_at_cursor(&format!("{}", e));
-                }
-                true
             }
         };
 
