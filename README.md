@@ -25,3 +25,11 @@ integrated into the editor.
     - The editor itself is not intended for serious development use
 - Cross-platform support
     - This was developed with the Kitty terminal running on macOS. Other platforms are not tested
+
+## Profiling
+
++------------------------+--------------+------------+
+|                        | Naive String | Gap Buffer |
++------------------------+--------------+------------+
+| Large File Open & Edit | 11m 43s      | 9.9s       |
++------------------------+--------------+------------+
