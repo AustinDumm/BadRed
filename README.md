@@ -31,4 +31,4 @@ integrated into the editor.
 |                        | Naive String | Gap Buffer |
 |------------------------|--------------|------------|
 | Large File Open & Edit | 11m 43s      | 9.9s       |
-|------------------------|--------------|------------|
+
