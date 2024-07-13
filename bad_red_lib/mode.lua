@@ -30,7 +30,6 @@ local function normal_mode(command_handler, input_map)
     map["l"] = function(_) red.buffer:cursor_right(1, true) end
     map["k"] = function(_) red.buffer:cursor_up(1, true) end
     map["j"] = function(_) red.buffer:cursor_down(1, true) end
-    map["f"] = function(_) error("TEST ERROR") end
     map["d"] = (function()
         local delete_map = red.keymap:new_map()
 
