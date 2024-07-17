@@ -408,6 +408,33 @@ impl<'lua> ScriptScheduler<'lua> {
                             }
                         }
                     }
+                    RedCall::PaneWrap { pane_index } => {
+                        let pane = editor_state.pane_tree.pane_node_by_index(pane_index)
+                            .ok_or_else(|| Error::Script(format!(
+                                "Attempted to get pane wrap flag for invalid pane index"
+                            )))?;
+                        match &pane.node_type {
+                            PaneNodeType::Leaf(leaf) => 
+                                self.run_script(process, hook_map, leaf.should_wrap),
+                            PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) =>
+                                self.run_script(process, hook_map, ()),
+                        }
+                    }
+                    RedCall::PaneSetWrap {
+                        pane_index,
+                        should_wrap,
+                    } => {
+                        let pane = editor_state.pane_tree.pane_node_mut_by_index(pane_index)
+                            .ok_or_else(|| Error::Script(format!(
+                                "Attempted to get pane wrap flag for invalid pane index"
+                            )))?;
+                        match &mut pane.node_type {
+                            PaneNodeType::Leaf(leaf) => leaf.should_wrap = should_wrap,
+                            PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => ()
+                        }
+
+                        self.run_script(process, hook_map, ())
+                    },
 
                     RedCall::BufferInsert { buffer_id, content } => {
                         let Some(buffer) = editor_state.mut_buffer_by_id(buffer_id) else {
@@ -477,10 +504,9 @@ impl<'lua> ScriptScheduler<'lua> {
                                 });
                                 self.run_script(process, hook_map, ())
                             }
-                            Err(error) => {
-                                self.spawn_all_hooks(hook_map, Hook::Error(format!("{}", error)))
-                                    .map(|_| true)
-                            }
+                            Err(error) => self
+                                .spawn_all_hooks(hook_map, Hook::Error(format!("{}", error)))
+                                .map(|_| true),
                         }
                     }
                     RedCall::BufferDelete {

@@ -12,6 +12,9 @@ local function normal_mode(command_handler, input_map)
             red.pane:h_split()
             red.pane:child(true):set_active()
         end
+        pane_map["q"] = function(_)
+            red.pane:close()
+        end
         return pane_map
     end)()
     map[":"] = function(key) command_handler:start_command(key) end

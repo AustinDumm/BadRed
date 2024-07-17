@@ -72,6 +72,13 @@ pub enum RedCall<'lua> {
         pane_index: usize,
         buffer_index: usize,
     },
+    PaneWrap {
+        pane_index: usize,
+    },
+    PaneSetWrap {
+        pane_index: usize,
+        should_wrap: bool,
+    },
 
     SetHook {
         hook_name: HookName,

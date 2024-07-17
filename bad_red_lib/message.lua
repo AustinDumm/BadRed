@@ -18,6 +18,7 @@ function P:open()
 
         new_root:fix_size(3, false)
         self.pane = new_root:child(false)
+        self.pane:set_wrap(true)
     end
 
     self.pane:set_buffer(self.buffer)

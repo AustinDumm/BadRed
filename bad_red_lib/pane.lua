@@ -56,12 +56,29 @@ function P:type()
     return coroutine.yield(red.call.pane_type(self:id()))
 end
 
+function P:wrap()
+    return coroutine.yield(red.call.pane_wrap(self:id()))
+end
+
+function P:set_wrap(wrap)
+    return coroutine.yield(red.call.pane_set_wrap(self:id(), wrap))
+end
+
 function P:v_split()
     coroutine.yield(red.call.pane_v_split(self:id()))
 end
 
 function P:h_split()
     coroutine.yield(red.call.pane_h_split(self:id()))
+end
+
+function P:close()
+    local is_first = self:is_first_child()
+    if is_first == nil then
+        return
+    end
+
+    self:parent():close_child(is_first)
 end
 
 function P:close_child(first_child)
