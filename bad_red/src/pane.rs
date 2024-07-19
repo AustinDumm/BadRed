@@ -154,7 +154,7 @@ impl PaneTree {
         parent_index: usize,
         first_child: bool,
         active_pane_index: usize,
-    ) -> Result<Option<usize>> {
+    ) -> Result<Option<(usize, usize)>> {
         let parent_node = self.pane_node_by_index(parent_index).ok_or_else(|| {
             format!(
                 "Attempted to close child of pane node at invalid index: {}",
@@ -218,7 +218,7 @@ impl PaneTree {
         let active_pane_closed = self.close_with_children(child_to_close, active_pane_index);
 
         if active_pane_closed {
-            Ok(Some(child_to_keep))
+            Ok(Some((child_to_keep, child_to_close)))
         } else {
             Ok(None)
         }

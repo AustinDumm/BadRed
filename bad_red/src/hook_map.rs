@@ -17,6 +17,7 @@ pub enum HookType {
     KeyEvent(RedKeyEvent),
     Error(String),
     SecondaryError(String),
+    PaneClosed { pane_id: usize },
 }
 
 struct HookMapEntry<'lua> {

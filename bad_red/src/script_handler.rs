@@ -176,6 +176,10 @@ pub enum RedCall<'lua> {
     FileCurrentBuffer {
         file_id: usize,
     },
+
+    Value {
+        value: Value<'lua>
+    },
 }
 
 impl ScriptHandler {
