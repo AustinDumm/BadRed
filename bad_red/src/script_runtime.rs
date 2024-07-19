@@ -6,7 +6,7 @@
 
 use std::{collections::VecDeque, path::Path};
 
-use mlua::{Function, IntoLua, IntoLuaMulti, Lua, Thread, Value};
+use mlua::{Function, IntoLua, Lua, Thread, Value};
 
 use crate::{
     buffer::ContentBuffer,
@@ -375,7 +375,7 @@ impl<'lua> ScriptScheduler<'lua> {
                         self.run_script(process, hook_map, pane.buffer_id)
                     }
                     RedCall::PaneCloseChild { index, first_child } => {
-                        let (new_active_pane_index, closed_index) = editor_state
+                        let (new_active_pane_index, closed_id) = editor_state
                             .pane_tree
                             .close_child(index, first_child, editor_state.active_pane_index)
                             .map_err(|e| {
@@ -390,7 +390,13 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         editor_state.active_pane_index = new_active_pane_index;
 
-                        self.run_script(process, hook_map, Value::Nil)
+                        self.execute_script(
+                            process,
+                            Some((HookType::PaneClosed { pane_id: closed_id }, closed_id.into_lua(self.lua).ok())),
+                            hook_map,
+                            Value::Nil,
+                            false,
+                        )
                     }
                     RedCall::PaneSetBuffer {
                         pane_index,
@@ -764,9 +770,7 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(process, hook_map, buffer.buffer_type)
                     }
-                    RedCall::Value { value } => {
-                        self.run_script(process, hook_map, value)
-                    }
+                    RedCall::Value { value } => self.run_script(process, hook_map, value),
                 }?;
 
                 if is_script_done {

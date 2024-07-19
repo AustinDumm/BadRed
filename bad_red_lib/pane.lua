@@ -52,6 +52,10 @@ function P:child(to_first)
     return P:new(child_id)
 end
 
+function P:on_close(run)
+    coroutine.yield(red.call.set_hook("pane_closed", run, self:id()))
+end
+
 function P:type()
     return coroutine.yield(red.call.pane_type(self:id()))
 end
