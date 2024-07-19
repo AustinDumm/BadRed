@@ -6,12 +6,12 @@
 
 use std::{collections::VecDeque, path::Path};
 
-use mlua::{Function, IntoLuaMulti, Lua, Thread};
+use mlua::{Function, IntoLuaMulti, Lua, Thread, Value};
 
 use crate::{
     buffer::ContentBuffer,
     editor_state::{EditorState, Error, Result},
-    hook_map::{Hook, HookMap, HookName},
+    hook_map::{HookMap, HookType, HookTypeName},
     pane::{PaneNodeType, Split, SplitType},
     script_handler::RedCall,
 };
@@ -23,7 +23,7 @@ pub struct ScriptScheduler<'lua> {
 
 struct ScriptProcess<'lua> {
     thread: Thread<'lua>,
-    cause: Option<HookName>,
+    cause: Option<HookTypeName>,
 }
 
 struct ProcessAwaiting<'lua> {
@@ -54,10 +54,15 @@ impl<'lua> ScriptScheduler<'lua> {
         Ok(Self { lua, active })
     }
 
-    pub fn spawn_all_hooks<'f>(&mut self, hook_map: &HookMap, hook: Hook) -> Result<()> {
-        let name = HookName::from(&hook);
+    pub fn spawn_all_hooks<'f>(
+        &mut self,
+        hook_map: &HookMap,
+        hook: HookType,
+        compare: Option<Value<'lua>>,
+    ) -> Result<()> {
+        let name = HookTypeName::from(&hook);
 
-        let Some(function_iter) = hook_map.function_iter(name) else {
+        let Some(function_iter) = hook_map.function_iter(name, compare) else {
             return Ok(());
         };
         for function in function_iter {
@@ -67,7 +72,7 @@ impl<'lua> ScriptScheduler<'lua> {
         Ok(())
     }
 
-    pub fn spawn_hook<'f>(&mut self, function: Function<'f>, hook: Hook) -> Result<()> {
+    pub fn spawn_hook<'f>(&mut self, function: Function<'f>, hook: HookType) -> Result<()> {
         let thread = self
             .lua
             .create_thread(function)
@@ -409,32 +414,42 @@ impl<'lua> ScriptScheduler<'lua> {
                         }
                     }
                     RedCall::PaneWrap { pane_index } => {
-                        let pane = editor_state.pane_tree.pane_node_by_index(pane_index)
-                            .ok_or_else(|| Error::Script(format!(
-                                "Attempted to get pane wrap flag for invalid pane index"
-                            )))?;
+                        let pane = editor_state
+                            .pane_tree
+                            .pane_node_by_index(pane_index)
+                            .ok_or_else(|| {
+                                Error::Script(format!(
+                                    "Attempted to get pane wrap flag for invalid pane index"
+                                ))
+                            })?;
                         match &pane.node_type {
-                            PaneNodeType::Leaf(leaf) => 
-                                self.run_script(process, hook_map, leaf.should_wrap),
-                            PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) =>
-                                self.run_script(process, hook_map, ()),
+                            PaneNodeType::Leaf(leaf) => {
+                                self.run_script(process, hook_map, leaf.should_wrap)
+                            }
+                            PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => {
+                                self.run_script(process, hook_map, ())
+                            }
                         }
                     }
                     RedCall::PaneSetWrap {
                         pane_index,
                         should_wrap,
                     } => {
-                        let pane = editor_state.pane_tree.pane_node_mut_by_index(pane_index)
-                            .ok_or_else(|| Error::Script(format!(
-                                "Attempted to get pane wrap flag for invalid pane index"
-                            )))?;
+                        let pane = editor_state
+                            .pane_tree
+                            .pane_node_mut_by_index(pane_index)
+                            .ok_or_else(|| {
+                                Error::Script(format!(
+                                    "Attempted to get pane wrap flag for invalid pane index"
+                                ))
+                            })?;
                         match &mut pane.node_type {
                             PaneNodeType::Leaf(leaf) => leaf.should_wrap = should_wrap,
-                            PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => ()
+                            PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => (),
                         }
 
                         self.run_script(process, hook_map, ())
-                    },
+                    }
 
                     RedCall::BufferInsert { buffer_id, content } => {
                         let Some(buffer) = editor_state.mut_buffer_by_id(buffer_id) else {
@@ -462,17 +477,18 @@ impl<'lua> ScriptScheduler<'lua> {
                     RedCall::SetHook {
                         hook_name,
                         function,
+                        compare,
                     } => {
-                        hook_map.add_hook(hook_name, function);
+                        hook_map.add_hook(hook_name, function, compare);
 
                         self.run_script(process, hook_map, ())
                     }
                     RedCall::RunHook { hook } => match hook {
-                        Hook::KeyEvent(event) => self.run_script(process, hook_map, event),
-                        Hook::Error(error_description) => {
+                        HookType::KeyEvent(event) => self.run_script(process, hook_map, event),
+                        HookType::Error(error_description) => {
                             self.run_script(process, hook_map, error_description)
                         }
-                        Hook::SecondaryError(error_description) => {
+                        HookType::SecondaryError(error_description) => {
                             self.run_script(process, hook_map, error_description)
                         }
                     },
@@ -505,7 +521,11 @@ impl<'lua> ScriptScheduler<'lua> {
                                 self.run_script(process, hook_map, ())
                             }
                             Err(error) => self
-                                .spawn_all_hooks(hook_map, Hook::Error(format!("{}", error)))
+                                .spawn_all_hooks(
+                                    hook_map,
+                                    HookType::Error(format!("{}", error)),
+                                    None,
+                                )
                                 .map(|_| true),
                         }
                     }
@@ -808,12 +828,17 @@ impl<'lua> ScriptScheduler<'lua> {
                         }
                     }
                     Err(err) => match process.cause {
-                        Some(HookName::Error) => self
-                            .spawn_all_hooks(hook_map, Hook::SecondaryError(format!("{}", err)))?,
-                        Some(HookName::SecondaryError) => Err(err)?,
-                        Some(_) | None => {
-                            self.spawn_all_hooks(hook_map, Hook::Error(format!("{}", err)))?
-                        }
+                        Some(HookTypeName::Error) => self.spawn_all_hooks(
+                            hook_map,
+                            HookType::SecondaryError(format!("{}", err)),
+                            None,
+                        )?,
+                        Some(HookTypeName::SecondaryError) => Err(err)?,
+                        Some(_) | None => self.spawn_all_hooks(
+                            hook_map,
+                            HookType::Error(format!("{}", err)),
+                            None,
+                        )?,
                     },
                 }
 

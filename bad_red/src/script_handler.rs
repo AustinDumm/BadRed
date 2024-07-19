@@ -6,9 +6,9 @@
 
 
 use bad_red_proc_macros::{auto_lua_defaulting, auto_script_table};
-use mlua::{Function, Lua, Table};
+use mlua::{Function, Lua, Table, Value};
 
-use crate::{buffer::EditorBufferType, hook_map::{Hook, HookName}};
+use crate::{buffer::EditorBufferType, hook_map::{HookType, HookTypeName}};
 
 pub struct ScriptHandler {
     pub lua: Lua,
@@ -81,11 +81,12 @@ pub enum RedCall<'lua> {
     },
 
     SetHook {
-        hook_name: HookName,
+        hook_name: HookTypeName,
         function: Function<'lua>,
+        compare: Option<Value<'lua>>,
     },
     RunHook {
-        hook: Hook,
+        hook: HookType,
     },
 
     RunScript {

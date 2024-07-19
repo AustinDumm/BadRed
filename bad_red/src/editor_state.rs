@@ -13,7 +13,7 @@ use mlua::Lua;
 use crate::{
     buffer::{ContentBuffer, EditorBuffer},
     file_handle::FileHandle,
-    hook_map::{Hook, HookMap, HookName},
+    hook_map::{HookType, HookMap, HookTypeName},
     keymap::RedKeyEvent,
     pane::{self, PaneTree, Split},
     script_runtime::{SchedulerYield, ScriptScheduler},
@@ -70,35 +70,35 @@ impl<'a> Editor<'a> {
 
     pub fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         let red_key_event = RedKeyEvent::from(key_event);
-        let Some(function_iter) = self.hook_map.function_iter(HookName::KeyEvent) else {
+        let Some(function_iter) = self.hook_map.function_iter(HookTypeName::KeyEvent, None) else {
             return Ok(());
         };
 
         for hook_function in function_iter {
             self.script_scheduler
-                .spawn_hook(hook_function.clone(), Hook::KeyEvent(red_key_event.clone()))?;
+                .spawn_hook(hook_function.clone(), HookType::KeyEvent(red_key_event.clone()))?;
         }
         Ok(())
     }
 
     pub fn handle_error(&mut self, error_description: String) -> Result<()> {
-        let function_iter = self.hook_map.function_iter(HookName::Error)
+        let function_iter = self.hook_map.function_iter(HookTypeName::Error, None)
             .ok_or_else(|| Error::Recoverable(format!("No error hook set for {}", error_description)))?;
 
         for hook_function in function_iter {
             self.script_scheduler
-                .spawn_hook(hook_function.clone(), Hook::Error(error_description.clone()))?;
+                .spawn_hook(hook_function.clone(), HookType::Error(error_description.clone()))?;
         }
         Ok(())
     }
 
     pub fn handle_secondary_error(&mut self, error_description: String) -> Result<()> {
-        let function_iter = self.hook_map.function_iter(HookName::SecondaryError)
+        let function_iter = self.hook_map.function_iter(HookTypeName::SecondaryError, None)
             .ok_or_else(|| Error::Unrecoverable(format!("No secondary error hook set for {}", error_description)))?;
 
         for hook_function in function_iter {
             self.script_scheduler
-                .spawn_hook(hook_function.clone(), Hook::Error(error_description.clone()))?;
+                .spawn_hook(hook_function.clone(), HookType::Error(error_description.clone()))?;
         }
         Ok(())
     }
