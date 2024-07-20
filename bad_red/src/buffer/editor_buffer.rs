@@ -36,7 +36,7 @@ impl EditorBuffer {
     pub fn new_typed(buffer_type: EditorBufferType) -> Self {
         let content: Box<dyn ContentBuffer> = match buffer_type {
             EditorBufferType::Naive => Box::new(NaiveBuffer::new()),
-            EditorBufferType::Gap => Box::new(NaiveBuffer::new()),
+            EditorBufferType::Gap => Box::new(GapBuffer::new()),
         };
 
         Self {

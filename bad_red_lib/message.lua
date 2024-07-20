@@ -6,8 +6,8 @@ function P:init()
 end
 
 function P:send(message_text)
-    self.buffer:set_cursor_index(self.buffer:length())
-    self.buffer:insert_at_cursor(message_text .. "\n")
+    self.buffer:set_cursor(self.buffer:length())
+    self.buffer:insert(message_text .. "\n")
 end
 
 function P:open()

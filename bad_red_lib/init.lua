@@ -17,10 +17,6 @@ for k,v in pairs(require("editor")) do
     red[k] = v
 end
 
-function Print(text)
-    red.buffer:insert_at_cursor(text)
-end
-
 red.mode:InitMode(red.keymap)
 coroutine.yield(red.call.set_hook("key_event", function(event)
     red.keymap.event(event)
@@ -28,7 +24,7 @@ end))
 
 red.message:init()
 coroutine.yield(red.call.set_hook("secondary_error", function(message)
-    red.buffer:new(0):insert_at_cursor(message)
+    red.buffer:new(0):insert(message)
 end))
 
 coroutine.yield(red.call.set_hook("error", function(message)

@@ -55,14 +55,14 @@ P.raw_input_map = (function()
     local map = P:new_map()
     map.__index = function(_, _)
         return function(key)
-            red.buffer:insert_at_cursor(key)
+            red.buffer:insert(key)
         end
     end
     map.new = P.new_map
     setmetatable(map, map)
 
     map["Backspace"] = function(_)
-        if red.buffer:cursor_index() == 0 then
+        if red.buffer:cursor() == 0 then
             return
         end
 
@@ -80,7 +80,7 @@ P.raw_input_map = (function()
         red.buffer:cursor_right(1)
     end
     map["Enter"] = function(_)
-        red.buffer:insert_at_cursor("\n")
+        red.buffer:insert("\n")
     end
     map["C+e"] = function()
         red.buffer:current():execute()

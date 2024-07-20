@@ -47,7 +47,7 @@ function P.command_handler(command_entry_map)
         command_pane:set_active()
 
         local command_buffer = red.buffer:open()
-        command_buffer:insert_at_cursor(trigger_key)
+        command_buffer:insert(trigger_key)
         command_pane:set_buffer(command_buffer)
 
         red.keymap.current = command_keymap(
