@@ -1,13 +1,14 @@
 local P = {}
 
-local function build(func, fn_doc, ...)
+local function build(func, name, fn_doc, ...)
     local doc_table = {}
     local doc_meta = { __call = function (_, ...)
         local args = {...}
-        func(table.unpack(args))
+        return func(table.unpack(args))
     end }
     setmetatable(doc_table, doc_meta)
 
+    doc_table.name = name
     doc_table.fn_doc = fn_doc
     doc_table.args_docs = {...}
 
@@ -16,8 +17,9 @@ end
 
 P.build = build(
     build,
+    "build",
     [[
-Builds a documented function for use in the BadRed help system.
+Builds a documented function for use in the BadRed doc system.
 
 Ex: `build(function(a, b) ... end, "Example function documentation", "a: int - Argument 1", "b: boolean - Argument 2")`
 ]],
@@ -35,14 +37,13 @@ fn_doc: string - A description and documentation string for the function provide
 
 P._help_pane = nil
 P._help_buffer = nil
-
 P.help = build(
     function(fn_to_show)
         if P._help_buffer == nil then
             P._help_buffer = red.buffer:open()
         end
 
-        local doc_string = fn_to_show.fn_doc .. "\n" .. table.concat(fn_to_show.args_docs, "\n")
+        local doc_string = fn_to_show.fn_doc .. "\nArgs\n    " .. table.concat(fn_to_show.args_docs, "    ")
 
         P._help_buffer:clear()
         P._help_buffer:insert_at_cursor(doc_string)
@@ -62,6 +63,7 @@ P.help = build(
 
         P._help_pane:set_active()
     end,
+    "help",
     [[
 Displays the help information for a given RedFn.
 ]],

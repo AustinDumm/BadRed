@@ -8,12 +8,29 @@ local P = {}
 Buffer = {}
 Buffer = P
 
-function P:new(id)
+P.new = red.doc.build(
+function(self, id)
     local instance = { _id = id }
     setmetatable(instance, self)
     self.__index = self
     return instance
-end
+end,
+"new",
+[[
+Creates a new script buffer object from a given id. Does not open or create a buffer within the editor with the matching id. Intended mostly for internal use.
+
+Ex: `
+    local existing_buffer_id = 2
+    local new_buf = buffer:new(existing_buffer_id)
+`
+]],
+[[
+self: buffer - Object to instantiate the buffer table from. self is used as __index metatable for buffer inheritance.
+]],
+[[
+id: non-negative integer - The ID value the editor runtime uses to identify a particular buffer.
+]]
+)
 
 function P:id()
     return self._id or P:current()._id
@@ -21,7 +38,7 @@ end
 
 function P:open()
     local id = coroutine.yield(red.call.buffer_open())
-    return P:new(id)
+    return self:new(id)
 end
 
 function P:close()
