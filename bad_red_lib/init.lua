@@ -4,6 +4,7 @@
 -- 
 -- BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
+red.doc = require("doc")
 red.buffer = require("buffer")
 red.keymap = require("keymap")
 red.pane = require("pane")
@@ -14,6 +15,10 @@ red.message = require("message")
 
 for k,v in pairs(require("editor")) do
     red[k] = v
+end
+
+function Print(text)
+    red.buffer:insert_at_cursor(text)
 end
 
 red.mode:InitMode(red.keymap)
