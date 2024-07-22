@@ -7,89 +7,311 @@
 local P = {}
 Pane = P
 
-function P:new(id)
+P.new = red.doc.build_fn(
+function(self, id)
     local instance = { _id = id }
     setmetatable(instance, self)
     self.__index = self
     return instance
-end
+end,
+"new",
+[[
+Creates a Lua Pane table representing a pane in the BadRed editor with the provided ID. Does not create the pane in the editor data. Provided ID must therefore already be a valid ID for an existing pane. New pane object will use this table as its metatable to inherit from.
+]],
+[[
+Pane - A Pane table representing the editor pane with provided ID.
+]],
+[[
+self: Pane - The table this new Pane should inherit from.
+]],
+[[
+id: non-negative integer - The ID of the pane this new Pane table should represent.
+]]
+)
 
-function P:id()
+P.id = red.doc.build_fn(
+function(self)
     return self._id or P:current()._id
-end
+end,
+"id",
+[[
+The Pane ID of this pane table. If called on the `Pane` class table directly, returns the ID of the current active pane in the editor.
+]],
+[[
+non-negative integer - ID of this pane or, if called statically against the Pane class table, the current pane's ID.
+]],
+[[
+self: Pane - A pane object table or the `Pane` class table to get the ID from.
+]]
+)
 
-function P:current()
+P.current = red.doc.build_fn(
+function(self)
     local id = coroutine.yield(red.call.active_pane_index())
     return self:new(id)
-end
+end,
+"current",
+[[
+Instantiate a pane table representing the currently active pane in the editor.
+]],
+[[
+Pane - Table representing the currently active pane in the editor.
+]],
+[[
+self: Pane - A pane table for this current pane table to inherit from.
+]]
+)
 
-function P:root()
+P.root = red.doc.build_fn(
+function(self)
     local id = coroutine.yield(red.call.root_pane_index())
     return self:new(id)
-end
+end,
+"root",
+[[
+Instantiate a pane table representing the root pane in the editor.
+]],
+[[
+Pane - Table representing the root pane.
+]],
+[[
+self: Pane - A pane table for the new root pane table to inherit from.
+]]
+)
 
-function P:set_active()
+P.set_active = red.doc.build_fn(
+function(self)
     coroutine.yield(red.call.set_active_pane(self:id()))
 end
+,
+"set_active",
+[[
+Makes this Pane the active pane in the editor.
+]],
+[[
+nil
+]],
+[[
+self: Pane - The pane to make active in the editor.
+]]
+)
 
-function P:is_first_child()
+P.is_first_child = red.doc.build_fn(
+function(self)
     return coroutine.yield(red.call.pane_is_first(self:id()))
-end
+end,
+"is_first_child",
+[[
+Returns true if this pane is its parent's first child. Returns false if this pane is its parent's second child. Returns nil if this is the root pane and has no parent.
+]],
+[[
+boolean? - True if this is its parent's first child. False if this is its parent's second child. Nil if this has no parent (i.e., it is the root pane).
+]],
+[[
+self: Pane - The pane whose child value is returned.
+]]
+)
 
-function P:sibling()
+P.sibling = red.doc.build_fn(
+function(self)
     local is_first_child = self:is_first_child()
     local parent = self:parent()
     return parent:child(not is_first_child)
-end
+end,
+"sibling",
+[[
+Returns a Pane table representing the sibling of this Pane. Returns nil if this is the root pane. If called against the static Pane class table, uses the active pane instead.
+]],
+[[
+Pane? - A pane table representing this pane's sibling. Nil if this pane is root and has no sibling.
+]],
+[[
+self: Pane - The pane whose sibling is returned.
+]]
+)
 
-function P:parent()
+P.parent = red.doc.build_fn(
+function(self)
     local parent_id = coroutine.yield(red.call.pane_index_up_from(self:id()))
     return P:new(parent_id)
-end
+end,
+"parent",
+[[
+Returns a Pane table representing the parent of this Pane. Returns nil if this is the root pane. If called against the static Pane class table, uses the active pane instead.
+]],
+[[
+Pane? - A pane table representing this pane's parent. Nil of this pane is root and has no parent.
+]],
+[[
+self: Pane - The pane whose parent is returned.
+]]
+)
 
-function P:child(to_first)
+P.child = red.doc.build_fn(
+function(self, to_first)
     local child_id = coroutine.yield(red.call.pane_index_down_from(self:id(), to_first))
     return P:new(child_id)
-end
+end,
+"child",
+[[
+Returns a Pane table representing a child of this Pane as specified by the input flag. Returns nil if this pane is a leaf and has no children. If called agaisnt the static Pane class table, uses the active pane instead.
+]],
+[[
+Pane? - A pane table representing this pane's first or second child. Nil if this pane is a leaf and has no children.
+]],
+[[
+self: Pane - The pane whose child is returned.
+]],
+[[
+to_first: boolean - True if the first child should be returned. False if the second child should be returned. All panes are binary tree nodes or leaf nodes with either 2 or 0 children.
+]]
+)
 
-function P:on_close(run)
+P.on_close = red.doc.build_fn(
+function(self, run)
     coroutine.yield(red.call.set_hook("pane_closed", run, self:id()))
-end
+end,
+"on_close",
+[[
+Sets a function to be called as a new script immediately after this pane is closed. Will interrupt and run prior to the continuation of the script that triggered the close.
+]],
+[[
+nil
+]],
+[[
+self: Pane - The pane whose closing should trigger the immediate startup of the provided function.
+]],
+[[
+run: Function - The function that should be called when this pane closes. Is called with no arguments.
+]]
+)
 
-function P:type()
+P.type = red.doc.build_fn(
+function(self)
     return coroutine.yield(red.call.pane_type(self:id()))
-end
+end,
+"type",
+[[
+Returns the type of this Pane. Is Leaf, HSplit, or VSplit. If called on the static Pane class table, returns the type of the active pane.
+]],
+[[
+Pane Type Table - Enum table with type "pane_node_type" and "variant" field "Leaf", "VSplit", or "HSplit"
+]],
+[[
+self: Pane - The pane whose type is returned.
+]]
+)
 
-function P:wrap()
+P.wrap = red.doc.build_fn(
+function(self)
     return coroutine.yield(red.call.pane_wrap(self:id()))
-end
+end,
+"wrap",
+[[
+Returns the `wrap` flag for this pane. If called on the static Pane class table, returns the type of the active pane.
+]],
+[[
+self: Pane - The pane whose `wrap` flag is returned.
+]],
+[[
+boolean - True if the pane is set to text wrap. False if not.
+]]
+)
 
-function P:set_wrap(wrap)
+P.set_wrap = red.doc.build_fn(
+function(self, wrap)
     return coroutine.yield(red.call.pane_set_wrap(self:id(), wrap))
-end
+end,
+"set_wrap",
+[[
+Sets the `wrap` flag for this pane. If called on the static Pane class table, sets the `wrap` flag for the currenlty active pane.
+]],
+[[
+nil
+]],
+[[
+self: Pane - The pane whose `wrap` flag is set.
+]],
+[[
+wrap: boolean - The new `wrap` value to set
+]]
+)
 
-function P:v_split()
+P.v_split = red.doc.build_fn(
+function(self)
     coroutine.yield(red.call.pane_v_split(self:id()))
 end
+,
+"v_split",
+[[
+Creates a new parent pane node for this pane of type VSplit with this pane as the new parent's first child. Creates a new sibling node under the new parent as the new parent's second child. Sets the new sibling's buffer to be the same as this pane's buffer or, if this pane is not a leaf node, the buffer of this pane's nearest first leaf child.
+]],
+[[
+nil
+]],
+[[
+self: Pane - The pane to split.
+]]
+)
 
-function P:h_split()
+P.h_split = red.doc.build_fn(
+function(self)
     coroutine.yield(red.call.pane_h_split(self:id()))
-end
+end,
+"h_split",
+[[
+Creates a new parent pane node for this pane of type HSplit with this pane as the new parent's first child. Creates a new sibling node under the new parent as the new parent's second child. Sets the new sibling's buffer to be the same as this pane's buffer or, if this pane is not a leaf node, the buffer of this pane's nearest first leaf child.
+]],
+[[
+nil
+]],
+[[
+self: Pane - The pane to split.
+]]
+)
 
-function P:close()
+P.close = red.doc.build_fn(
+function(self)
     local is_first = self:is_first_child()
     if is_first == nil then
         return
     end
 
     self:parent():close_child(is_first)
-end
+end,
+"close",
+[[
+Close this pane and its parent, removing it from the pane tree. This pane's sibling replaces this pane's former parent in the pane tree. If called on the static Pane class table, closes the active pane.
+]],
+[[
+nil
+]],
+[[
+self: Pane - The pane to close along with its parent.
+]]
+)
 
-function P:close_child(first_child)
+P.close_child = red.doc.build_fn(
+function(self, first_child)
     coroutine.yield(red.call.pane_close_child(self:id(), first_child))
-end
+end,
+"close_child",
+[[
+Closes one of the children of this pane, removing it from the pane tree. Also removes this pane from the tree and replaces it with the unclosed child pane.
+]],
+[[
+nil
+]],
+[[
+self: Pane- The pane whose child should be closed.
+]],
+[[
+first_child: boolean - Which child should be closed. True if the first child should be closed. False if the second child should be closed.
+]]
+)
 
-function P:increase_size()
+P.increase_size = red.doc.build_fn(
+function(self)
     local is_first_child = self:is_first_child()
     local parent = self:parent()
     local parent_type = parent:type()
@@ -120,9 +342,21 @@ function P:increase_size()
     elseif split.type == "first_fixed" then
     elseif split.type == "second_fixed" then
     end
-end
+end,
+"increase_size",
+[[
+Increases the size of this pane within its parent's split. If this pane is shown within a percentage split, increases its size by 10 percentage points. If this pane is shown within a fixed split, increases its size by 1 row or decreases its sibling's mandatory size by 1 row as defined by the split type.
+]],
+[[
+nil
+]],
+[[
+self: Pane - Pane object to increase the size of.
+]]
+)
 
-function P:decrease_size()
+P.decrease_size = red.doc.build_fn(
+function(self)
     local is_first_child = self:is_first_child()
     local parent = self:parent()
     local parent_type = parent:type()
@@ -153,23 +387,97 @@ function P:decrease_size()
     elseif split.type == "first_fixed" then
     elseif split.type == "second_fixed" then
     end
-end
+end,
+"decrease_size",
+[[
+Decreases the size of this pane within its parent's split. If this pane is shown within a percentage split, decreases its size by 10 percentage points. If this pane is shown within a fixed split, decreases its size by 1 row or decreases its sibling's mandatory size by 1 row as defined by the split type.
+]],
+[[
+nil
+]],
+[[
+self: Pane - Pane object to decrease the size of.
+]]
+)
 
-function P:fix_size(size, on_first_child)
+P.fix_size = red.doc.build_fn(
+function(self, size, on_first_child)
     coroutine.yield(red.call.pane_set_split_fixed(self:id(), size, on_first_child))
-end
+end,
+"fix_size",
+[[
+Changes this split pane's split type to be a fixed split with given size on a given child.
+]],
+[[
+nil
+]],
+[[
+self: Pane - The Pane object to set its split type on. Must be a split pane type, does not work on leaf panes.
+]],
+[[
+size: non-negative integer - The number of rows/cols the given child should be fixed to be.
+]],
+[[
+on_first_child: boolean - True if the first child of this pane should be the one to have its size fixed. False if the second child should be the one to have its size fixed.
+]]
+)
 
-function P:flex_size(percent, on_first_child)
+P.flex_size = red.doc.build_fn(
+function(self, percent, on_first_child)
     coroutine.yield(red.call.pane_set_split_percent(self:id(), percent, on_first_child))
-end
+end,
+"flex_size",
+[[
+Changes this split pane's split type to be a percentage (or flex) split with the given percentage on a given child.
+]],
+[[
+nil
+]],
+[[
+self: Pane - The Pane object to set its split type on. Must be a split pane type, does not work on leaf panes.
+]],
+[[
+percent: float from (0.0, 1.0) - The percentage of the parent's size the given child should be flexed to.
+]],
+[[
+on_first_child: boolean - True if the first child of this pane should be the one whose percentage is set. Fales if the second child should be the one whose percentage is set.
+]]
+)
 
-function P:buffer()
+P.buffer = red.doc.build_fn(
+function(self)
     local buffer_id = coroutine.yield(red.call.pane_buffer_index(self:id()))
     return red.buffer:new(buffer_id)
-end
+end,
+"buffer",
+[[
+Returns the buffer object that this pane is displaying. If called on the static Pane class table, returns the buffer linked to the active pane.
+]],
+[[
+Buffer - Buffer table that this pane is currently displaying.
+]],
+[[
+self: Pane - Table whose buffer is returned.
+]]
+)
 
-function P:set_buffer(buffer)
+P.set_buffer = red.doc.build_fn(
+function(self, buffer)
     coroutine.yield(red.call.pane_set_buffer(self:id(), buffer:id()))
-end
+end,
+"set_buffer",
+[[
+Changes the buffer that this pane is currently displaying. If called on the static Pane class table, sets the buffer for the current active pane.
+]],
+[[
+nil
+]],
+[[
+self: Pane - Table whose buffer should be changed.
+]],
+[[
+buffer: Buffer Table - A table representing the buffer that this pane should be set to display.
+]]
+)
 
 return Pane
