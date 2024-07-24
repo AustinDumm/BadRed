@@ -16,7 +16,10 @@ function(self, id)
 end,
 "new",
 [[
-Creates a Lua Pane table representing a pane in the BadRed editor with the provided ID. Does not create the pane in the editor data. Provided ID must therefore already be a valid ID for an existing pane. New pane object will use this table as its metatable to inherit from.
+Creates a Lua Pane table representing a pane in the BadRed editor with the provided ID.
+]],
+[[
+Does not create the pane in the editor data. Provided ID must therefore already be a valid ID for an existing pane. New pane object will use this table as its metatable to inherit from.
 ]],
 [[
 Pane - A Pane table representing the editor pane with provided ID.
@@ -35,7 +38,10 @@ function(self)
 end,
 "id",
 [[
-The Pane ID of this pane table. If called on the `Pane` class table directly, returns the ID of the current active pane in the editor.
+The Pane ID of this pane table.
+]],
+[[
+If called on the `Pane` class table directly, returns the ID of the current active pane in the editor.
 ]],
 [[
 non-negative integer - ID of this pane or, if called statically against the Pane class table, the current pane's ID.
@@ -54,6 +60,7 @@ end,
 [[
 Instantiate a pane table representing the currently active pane in the editor.
 ]],
+nil,
 [[
 Pane - Table representing the currently active pane in the editor.
 ]],
@@ -71,6 +78,7 @@ end,
 [[
 Instantiate a pane table representing the root pane in the editor.
 ]],
+nil,
 [[
 Pane - Table representing the root pane.
 ]],
@@ -88,6 +96,7 @@ end
 [[
 Makes this Pane the active pane in the editor.
 ]],
+nil,
 [[
 nil
 ]],
@@ -102,7 +111,10 @@ function(self)
 end,
 "is_first_child",
 [[
-Returns true if this pane is its parent's first child. Returns false if this pane is its parent's second child. Returns nil if this is the root pane and has no parent.
+Returns true if this pane is its parent's first child.
+]],
+[[
+Returns false if this pane is its parent's second child. Returns nil if this is the root pane and has no parent.
 ]],
 [[
 boolean? - True if this is its parent's first child. False if this is its parent's second child. Nil if this has no parent (i.e., it is the root pane).
@@ -120,7 +132,10 @@ function(self)
 end,
 "sibling",
 [[
-Returns a Pane table representing the sibling of this Pane. Returns nil if this is the root pane. If called against the static Pane class table, uses the active pane instead.
+Returns a Pane table representing the sibling of this Pane.
+]],
+[[
+Returns nil if this is the root pane. If called against the static Pane class table, uses the active pane instead.
 ]],
 [[
 Pane? - A pane table representing this pane's sibling. Nil if this pane is root and has no sibling.
@@ -137,7 +152,10 @@ function(self)
 end,
 "parent",
 [[
-Returns a Pane table representing the parent of this Pane. Returns nil if this is the root pane. If called against the static Pane class table, uses the active pane instead.
+Returns a Pane table representing the parent of this Pane.
+]],
+[[
+Returns nil if this is the root pane. If called against the static Pane class table, uses the active pane instead.
 ]],
 [[
 Pane? - A pane table representing this pane's parent. Nil of this pane is root and has no parent.
@@ -154,7 +172,10 @@ function(self, to_first)
 end,
 "child",
 [[
-Returns a Pane table representing a child of this Pane as specified by the input flag. Returns nil if this pane is a leaf and has no children. If called agaisnt the static Pane class table, uses the active pane instead.
+Returns a Pane table representing a child of this Pane as specified by the input flag.
+]],
+[[
+Returns nil if this pane is a leaf and has no children. If called agaisnt the static Pane class table, uses the active pane instead.
 ]],
 [[
 Pane? - A pane table representing this pane's first or second child. Nil if this pane is a leaf and has no children.
@@ -173,7 +194,10 @@ function(self, run)
 end,
 "on_close",
 [[
-Sets a function to be called as a new script immediately after this pane is closed. Will interrupt and run prior to the continuation of the script that triggered the close.
+Sets a function to be called as a new script immediately after this pane is closed.
+]],
+[[
+Will interrupt and run prior to the continuation of the script that triggered the close.
 ]],
 [[
 nil
@@ -192,7 +216,10 @@ function(self)
 end,
 "type",
 [[
-Returns the type of this Pane. Is Leaf, HSplit, or VSplit. If called on the static Pane class table, returns the type of the active pane.
+Returns the type of this Pane. Is Leaf, HSplit, or VSplit.
+]],
+[[
+If called on the static Pane class table, returns the type of the active pane.
 ]],
 [[
 Pane Type Table - Enum table with type "pane_node_type" and "variant" field "Leaf", "VSplit", or "HSplit"
@@ -208,7 +235,10 @@ function(self)
 end,
 "wrap",
 [[
-Returns the `wrap` flag for this pane. If called on the static Pane class table, returns the type of the active pane.
+Returns the `wrap` flag for this pane.
+]],
+[[
+If called on the static Pane class table, returns the type of the active pane.
 ]],
 [[
 self: Pane - The pane whose `wrap` flag is returned.
@@ -224,7 +254,10 @@ function(self, wrap)
 end,
 "set_wrap",
 [[
-Sets the `wrap` flag for this pane. If called on the static Pane class table, sets the `wrap` flag for the currenlty active pane.
+Sets the `wrap` flag for this pane.
+]],
+[[
+If called on the static Pane class table, sets the `wrap` flag for the currenlty active pane.
 ]],
 [[
 nil
@@ -244,7 +277,10 @@ end
 ,
 "v_split",
 [[
-Creates a new parent pane node for this pane of type VSplit with this pane as the new parent's first child. Creates a new sibling node under the new parent as the new parent's second child. Sets the new sibling's buffer to be the same as this pane's buffer or, if this pane is not a leaf node, the buffer of this pane's nearest first leaf child.
+Creates a new parent pane node for this pane of type VSplit with this pane as the new parent's first child.
+]],
+[[
+Creates a new sibling node under the new parent as the new parent's second child. Sets the new sibling's buffer to be the same as this pane's buffer or, if this pane is not a leaf node, the buffer of this pane's nearest first leaf child.
 ]],
 [[
 nil
@@ -260,7 +296,10 @@ function(self)
 end,
 "h_split",
 [[
-Creates a new parent pane node for this pane of type HSplit with this pane as the new parent's first child. Creates a new sibling node under the new parent as the new parent's second child. Sets the new sibling's buffer to be the same as this pane's buffer or, if this pane is not a leaf node, the buffer of this pane's nearest first leaf child.
+Creates a new parent pane node for this pane of type HSplit with this pane as the new parent's first child.
+]],
+[[
+Creates a new sibling node under the new parent as the new parent's second child. Sets the new sibling's buffer to be the same as this pane's buffer or, if this pane is not a leaf node, the buffer of this pane's nearest first leaf child.
 ]],
 [[
 nil
@@ -281,7 +320,10 @@ function(self)
 end,
 "close",
 [[
-Close this pane and its parent, removing it from the pane tree. This pane's sibling replaces this pane's former parent in the pane tree. If called on the static Pane class table, closes the active pane.
+Close this pane and its parent, removing it from the pane tree.
+]],
+[[
+This pane's sibling replaces this pane's former parent in the pane tree. If called on the static Pane class table, closes the active pane.
 ]],
 [[
 nil
@@ -297,7 +339,10 @@ function(self, first_child)
 end,
 "close_child",
 [[
-Closes one of the children of this pane, removing it from the pane tree. Also removes this pane from the tree and replaces it with the unclosed child pane.
+Closes one of the children of this pane, removing it from the pane tree.
+]],
+[[
+Also removes this pane from the tree and replaces it with the unclosed child pane.
 ]],
 [[
 nil
@@ -345,7 +390,10 @@ function(self)
 end,
 "increase_size",
 [[
-Increases the size of this pane within its parent's split. If this pane is shown within a percentage split, increases its size by 10 percentage points. If this pane is shown within a fixed split, increases its size by 1 row or decreases its sibling's mandatory size by 1 row as defined by the split type.
+Increases the size of this pane within its parent's split.
+]],
+[[
+If this pane is shown within a percentage split, increases its size by 10 percentage points. If this pane is shown within a fixed split, increases its size by 1 row or decreases its sibling's mandatory size by 1 row as defined by the split type.
 ]],
 [[
 nil
@@ -390,7 +438,10 @@ function(self)
 end,
 "decrease_size",
 [[
-Decreases the size of this pane within its parent's split. If this pane is shown within a percentage split, decreases its size by 10 percentage points. If this pane is shown within a fixed split, decreases its size by 1 row or decreases its sibling's mandatory size by 1 row as defined by the split type.
+Decreases the size of this pane within its parent's split.
+]],
+[[
+If this pane is shown within a percentage split, decreases its size by 10 percentage points. If this pane is shown within a fixed split, decreases its size by 1 row or decreases its sibling's mandatory size by 1 row as defined by the split type.
 ]],
 [[
 nil
@@ -408,6 +459,7 @@ end,
 [[
 Changes this split pane's split type to be a fixed split with given size on a given child.
 ]],
+nil,
 [[
 nil
 ]],
@@ -430,6 +482,7 @@ end,
 [[
 Changes this split pane's split type to be a percentage (or flex) split with the given percentage on a given child.
 ]],
+nil,
 [[
 nil
 ]],
@@ -451,7 +504,10 @@ function(self)
 end,
 "buffer",
 [[
-Returns the buffer object that this pane is displaying. If called on the static Pane class table, returns the buffer linked to the active pane.
+Returns the buffer object that this pane is displaying.
+]],
+[[
+If called on the static Pane class table, returns the buffer linked to the active pane.
 ]],
 [[
 Buffer - Buffer table that this pane is currently displaying.
@@ -467,7 +523,10 @@ function(self, buffer)
 end,
 "set_buffer",
 [[
-Changes the buffer that this pane is currently displaying. If called on the static Pane class table, sets the buffer for the current active pane.
+Changes the buffer that this pane is currently displaying.
+]],
+[[
+If called on the static Pane class table, sets the buffer for the current active pane.
 ]],
 [[
 nil
@@ -480,4 +539,19 @@ buffer: Buffer Table - A table representing the buffer that this pane should be 
 ]]
 )
 
-return Pane
+return red.doc.document_table(
+Pane,
+"Pane",
+[[
+Class table for pane related interaction with the BadRed editor.
+]],
+[[
+The class Pane table itself represents static access to the active pane in the editor. Calling all functions on the pane class table will lookup the currently active pane before executing the function on that pane object. Pane table functions which return new Pane objects represent specific panes in the editor and inherit from the static Pane class table's functions for calling specific functions on a specific pane.
+
+An editor pane being closed will invalidate any matching pane objects help within Lua scripts and cause errors when trying to call functions on invalidated pane tables. Handling cleanup on pane close is done by registering a callback with a Pane's `on_close` function.
+]],
+{},
+function(_, value_doc)
+    return "== Class: Pane ==\n" .. value_doc
+end
+)

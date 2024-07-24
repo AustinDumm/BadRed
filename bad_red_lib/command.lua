@@ -32,39 +32,65 @@ local function command_keymap(base_map, origin_pane, root_pane, old_map, command
     return new_map
 end
 
-function P.command_handler(command_entry_map)
-    local handler = {}
-    function handler:start_command(trigger_key)
-        local pane = red.pane:current()
+P.command_handler = red.doc.build_fn(
+    function(command_entry_map)
+        local handler = {}
+        function handler:start_command(trigger_key)
+            local pane = red.pane:current()
 
-        local old_root_pane = red.pane:root()
-        old_root_pane:h_split()
+            local old_root_pane = red.pane:root()
+            old_root_pane:h_split()
 
-        local root_pane = red.pane:root()
-        root_pane:fix_size(1, false)
+            local root_pane = red.pane:root()
+            root_pane:fix_size(1, false)
 
-        local command_pane = root_pane:child(false)
-        command_pane:set_active()
+            local command_pane = root_pane:child(false)
+            command_pane:set_active()
 
-        local command_buffer = red.buffer:open()
-        command_buffer:insert(trigger_key)
-        command_pane:set_buffer(command_buffer)
+            local command_buffer = red.buffer:open()
+            command_buffer:insert(trigger_key)
+            command_pane:set_buffer(command_buffer)
 
-        red.keymap.current = command_keymap(
-            command_entry_map,
-            pane,
-            root_pane,
-            self.exit_map,
-            command_buffer,
-            trigger_key
-        )
+            red.keymap.current = command_keymap(
+                command_entry_map,
+                pane,
+                root_pane,
+                self.exit_map,
+                command_buffer,
+                trigger_key
+            )
+        end
+
+        function handler:set_exit(exit_map)
+            self.exit_map = exit_map
+        end
+
+        return handler
+    end,
+"command_handler",
+    [[
+Builds a table for handling command input via a command buffer/pane.
+]],
+    [[
+On start, the command handler opens a buffer and creates a 1-high pane at the bottom of the screen for input of the scrips. Keymap to use after command exit is set via set_exit function. This is provided after initialization as often the map to exit into is also the map that has an entry point into the command handler's start meaning that there is a circular reference with one link needed to be set later.
+]],
+    [[
+CommandHandler table
+]],
+    [[
+command_entry_map: Keymap - The Keymap to use while the user enters text into the command buffer. Overrides Esc to cancel command entry, cleanup the command buffer and pane, and return to the exit_map. Overrides Enter to submit and run the command in the buffer then cleanup the command buffer and pane.
+]]
+)
+
+return red.doc.document_table(
+    Command,
+    "Command",
+    [[
+Package that contains the command handler functions.
+]],
+    nil,
+    {},
+    function(_, value_doc)
+        return "== Class: Command ==\n" .. value_doc
     end
-
-    function handler:set_exit(exit_map)
-        self.exit_map = exit_map
-    end
-
-    return handler
-end
-
-return Command
+)

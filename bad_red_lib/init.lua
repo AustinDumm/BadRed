@@ -32,3 +32,14 @@ coroutine.yield(red.call.set_hook("error", function(message)
     red.message:open()
 end))
 
+red.doc.document_table(
+    red,
+    "red",
+    [[
+Top-level table containing all built-in interfaces with the BadRed text editor
+]],
+    nil,
+    {},
+    function(_, value_doc) return value_doc end
+)
+

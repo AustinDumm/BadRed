@@ -5,7 +5,6 @@
 -- BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 local P = {}
-Buffer = {}
 Buffer = P
 
 P.new = red.doc.build_fn(
@@ -17,7 +16,10 @@ function(self, id)
 end,
 "new",
 [[
-Creates a new script buffer object from a given id. Does not open or create a buffer within the editor with the matching id. Intended mostly for internal use.
+Creates a new script buffer object from a given id.
+]],
+[[
+Does not open or create a buffer within the editor with the matching id. Intended mostly for internal use.
 
 Ex: `
     local existing_buffer_id = 2
@@ -41,7 +43,10 @@ function(self)
 end,
 "id",
 [[
-ID for the current buffer object. If no id is set on this buffer (i.e., receiver of this function call is the Buffer class table), returns the id of the buffer currently being edited.
+ID for the current buffer object.
+]],
+[[
+If no id is set on this buffer (i.e., receiver of this function call is the Buffer class table), returns the id of the buffer currently being edited.
 ]],
 [[
 non-negative integer - The ID value for this buffer object or the ID of the currently active buffer in the editor.
@@ -60,6 +65,7 @@ end,
 [[
 Creates a new buffer in the editor of default type and empty content.
 ]],
+nil,
 [[
 Buffer - Object with the id of the new buffer.
 ]],
@@ -76,6 +82,7 @@ end,
 [[
 Deletes this buffer from editor state by the ID of this buffer object
 ]],
+nil,
 [[
 nil
 ]],
@@ -93,6 +100,7 @@ end,
 [[
 Retrieves the active buffer data from the editor.
 ]],
+nil,
 [[
 Buffer - A new object representing the active buffer in the editor.
 ]],
@@ -109,6 +117,7 @@ end,
 [[
 Inserts provided content text into this buffer.
 ]],
+nil,
 [[
 nil
 ]],
@@ -128,6 +137,7 @@ end,
 [[
 Deletes a number of characters starting at the current cursor character.
 ]],
+nil,
 [[
 string - The entire text that was deleted from the buffer.
 ]],
@@ -147,6 +157,7 @@ end,
 [[
 Get the byte index of the current buffer's cursor
 ]],
+nil,
 [[
 non-negative integer - The byte index of the cursor. Cursor sits between two bytes in the buffer specifically to the left of the byte at the same index. In other words, cursor at byte index 0 sits between the start of the buffer and the character starting at byte 0. In normal function, cursor should always return a number sitting on a character boundary with characters in utf8 byte encoding,
 ]],
@@ -171,7 +182,10 @@ function(self, count, skip_newlines, keep_col_index)
 end,
 "cursor_right",
 [[
-Moves the cursor a certain number of characters to the right. Provides options for dealing with newlines and handling column index persistence.
+Moves the cursor a certain number of characters to the right.
+]],
+[[
+Provides options for dealing with newlines and handling column index persistence.
 ]],
 [[
 nil
@@ -206,7 +220,10 @@ function(self, count, skip_newlines, keep_col_index)
 end,
 "cursor_left",
 [[
-Moves the cursor a certain number of characters to the left. Provides options for dealing with newlines and handling column index persistence.
+Moves the cursor a certain number of characters to the left.
+]],
+[[
+Provides options for dealing with newlines and handling column index persistence.
 ]],
 [[
 nil
@@ -242,7 +259,10 @@ function(self, count, skip_newlines)
 end,
 "cursor_up",
 [[
-Moves the cursor a certain number of lines up. Retains the column index of the cursor if the new line landed on is shorter than the previous column index. Provides options for dealing with newlines.
+Moves the cursor a certain number of lines up.
+]],
+[[
+Retains the column index of the cursor if the new line landed on is shorter than the previous column index. Provides options for dealing with newlines.
 ]],
 [[
 nil
@@ -276,7 +296,10 @@ function(self, count, skip_newlines)
 end,
 "cursor_down",
 [[
-Moves the cursor a certain number of lines down. Retains the column index of the cursor if the new line landed on is shorter than the previous column index. Provides options for dealing with newlines.
+Moves the cursor a certain number of lines down.
+]],
+[[
+Retains the column index of the cursor if the new line landed on is shorter than the previous column index. Provides options for dealing with newlines.
 ]],
 [[
 nil
@@ -300,6 +323,7 @@ end,
 [[
 Gets the current line index of the cursor.
 ]],
+nil,
 [[
 nil
 ]],
@@ -314,7 +338,10 @@ function(self, index, keep_col_index)
 end,
 "set_cursor",
 [[
-Sets the byte index of thee cursor for this buffer. Cursor index must be at a character boundary as defined by utf8 encoding. This requirement is not checked or enforced by the set_cursor call. Meant for use with a cursor value retrieved from related cursor functions or for internal use. For moving the cursor by character, see: `cursor_left`, `cursor_right`, `cursor_up`, and `cursor_down`.
+Sets the byte index of thee cursor for this buffer.
+]],
+[[
+Cursor index must be at a character boundary as defined by utf8 encoding. This requirement is not checked or enforced by the set_cursor call. Meant for use with a cursor value retrieved from related cursor functions or for internal use. For moving the cursor by character, see: `cursor_left`, `cursor_right`, `cursor_up`, and `cursor_down`.
 
 One exception to this is setting the cursor index to 0 or to `length()` will safely set the cursor to the beginning or end of the buffer, respectively. This is guaranteed to be at a character boundary.
 ]],
@@ -338,7 +365,10 @@ function(self, line)
 end,
 "set_cursor_line",
 [[
-Moves the cursor to the given line number while attempting to set the cursor as close as possible to its column index before the move was made. Does not update the column index for the cursor.
+Moves the cursor to the given line number.
+]],
+[[
+Attempts to set the cursor as close as possible to its column index before the move was made. Does not update the column index for the cursor.
 ]],
 [[
 nil
@@ -359,6 +389,7 @@ end,
 [[
 Gets the length in bytes of the content in this buffer.
 ]],
+nil,
 [[
 non-negative integer - The length in bytes of this buffer.
 ]],
@@ -375,6 +406,7 @@ end,
 [[
 Gets the number of lines of the content of this buffer.
 ]],
+nil,
 [[
 non-negative integer - The number of lines in this buffer.
 ]],
@@ -390,7 +422,8 @@ end,
 "content",
 [[
 Gets a Lua String copy of the content of this buffer.
-
+]],
+[[
 Note: As this is a copy, calling this function is O(n) where n is the number of bytes in the buffer. Calling this too frequently on a large buffer will slow down the editor considerably.
 ]],
 [[
@@ -408,7 +441,8 @@ end,
 "content_at",
 [[
 Gets a Lua String copy of a substring of this buffer.
-
+]],
+[[
 Note: As this is a copy, calling this function is O(n) where n is the number of bytes required to copy `char_length` number of chars. Calling this too frequently with a large number of characters will slow down the editor considerably.
 ]],
 [[
@@ -433,6 +467,7 @@ end,
 [[
 Get a Lua String copy of the characters of a certain line in this buffer.
 ]],
+nil,
 [[
 string - A Lua String copy of the content at the line index provided for this buffer.
 ]],
@@ -452,6 +487,7 @@ end,
 [[
 Get a Lua String copy of the line the cursor is currently on.
 ]],
+nil,
 [[
 string - A Lua String copy of the content of the cursor's current line.
 ]],
@@ -468,6 +504,7 @@ end,
 [[
 Get the character at the current cursor for this buffer.
 ]],
+nil,
 [[
 string - A Lua String copy of the character at this buffer's current cursor.
 ]],
@@ -486,6 +523,7 @@ end,
 [[
 Clears all content out of this buffer
 ]],
+nil,
 [[
 string - A Lua String of all of the content that was removed from the buffer.
 ]],
@@ -502,7 +540,8 @@ end,
 "run_as_script",
 [[
 Spawns a new Lua script with this buffer's content as the script text.
-
+]],
+[[
 Note: Makes a copy of this buffer's content to run.
 ]],
 [[
@@ -520,7 +559,10 @@ function(self)
 end,
 "execute",
 [[
-Spawns a new Lua script with this buffer's content as the script text. Consumes and clears the content out of this buffer.
+Spawns a new Lua script with this buffer's content as the script text.
+]],
+[[
+Consumes and clears the content out of this buffer.
 ]],
 [[
 nil
@@ -536,7 +578,10 @@ function(self, file, preserve_buffer)
 end,
 "link_file",
 [[
-Connects this buffer to an open file object managed by the editor. Optionally overwrites this buffer with the file's current content on disk. Fails if this buffer is already linked with a file.
+Connects this buffer to an open file object managed by the editor.
+]],
+[[
+Optionally overwrites this buffer with the file's current content on disk. Fails if this buffer is already linked with a file.
 ]],
 [[
 nil
@@ -558,7 +603,10 @@ function(self)
 end,
 "unlink_file",
 [[
-Disconnects this buffer from its open file object managed by the editor. Fails if this buffer is not linked with a file already.
+Disconnects this buffer from its open file object managed by the editor.
+]],
+[[
+Fails if this buffer is not linked with a file already.
 ]],
 [[
 nil
@@ -574,7 +622,10 @@ function(self)
 end,
 "write_to_file",
 [[
-Overwrites the on-disk content of this Buffer's linked file with the current content of this Buffer. Fails if this buffer is not linked with a file already.
+Overwrites the on-disk content of this Buffer's linked file with the current content of this Buffer.
+]],
+[[
+Fails if this buffer is not linked with a file already.
 ]],
 [[
 nil
@@ -592,6 +643,7 @@ end,
 [[
 Gets the buffer type of this Buffer object.
 ]],
+nil,
 [[
 table - buffer_type RedEnum:
     - `buffer.naive`
@@ -608,7 +660,10 @@ function(self, type)
 end,
 "set_type:",
 [[
-Sets the buffer type of this Buffer object. If type provided is different than the current buffer type, current buffer content is copied into the data structure for the new buffer type. All other buffer information such as ID is preserved. Copying may take O(n) or worse.
+Sets the buffer type of this Buffer object.
+]],
+[[
+If type provided is different than the current buffer type, current buffer content is copied into the data structure for the new buffer type. All other buffer information such as ID is preserved. Copying may take O(n) or worse.
 ]],
 [[
 nil
@@ -634,4 +689,19 @@ P.gap = {
     variant = "gap"
 }
 
-return Buffer
+return red.doc.document_table(
+Buffer,
+"Buffer",
+[[
+Class table for buffer related interaction with the BadRed editor.
+]],
+[[
+The class Buffer table itself represents static access to the active buffer in the editor. Calling all functions on the buffer class table will lookup the currently active buffer before executing the function on that buffer object. Buffer table functions which return new Buffer objects represent specific buffers in the editor and inherit from the static Buffer class table's functions for calling specific functions on a specific buffer.
+
+An editor buffer being closed will invalidate any matching buffer objects held within the Lua runtime and cause errors when trying to call functions on invalidated buffer tables. Handling cleanup on buffer close will be added in the future as a callback to register on a buffer object.
+]],
+{},
+function(_, value_doc)
+    return "== Class: Buffer ==\n" .. value_doc
+end
+)
