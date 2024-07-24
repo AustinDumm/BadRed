@@ -290,4 +290,17 @@ red_fn: red_function - The function doc table to show the help information for. 
 ]]
 )
 
-return P
+return P.document_table(
+P,
+"doc",
+[[
+Package for all documentation related functions and help system.
+]],
+[[
+Documentation functions create tables and add __doc fields on metatables used by the help system. Help system uses the __doc objects to format and display to the user in a help buffer and pane.
+]],
+{},
+function(_, val_doc)
+    return "== Package: Doc ==\n" .. val_doc
+end
+)
