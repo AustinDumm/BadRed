@@ -56,9 +56,8 @@ local function normal_mode(command_handler, input_map)
     return map
 end
 
--- Initializes a the modal input style into the provided keymap. Builds onto
--- keymap's current keymap to be used for default text input.
-function P:InitMode(keymap)
+P.init = red.doc.build_fn(
+function(self, keymap)
     local base_map = keymap.current
 
     self.command_handler = red.command.command_handler(base_map)
@@ -72,6 +71,34 @@ function P:InitMode(keymap)
     end
 
     red.keymap.current = self.normal_map
-end
+end,
+"init",
+[[
+Initializes a the modal input style into the provided keymap. 
+]],
+[[
+Builds onto keymap's current keymap to be used for default text input.
+]],
+[[
+nil
+]],
+[[
+self: Mode package table
+]],
+[[
+keymap: Keymap package table with its current map used as the base map to build modal input off of.
+]]
+)
 
-return P
+return red.doc.document_table(
+P,
+"mode",
+[[
+Package containing functions for setting up modal editing via Keymap
+]],
+nil,
+{},
+function(_, val_doc)
+    return "== Package: Mode ==\n" .. val_doc
+end
+)
