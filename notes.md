@@ -1,11 +1,7 @@
 # TODO
 
-1. Address issue where editor can't find init.lua when not run with pwd=./bad_red
-    a. Look into build step of compiling init.lua as a built-in dependency
-    b. Optionally allow user to provide their own init path that overrides precompiled lua init?
 2. Undo/Redo
 3. More VIMish bindings
-4. Class-level docs
 5. Text color maps?
     a. Look into how other editors handle this
     b. Ranges with colors?
@@ -14,7 +10,6 @@
     b. Ranges with destinations?
     c. Add this functionality to docs to allow hypertext in docs
 7. Onboarding help?
-8. Editor-level help
 9. Shortcut mode for command input
     a. If a script returns a callable, call it?
     b. Alternatively could have a special lookup for shortcuts?
@@ -29,6 +24,6 @@
     a. Built in functions should be doc tables
        i. Could update these to be fully lua? Or keep partially implemented in Rust from ScriptObject trait/macro?
     b. Hook doc tables
-16. Table/data documentation
-    a. Use for naive/gap buffer objects? Could move to a ScriptObject from within Rust?
 17. Fix pane split to correctly set buffer of new child to be the firstmost leaf node's buffer of the node being split
+18. Add hook for non-nil script return data
+    a. Used to print the result of a script that evaluates to printable data
