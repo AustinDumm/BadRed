@@ -20,7 +20,7 @@ name = "bad_red_lib"
 path = "src/lib.rs"
 
 [dependencies]
-crossterm = "0.27.0"
+crossterm = "0.28.1"
 strum = "0.26.2"
 strum_macros = "0.26.2"
 etcetera = "0.8.0"
@@ -29,8 +29,15 @@ bad_red_proc_macros = { path = "../bad_red_proc_macros/" }
 bad_gap = { path = "../bad_gap/" }
 bimap = "0.6.3"
 unicode-width = "0.1.13"
+shellexpand = "3.1.0"
 
 [dependencies.mlua]
 version = "0.9.8"
 features = ["lua54"]
+
+[build-dependencies]
+itertools = "0.13.0"
+
+[package.metadata]
+build = "build.rs"
 

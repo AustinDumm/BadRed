@@ -4,11 +4,15 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
+use std::path::PathBuf;
 
 use bad_red_proc_macros::{auto_lua_defaulting, auto_script_table};
 use mlua::{Function, Lua, Table, Value};
 
-use crate::{buffer::EditorBufferType, hook_map::{HookType, HookTypeName}};
+use crate::{
+    buffer::EditorBufferType,
+    hook_map::{HookType, HookTypeName},
+};
 
 pub struct ScriptHandler {
     pub lua: Lua,
@@ -27,7 +31,7 @@ pub enum RedCall<'lua> {
     Yield,
 
     EditorExit,
-    
+
     PaneVSplit {
         index: usize,
     },
@@ -167,7 +171,7 @@ pub enum RedCall<'lua> {
     },
 
     FileOpen {
-        path_string: String
+        path_string: String,
     },
     FileClose {
         file_id: usize,
@@ -178,12 +182,12 @@ pub enum RedCall<'lua> {
     },
 
     Value {
-        value: Value<'lua>
+        value: Value<'lua>,
     },
 }
 
 impl ScriptHandler {
-    pub fn new(red_script_path: String) -> mlua::Result<Self> {
+    pub fn new(red_script_path: PathBuf) -> mlua::Result<Self> {
         let lua = Lua::new();
 
         let redcall_object = RedCall::lua_object(&lua)?;
@@ -198,7 +202,7 @@ impl ScriptHandler {
             let current_path: String = package.get("path")?;
             let new_path = format!(
                 "{0};{1}/?.lua;{1}/?/init.lua",
-                current_path, red_script_path
+                current_path, red_script_path.to_string_lossy()
             );
             package.set("path", new_path)?;
         }

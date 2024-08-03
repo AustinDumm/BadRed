@@ -4,10 +4,9 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-use std::{io, panic, time::Duration};
+use std::{fs, io, panic, path::PathBuf, time::Duration};
 
 use bad_red_lib::{
-    buffer::ContentBuffer,
     display::Display,
     editor_state::{self, Editor},
     script_handler::ScriptHandler,
@@ -16,6 +15,7 @@ use bad_red_lib::{
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 
 use clap::Parser;
+use etcetera::{AppStrategy, AppStrategyArgs};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -24,11 +24,8 @@ struct Args {
     init_path: Option<String>,
     #[arg(long)]
     init_name: Option<String>,
-    #[arg(short, long)]
-    startup_path: Option<String>,
 }
 
-const DEFAULT_INIT_PATH: &'static str = "../bad_red_lib";
 const DEFAULT_INIT_SCRIPT: &'static str = "init.lua";
 
 fn main() -> io::Result<()> {
@@ -45,38 +42,33 @@ fn main() -> io::Result<()> {
         default_hook(panic_info);
     }));
 
+    let strategy = etcetera::choose_app_strategy(AppStrategyArgs {
+        top_level_domain: "me".to_string(),
+        author: "adumm".to_string(),
+        app_name: "BadRed".to_string(),
+    }).unwrap();
+    let config_dir = strategy.config_dir();
+
     run(
-        args.init_path.unwrap_or(DEFAULT_INIT_PATH.to_string()),
+        config_dir,
         args.init_name.unwrap_or(DEFAULT_INIT_SCRIPT.to_string()),
-        args.startup_path,
         &mut display,
     )
 }
 
+include!(concat!(env!("OUT_DIR"), "/consts_defs.rs"));
+
 fn run(
-    init_path: String,
+    init_path: PathBuf,
     init_file: String,
-    startup_path: Option<String>,
     display: &mut Display,
 ) -> io::Result<()> {
-    let init_script = load_init_script(format!("{}/{}", init_path, init_file))?;
+    let init_script = load_init_script(&init_path, &init_file, generated::INIT)?;
 
     let script_handler = ScriptHandler::new(init_path)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to init Lua: {}", e)))?;
-    let mut editor = Editor::new(&script_handler.lua, init_script)
+    let mut editor = Editor::new(&script_handler.lua, generated::PRELOAD.to_string(), init_script)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-    if let Some(startup_path) = startup_path {
-        let startup = load_init_script(startup_path)?;
-        let result = editor.script_scheduler.spawn_script(startup);
-        match result {
-            Ok(_) => (),
-            Err(err) => {
-                if let Some(buffer) = editor.state.active_buffer() {
-                    buffer.insert_at_cursor(&format!("{}", err));
-                }
-            }
-        }
-    }
     'editor_loop: loop {
         let var_name = false;
         let mut did_input = var_name;
@@ -139,6 +131,13 @@ fn run(
     Ok(())
 }
 
-fn load_init_script(init_path: String) -> io::Result<String> {
-    std::fs::read_to_string(init_path)
+fn load_init_script(init_path: &PathBuf, init_file: &str, default_content: &str) -> io::Result<String> {
+    let file_path = init_path.join(init_file);
+    if file_path.exists() {
+        fs::read_to_string(file_path)
+    } else {
+        fs::create_dir_all(init_path)?;
+        fs::write(file_path, default_content)?;
+        Ok(default_content.to_string())
+    }
 }

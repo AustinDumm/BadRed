@@ -4,7 +4,7 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-use std::{path::Path, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use bimap::BiMap;
 use crossterm::event::KeyEvent;
@@ -54,7 +54,12 @@ pub struct Editor<'a> {
 }
 
 impl<'a> Editor<'a> {
-    pub fn new(lua: &'a Lua, init_script: String) -> Result<Self> {
+    pub fn new(lua: &'a Lua, preload_script: String, init_script: String) -> Result<Self> {
+        let preload_function = lua
+            .load(preload_script)
+            .into_function()
+            .map_err(|e| Error::Unrecoverable(format!("Failed to load preload script: {}", e)))?;
+
         let init_function = lua
             .load(init_script)
             .into_function()
@@ -63,7 +68,7 @@ impl<'a> Editor<'a> {
         let state = EditorState::new(Duration::from_millis(10));
         Ok(Self {
             state,
-            script_scheduler: ScriptScheduler::new(lua, init_function)?,
+            script_scheduler: ScriptScheduler::new(lua, preload_function, init_function)?,
             hook_map: HookMap::new(),
         })
     }
@@ -182,7 +187,7 @@ impl EditorState {
         }
     }
 
-    pub fn open_file(&mut self, path: &Path) -> Result<usize> {
+    pub fn open_file(&mut self, path: String) -> Result<usize> {
         if self
             .files
             .iter()
@@ -196,7 +201,7 @@ impl EditorState {
         }
 
         let handle = FileHandle::new(path)
-            .map_err(|e| Error::Recoverable(format!("Failed to open file at path: {:#?}. {:#?}", path, e)))?;
+            .map_err(|e| Error::Recoverable(format!("Failed to open file: {:#?}", e)))?;
         let handle_id = self.files.len();
         self.files.push(Some(handle));
 

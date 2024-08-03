@@ -1,9 +1,12 @@
-use std::{fs::{File, OpenOptions}, io::{Read, Write}, path::Path};
-
+use std::{
+    fs::{File, OpenOptions},
+    io::{Read, Write},
+    path::Path,
+};
 
 pub struct FileHandle {
     file: File,
-    pub path: Box<Path>
+    pub path: Box<str>,
 }
 
 impl Read for FileHandle {
@@ -23,7 +26,7 @@ impl FileWrite for FileHandle {
             .write(true)
             .create(true)
             .truncate(true)
-            .open(&self.path)?;
+            .open(Path::new(self.path.as_ref()))?;
 
         self.file.write_all(buf)?;
         self.file.flush()
@@ -31,7 +34,15 @@ impl FileWrite for FileHandle {
 }
 
 impl FileHandle {
-    pub fn new(path: &Path) -> std::io::Result<Self> {
+    pub fn new(path_str: String) -> std::io::Result<Self> {
+        let expanded_path = shellexpand::full(&path_str).map_err(|e| {
+            std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to expand file path due to: {}", e.var_name),
+            )
+        })?.into_owned();
+        let path = Path::new(&expanded_path);
+
         let file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -40,7 +51,7 @@ impl FileHandle {
 
         Ok(Self {
             file,
-            path: Box::from(path),
+            path: expanded_path.into_boxed_str(),
         })
     }
 }

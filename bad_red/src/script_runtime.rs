@@ -4,7 +4,7 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-use std::{collections::VecDeque, path::Path};
+use std::collections::VecDeque;
 
 use mlua::{Function, IntoLua, Lua, Thread, Value};
 
@@ -38,14 +38,26 @@ pub enum SchedulerYield {
 }
 
 impl<'lua> ScriptScheduler<'lua> {
-    pub fn new(lua: &'lua Lua, init: Function<'lua>) -> Result<Self> {
-        let thread = lua.create_thread(init).map_err(|e| {
+    pub fn new(lua: &'lua Lua, preload: Function<'lua>, init: Function<'lua>) -> Result<Self> {
+        let preload_thread = lua.create_thread(preload).map_err(|e| {
+            Error::Unrecoverable(format!("Failed to initialize init thread: {}", e))
+        })?;
+
+        let init_thread = lua.create_thread(init).map_err(|e| {
             Error::Unrecoverable(format!("Failed to initialize init thread: {}", e))
         })?;
         let mut active = VecDeque::new();
         active.push_back(ProcessAwaiting {
             process: ScriptProcess {
-                thread,
+                thread: preload_thread,
+                cause: None,
+            },
+            awaiting: RedCall::None,
+        });
+
+        active.push_back(ProcessAwaiting {
+            process: ScriptProcess {
+                thread: init_thread,
                 cause: None,
             },
             awaiting: RedCall::None,
@@ -689,7 +701,7 @@ impl<'lua> ScriptScheduler<'lua> {
                         self.run_script(process, hook_map, *file_id)
                     }
                     RedCall::FileOpen { path_string } => {
-                        let id = editor_state.open_file(Path::new(&path_string))?;
+                        let id = editor_state.open_file(path_string)?;
 
                         self.run_script(process, hook_map, id)
                     }
