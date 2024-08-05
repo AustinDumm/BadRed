@@ -30,8 +30,14 @@ package.preload["mode"] = function(modname, _)
             end
             red.keymap.current = input_map
         end
-        map["h"] = function(_) red.buffer:cursor_left(1, true) end
-        map["l"] = function(_) red.buffer:cursor_right(1, true) end
+        map["h"] = function(_)
+            local new_cursor = red.buffer:cursor_left(1, true)
+            red.buffer:set_cursor(new_cursor)
+        end
+        map["l"] = function(_)
+            local new_cursor = red.buffer:cursor_right(1, true)
+            red.buffer:set_cursor(new_cursor)
+        end
         map["k"] = function(_) red.buffer:cursor_up(1, true) end
         map["j"] = function(_) red.buffer:cursor_down(1, true) end
         map["d"] = (function()

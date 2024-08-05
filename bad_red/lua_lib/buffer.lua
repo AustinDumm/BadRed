@@ -167,78 +167,74 @@ self: Buffer - Buffer object whose cursor is returned. If no buffer ID is set on
     )
 
     P.cursor_right = red.doc.build_fn(
-        function(self, count, skip_newlines, keep_col_index)
+        function(self, count, skip_newlines)
             local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), count))
             local cursor_char = self:content_at(new_cursor, 1)
-            self:set_cursor(new_cursor, keep_col_index)
 
             if skip_newlines then
                 local line_content = self:line_content(self:cursor_line())
 
                 if cursor_char == "\n" and line_content ~= "\n" then
-                    self:cursor_right(1)
+                    return coroutine.yield(red.call.buffer_index_moved_by_char(self:id(), new_cursor, 1))
                 end
             end
+
+            return new_cursor
         end,
         "cursor_right",
         [[
-Moves the cursor a certain number of characters to the right.
+Returns the byte index `count` number of characters to the right of the current cursor for this buffer.
 ]],
         [[
-Provides options for dealing with newlines and handling column index persistence.
+Provides options for dealing with newlines.
 ]],
         [[
 nil
 ]],
         [[
-self: Buffer - Buffer object whose cursor should be moved. If no buffer ID is set on this object, moves the cursor of the active buffer.
+self: Buffer - Buffer object whose cursor should be moved. If no buffer ID is set on this object, returns the byte index of cursor of the active buffer moved by `count` characters.
 ]],
         [[
-count: integer - Number of characters to move. Note that it is possible the cursor will increase by more bytes than the count provided if moving over utf8 characters that are encoded in more than 1 byte. For this reason, use cursor movement functions instead of manually adding to a cursor byte value. Will stop at the end of the buffer if count moves the cursor more than the remaining number of characters in the buffer.
+count: integer - Number of characters to move. Note that it is possible the returned cursor byte index will increase by more bytes than the count provided if moving over utf8 characters that are encoded in more than 1 byte. For this reason, use cursor movement functions instead of manually adding to a cursor byte value. Will stop at the end of the buffer if count moves the cursor more than the remaining number of characters in the buffer.
 ]],
         [[
 skip_newlines: bool = false - Should the cursor be allowed to stop over a newline character. If true, will move to the next character to the right if a newline was landed on.
-]],
-        [[
-keep_col_index: bool = false - Should the buffer's column index be kept no matter where the cursor lands. Useful for vertical movement where the column index should not be overwritten until the user moves laterally on a line.
 ]]
     )
 
     P.cursor_left = red.doc.build_fn(
-        function(self, count, skip_newlines, keep_col_index)
+        function(self, count, skip_newlines)
             local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), -count))
             local cursor_char = self:content_at(new_cursor, 1)
-            self:set_cursor(new_cursor, keep_col_index)
 
             if skip_newlines then
                 local line_content = self:line_content(self:cursor_line())
 
                 if cursor_char == "\n" and line_content ~= "\n" then
-                    self:cursor_left(1)
+                    return coroutine.yield(red.call.buffer_index_moved_by(self:id(), new_cursor, -1))
                 end
             end
+
+            return new_cursor
         end,
         "cursor_left",
         [[
-Moves the cursor a certain number of characters to the left.
+Returns the byte index `count` number of characters to the left of the current cursor for this buffer.
 ]],
         [[
-Provides options for dealing with newlines and handling column index persistence.
+Provides options for dealing with newlines.
 ]],
         [[
 nil
 ]],
         [[
-self: Buffer - Buffer object whose cursor should be moved. If no buffer ID is set on this object, moves the cursor of the active buffer.
+self: Buffer - Buffer object whose cursor should be moved. If no buffer ID is set on this object, returns the byte index of cursor of the active buffer moved by `count` characters.
 ]],
         [[
 count: integer - Number of characters to move. Note that it is possible the cursor will decrease by more bytes than the count provided if moving over utf8 characters that are encoded in more than 1 byte. For this reason, use cursor movement functions instead of manually adding to a cursor byte value. Will stop at the beginning of the buffer if count would move the cursor past the beginning character.
 ]],
         [[
 skip_newlines: bool = false - Should the cursor be allowed to stop over a newline character. If true, will move to the next character to the left if a newline was landed on.
-]],
-        [[
-keep_col_index: bool = false - Should the buffer's column index be kept no matter where the cursor lands. Useful for vertical movement where the column index should not be overwritten until the user moves laterally on a line.
 ]]
     )
 
@@ -254,7 +250,7 @@ keep_col_index: bool = false - Should the buffer's column index be kept no matte
             end
 
             if skip_newlines and self:cursor_content() == "\n" and self:cursor_line_content() ~= "\n" then
-                self:cursor_left(1, false, true)
+                self:set_cursor(self:cursor_left(1), true)
             end
         end,
         "cursor_up",
@@ -291,7 +287,7 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
             end
 
             if skip_newlines and self:cursor_content() == "\n" and self:cursor_line_content() ~= "\n" then
-                self:cursor_left(1, false, true)
+                self:set_cursor(self:cursor_left(1), true)
             end
         end,
         "cursor_down",

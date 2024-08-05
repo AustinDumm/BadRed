@@ -249,7 +249,7 @@ impl EditorState {
     ) -> Result<()> {
         if self.buffer_file_map.contains_left(&buffer_id) {
             return Err(Error::Recoverable(format!(
-                "Attempted to link buffer id that already has file associated. NaiveBuffer id: {}",
+                "Attempted to link buffer id that already has file associated. Buffer id: {}",
                 buffer_id
             )));
         }

@@ -110,6 +110,11 @@ pub enum RedCall<'lua> {
         buffer_id: usize,
         char_count: isize,
     },
+    BufferIndexMovedByChar {
+        buffer_id: usize,
+        start_byte_index: usize,
+        char_count: isize,
+    },
     BufferSetType {
         buffer_id: usize,
         buffer_type: EditorBufferType,

@@ -404,7 +404,10 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.execute_script(
                             process,
-                            Some((HookType::PaneClosed { pane_id: closed_id }, closed_id.into_lua(self.lua).ok())),
+                            Some((
+                                HookType::PaneClosed { pane_id: closed_id },
+                                closed_id.into_lua(self.lua).ok(),
+                            )),
                             hook_map,
                             Value::Nil,
                             false,
@@ -574,9 +577,9 @@ impl<'lua> ScriptScheduler<'lua> {
                         buffer_id,
                         char_count,
                     } => {
-                        let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
+                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
-                                "Attempted BufferCursorMoveChar for non-existent buffer: {}",
+                                "Attempted BufferCursorMovedByChar for non-existent buffer: {}",
                                 buffer_id
                             ))
                         })?;
@@ -584,6 +587,22 @@ impl<'lua> ScriptScheduler<'lua> {
                         let moved_cursor = buffer.cursor_moved_by_char(char_count);
 
                         self.run_script(process, hook_map, moved_cursor)
+                    }
+                    RedCall::BufferIndexMovedByChar {
+                        buffer_id,
+                        start_byte_index,
+                        char_count,
+                    } => {
+                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferIndexMovedByChar for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        let moved_index = buffer.index_moved_by_char(start_byte_index, char_count);
+
+                        self.run_script(process, hook_map, moved_index)
                     }
                     RedCall::BufferLength { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {

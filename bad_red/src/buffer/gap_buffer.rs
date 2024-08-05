@@ -396,7 +396,7 @@ impl ContentBuffer for GapBuffer {
         self.line_index
     }
 
-    fn cursor_moved_by_char(&mut self, mut char_count: isize) -> usize {
+    fn cursor_moved_by_char(&self, mut char_count: isize) -> usize {
         if char_count == 0 {
             0
         } else if char_count < 0 {
@@ -434,6 +434,38 @@ impl ContentBuffer for GapBuffer {
 
             self.underlying_buf.cursor_index() + byte_count
         }
+    }
+
+    fn index_moved_by_char(&self, start_byte_index: usize, mut char_count: isize) -> usize {
+        let mut result_byte_index = start_byte_index;
+
+        // Need to move all the way to character start char
+        char_count += char_count.signum();
+
+        loop {
+            let Some(byte) = self.underlying_buf.get(result_byte_index) else {
+                break;
+            };
+
+            if let Some(_) = super::expected_byte_length_from_starting(*byte) {
+                char_count -= char_count.signum();
+            }
+
+            if char_count == 0 {
+                break;
+            }
+
+            let Some(new_result) = result_byte_index.checked_add_signed(char_count.signum()) else {
+                return 0
+            };
+            result_byte_index = new_result;
+
+            if result_byte_index == self.underlying_buf.len() {
+                return self.underlying_buf.len();
+            }
+        }
+
+        result_byte_index
     }
 
     fn populate_from_read(&mut self, read: &mut dyn std::io::prelude::Read) -> std::io::Result<()> {

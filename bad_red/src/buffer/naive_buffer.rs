@@ -259,8 +259,13 @@ impl ContentBuffer for NaiveBuffer {
         newline_count
     }
 
-    fn cursor_moved_by_char(&mut self, char_count: isize) -> usize {
+    fn cursor_moved_by_char(&self, char_count: isize) -> usize {
         self.shift_byte_cursor_by_character(self.cursor_byte_index, char_count)
+            .unwrap_or(0)
+    }
+
+    fn index_moved_by_char(&self, start_byte_index: usize, char_count: isize) -> usize {
+        self.shift_byte_cursor_by_character(start_byte_index, char_count)
             .unwrap_or(0)
     }
 

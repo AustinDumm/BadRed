@@ -112,12 +112,6 @@ impl ContentBuffer for EditorBuffer {
         self.content.set_cursor_byte_index(index, keep_col_index);
     }
 
-    fn set_cursor_line_index(&mut self, index: usize) {
-        self.is_render_dirty = true;
-
-        self.content.set_cursor_line_index(index);
-    }
-
     fn cursor_byte_index(&self) -> usize {
         self.content.cursor_byte_index()
     }
@@ -126,10 +120,12 @@ impl ContentBuffer for EditorBuffer {
         self.content.cursor_line_index()
     }
 
-    fn cursor_moved_by_char(&mut self, char_count: isize) -> usize {
-        self.is_render_dirty = true;
-
+    fn cursor_moved_by_char(&self, char_count: isize) -> usize {
         self.content.cursor_moved_by_char(char_count)
+    }
+
+    fn index_moved_by_char(&self, start_byte_index: usize, char_count: isize) -> usize {
+        self.content.index_moved_by_char(start_byte_index, char_count)
     }
 
     fn populate_from_read(&mut self, read: &mut dyn Read) -> std::io::Result<()> {
@@ -143,5 +139,11 @@ impl ContentBuffer for EditorBuffer {
         self.is_content_dirty = false;
 
         self.content.flush_to_write(write)
+    }
+
+    fn set_cursor_line_index(&mut self, index: usize) {
+        self.is_render_dirty = true;
+
+        self.content.set_cursor_line_index(index);
     }
 }

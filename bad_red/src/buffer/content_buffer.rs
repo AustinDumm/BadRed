@@ -24,7 +24,8 @@ pub trait ContentBuffer {
     fn cursor_byte_index(&self) -> usize;
     fn cursor_line_index(&self) -> usize;
 
-    fn cursor_moved_by_char(&mut self, char_count: isize) -> usize;
+    fn cursor_moved_by_char(&self, char_count: isize) -> usize;
+    fn index_moved_by_char(&self, start_byte_index: usize, char_count: isize) -> usize;
 
     fn populate_from_read(&mut self, read: &mut dyn Read) -> std::io::Result<()>;
     fn flush_to_write(&mut self, write: &mut dyn FileWrite) -> std::io::Result<()>;
@@ -35,4 +36,3 @@ pub enum BufferUpdate {
     Raw,
     Command(String),
 }
-
