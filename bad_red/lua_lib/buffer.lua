@@ -434,13 +434,18 @@ only_whitespace: bool = false - If false, any character of the opposite type (al
     P.cursor_word_end = red.doc.build_fn(
         function(self, only_whitespace)
             local current_index = self:cursor()
+            local content_size = self:length()
+
             current_index = self:index_right(current_index, 1)
+            if current_index >= content_size then
+                return current_index
+            end
+
             current_index = move_index_to_word(self, current_index, false)
 
             local is_alphanumeric_word = is_alphanumeric(self:content_at(current_index, 1))
             local is_split = get_word_split(only_whitespace, is_alphanumeric_word)
 
-            local content_size = self:length()
             local character_index = self:index_right(current_index, 1)
             while character_index < content_size and not is_split(self:content_at(character_index, 1)) do
                 current_index = character_index
@@ -449,14 +454,52 @@ only_whitespace: bool = false - If false, any character of the opposite type (al
 
             return current_index
         end,
+        "cursor_word_end",
         [[
 Returns the byte index for the ending character of the word the cursor is on.
 ]],
         [[
-Provides an option for whether words should be considered split by only whitespace, or by any change in character type. for example, if the word is alphanumeric, the first non-alphanumeric character found to the right marks the first non-word character and vice versa. If the cursor is already on the last character of this word, returns the end index of the succeeding word.
+Provides an option for whether words should be considered split by only whitespace, or by any change in character type. For example, if the word is alphanumeric, the first non-alphanumeric character found to the right marks the first non-word character and vice versa. If the cursor is already on the last character of this word, returns the end index of the succeeding word.
 ]],
         [[
 non-negative integer - The index of the ending character of the word the cursor is on.
+]],
+        [[
+only_whitespace: bool = false - If false, any character of the opposite type (alphanumeric and non-alphanumeric) is considered to split words. If true, only whitespace characters are considered to split words).
+]]
+    )
+
+    P.cursor_next_word_start = red.doc.build_fn(
+        function(self, only_whitespace)
+            local length = self:length()
+            local index = self:cursor()
+            if index >= length then
+                return index
+            end
+
+            local is_alphanum = is_alphanumeric(self:content_at(index, 1))
+            local is_split = get_word_split(only_whitespace, is_alphanum)
+
+            index = self:index_right(index, 1)
+            while index < length and not is_split(self:content_at(index, 1)) do
+                index = self:index_right(index, 1)
+            end
+
+            while index < length and is_whitespace(self:content_at(index, 1)) do
+                index = self:index_right(index, 1)
+            end
+
+            return index
+        end,
+        "cursor_next_word_start",
+        [[
+Returns the byte index for the starting character of the word following the word the cursor is currently on.
+]],
+        [[
+Provides an option for whether words should be considered split by only whitespace, or by any change in character type. For example, if the word is alphanumeric, the first non-alphanumeric character found to the right marks the first non-word character and vice versa.
+]],
+        [[
+non-negative integer - The index of the first character in the word following the word the cursor is on.
 ]],
         [[
 only_whitespace: bool = false - If false, any character of the opposite type (alphanumeric and non-alphanumeric) is considered to split words. If true, only whitespace characters are considered to split words).

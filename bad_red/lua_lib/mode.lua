@@ -41,6 +41,15 @@ package.preload["mode"] = function(modname, _)
         map["k"] = function(_) red.buffer:cursor_up(1, true) end
         map["j"] = function(_) red.buffer:cursor_down(1, true) end
 
+        map["w"] = function(_)
+            local new_cursor = red.buffer:cursor_next_word_start()
+            red.buffer:set_cursor(new_cursor)
+        end
+        map["W"] = function(_)
+            local new_cursor = red.buffer:cursor_next_word_start(true)
+            red.buffer:set_cursor(new_cursor)
+        end
+
         map["b"] = function(_)
             local new_cursor = red.buffer:cursor_word_start()
             red.buffer:set_cursor(new_cursor)
