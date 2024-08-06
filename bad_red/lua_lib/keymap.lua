@@ -131,7 +131,7 @@ key_event: string - The KeyEvent string from the BadRed editor hook being handle
                     return
                 end
 
-                red.buffer:cursor_left(1)
+                red.buffer:set_cursor(red.buffer:cursor_left(1))
                 _ = red.buffer:delete(1)
             end
             map["Delete"] = function(_)

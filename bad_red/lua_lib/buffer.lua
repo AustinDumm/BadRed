@@ -211,7 +211,7 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
                 local line_content = self:line_content(self:cursor_line())
 
                 if cursor_char == "\n" and line_content ~= "\n" then
-                    return coroutine.yield(red.call.buffer_index_moved_by(self:id(), new_cursor, -1))
+                    return coroutine.yield(red.call.buffer_index_moved_by_char(self:id(), new_cursor, -1))
                 end
             end
 
@@ -225,16 +225,39 @@ Returns the byte index `count` number of characters to the left of the current c
 Provides options for dealing with newlines.
 ]],
         [[
-nil
+non-negative integer - The byte index for the character preceeding the current cursor by `count` characters.
 ]],
         [[
-self: Buffer - Buffer object whose cursor should be moved. If no buffer ID is set on this object, returns the byte index of cursor of the active buffer moved by `count` characters.
+self: Buffer - Buffer object whose cursor should be moved. If no buffer ID is set on this object, returns the byte index of the cursor of the active buffer moved by `count` characters.
 ]],
         [[
 count: integer - Number of characters to move. Note that it is possible the cursor will decrease by more bytes than the count provided if moving over utf8 characters that are encoded in more than 1 byte. For this reason, use cursor movement functions instead of manually adding to a cursor byte value. Will stop at the beginning of the buffer if count would move the cursor past the beginning character.
 ]],
         [[
 skip_newlines: bool = false - Should the cursor be allowed to stop over a newline character. If true, will move to the next character to the left if a newline was landed on.
+]]
+    )
+
+    P.index_left = red.doc.build_fn(
+        function(self, index, count)
+            return coroutine.yield(red.call.buffer_index_moved_by_char(self:id(), index, -count))
+        end,
+        [[
+Returns the byte index `count` number of characters to the left of the character at `index`.
+[[
+Errs if `index` is not on a valid character boundary in this buffer. It is recommended that `index` only be retrieved from the return of this function and other character-boundary-respecting functions. `0` is guaranteed to be a valid `index.`
+]],
+        [[
+non-negative integer - The byte index for the character preceeding the character at `index` by `count` characters.
+]],
+        [[
+self: Buffer - Buffer object whose cursor should be moved. If no buffer ID is set on this object, runs this function with the active buffer.
+]],
+        [[
+index: non-negative integer - The byte index for the character to start calculating with. Must be on a character boundary.
+]],
+        [[
+count: integer - Number of characters to move. Note that it is possible the cursor will decrease by more bytes than the count provided if moving over utf8 characters that are encoding in more than 1 byte.
 ]]
     )
 
@@ -308,6 +331,80 @@ count: integer - Number of lines to move. Will stop at the beginning of the buff
 ]],
         [[
 skip_newlines: bool = false - Should the cursor be allowed to stop over a newline character. If true, will move to the next character to the left if a newline was landed on.
+]]
+    )
+
+    local function is_whitespace(char)
+        return string.match(char, "%s") ~= nil
+    end
+
+    local function is_non_alphanumeric(char)
+        return string.match(char, "%W") ~= nil
+    end
+
+    local function is_alphanumeric(char)
+        return string.match(char, "%w") ~= nil
+    end
+
+    local function get_word_split(only_whitespace, is_alphanumeric_word)
+        if only_whitespace then
+            return is_whitespace
+        else
+            if is_alphanumeric_word then
+                return is_non_alphanumeric
+            else
+                return is_alphanumeric
+            end
+        end
+    end
+
+    local function move_index_to_word(self, current_index, move_left)
+        local shift_char
+        if move_left then
+            shift_char = -1
+        else
+            shift_char = 1
+        end
+
+        while true do
+            local content = self:content_at(current_index, 1)
+            if content ~= nil and string.match(content, "%s") == nil then
+                return current_index
+            end
+
+            current_index = self:index_right(current_index, shift_char)
+        end
+    end
+
+    P.cursor_word_start = red.doc.build_fn(
+        function(self, only_whitespace)
+            local current_index = self:cursor()
+            current_index = self:index_left(current_index, 1)
+            current_index = move_index_to_word(self, current_index, true)
+
+            local is_alphanumeric_word = string.match(self:content_at(current_index, 1), "%w") ~= nil
+            local is_split = get_word_split(only_whitespace, is_alphanumeric_word)
+
+            local character_index = self:index_left(current_index, 1)
+            while not is_split(self:content_at(character_index, 1)) and current_index ~= 0 do
+                current_index = character_index
+                character_index = self:index_left(current_index, 1)
+            end
+
+            return current_index
+        end,
+        "cursor_word_start",
+        [[
+Returns the byte index for the starting character of the word the cursor is on.
+]],
+        [[
+Provides an option for whether words should be considered split by only whitespace, or by any change in character type. For example, if the word is alphanumeric, the first non-alphanumeric character found marks the first non-word character and vice versa. If the cursor is already on the first character of this word, returns the start index of the preceeding word.
+]],
+        [[
+non-negative integer - The index of the first character in the words the cursor is on.
+]],
+        [[
+only_whitespace: bool = false - If false, any non-alphanumeric character is considered to split words. If true, only whitespace characters are considered to split words.
 ]]
     )
 

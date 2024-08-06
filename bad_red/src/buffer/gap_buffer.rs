@@ -127,8 +127,11 @@ impl ContentBuffer for GapBuffer {
         let mut bytes_to_remove = 0;
         let mut chars_remaining = char_count;
         while chars_remaining > 0 {
-            let byte = self.underlying_buf[cursor_byte_index + bytes_to_remove];
-            match super::expected_byte_length_from_starting(byte) {
+            let Some(byte) = self.underlying_buf.get(cursor_byte_index + bytes_to_remove) else {
+                break;
+            };
+
+            match super::expected_byte_length_from_starting(*byte) {
                 Some(length) => {
                     bytes_to_remove += length as usize;
                     chars_remaining -= 1;
@@ -444,7 +447,8 @@ impl ContentBuffer for GapBuffer {
 
         loop {
             let Some(byte) = self.underlying_buf.get(result_byte_index) else {
-                break;
+                result_byte_index -= 1;
+                continue;
             };
 
             if let Some(_) = super::expected_byte_length_from_starting(*byte) {

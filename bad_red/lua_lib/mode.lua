@@ -40,6 +40,16 @@ package.preload["mode"] = function(modname, _)
         end
         map["k"] = function(_) red.buffer:cursor_up(1, true) end
         map["j"] = function(_) red.buffer:cursor_down(1, true) end
+
+        map["b"] = function(_)
+            local new_cursor = red.buffer:cursor_word_start()
+            red.buffer:set_cursor(new_cursor)
+        end
+        map["B"] = function(_)
+            local new_cursor = red.buffer:cursor_word_start(true)
+            red.buffer:set_cursor(new_cursor)
+        end
+
         map["d"] = (function()
             local delete_map = red.keymap:new_map()
 
