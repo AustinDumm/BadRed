@@ -6,6 +6,8 @@
 
 use bad_red_proc_macros::auto_lua;
 
+use crate::editor_frame::EditorFrame;
+
 pub type Result<T> = std::result::Result<T, String>;
 
 pub struct PaneTree {
@@ -222,6 +224,136 @@ impl PaneTree {
         } else {
             Ok(None)
         }
+    }
+
+    pub fn pane_size(&self, pane_index: usize, root_height: u16, root_width: u16) -> Result<EditorFrame> {
+        fn recursive_pane_size(
+            tree: &PaneTree,
+            current_pane: usize,
+            search_pane: usize,
+            editor_frame: EditorFrame,
+        ) -> Option<EditorFrame> {
+            if current_pane == search_pane {
+                Some(editor_frame)
+            } else {
+                match tree.pane_node_by_index(current_pane)?.node_type {
+                    PaneNodeType::Leaf(_) => None,
+                    PaneNodeType::VSplit(ref v_split) => match v_split.split_type {
+                        SplitType::Percent { first_percent } => {
+                            let left_frame = editor_frame.percent_cols(first_percent, -1);
+                            let right_frame = &editor_frame.percent_cols_shift(first_percent, -1);
+
+                            recursive_pane_size(tree, v_split.first, search_pane, left_frame)
+                                .or_else(|| {
+                                    recursive_pane_size(
+                                        tree,
+                                        v_split.second,
+                                        search_pane,
+                                        right_frame.clone(),
+                                    )
+                                })
+                        }
+                        SplitType::FirstFixed { size } => {
+                            let left_frame = editor_frame.with_cols(size);
+                            let right_frame = &editor_frame
+                                .with_cols(editor_frame.cols - size - 1)
+                                .with_x_col(editor_frame.x_col + size + 1);
+
+                            recursive_pane_size(tree, v_split.first, search_pane, left_frame)
+                                .or_else(|| {
+                                    recursive_pane_size(
+                                        tree,
+                                        v_split.second,
+                                        search_pane,
+                                        right_frame.clone(),
+                                    )
+                                })
+                        }
+                        SplitType::SecondFixed { size } => {
+                            let first_size = editor_frame.cols - size - 1;
+                            let left_frame = editor_frame.with_cols(size);
+                            let right_frame = &editor_frame
+                                .with_cols(editor_frame.cols - first_size - 1)
+                                .with_x_col(editor_frame.x_col + first_size + 1);
+
+                            recursive_pane_size(tree, v_split.first, search_pane, left_frame)
+                                .or_else(|| {
+                                    recursive_pane_size(
+                                        tree,
+                                        v_split.second,
+                                        search_pane,
+                                        right_frame.clone(),
+                                    )
+                                })
+                        }
+                    },
+                    PaneNodeType::HSplit(ref h_split) => match h_split.split_type {
+                        SplitType::Percent { first_percent } => {
+                            let left_frame = editor_frame.percent_rows(first_percent, -1);
+                            let right_frame = &editor_frame.percent_rows_shift(first_percent, -1);
+
+                            recursive_pane_size(tree, h_split.first, search_pane, left_frame)
+                                .or_else(|| {
+                                    recursive_pane_size(
+                                        tree,
+                                        h_split.second,
+                                        search_pane,
+                                        right_frame.clone(),
+                                    )
+                                })
+                        }
+                        SplitType::FirstFixed { size } => {
+                            let left_frame = editor_frame.with_rows(size);
+                            let right_frame = &editor_frame
+                                .with_rows(editor_frame.rows - size - 1)
+                                .with_x_col(editor_frame.x_col + size + 1);
+
+                            recursive_pane_size(tree, h_split.first, search_pane, left_frame)
+                                .or_else(|| {
+                                    recursive_pane_size(
+                                        tree,
+                                        h_split.second,
+                                        search_pane,
+                                        right_frame.clone(),
+                                    )
+                                })
+                        }
+                        SplitType::SecondFixed { size } => {
+                            let first_size = editor_frame.rows - size - 1;
+                            let left_frame = editor_frame.with_rows(size);
+                            let right_frame = &editor_frame
+                                .with_rows(editor_frame.rows - first_size - 1)
+                                .with_x_col(editor_frame.x_col + first_size + 1);
+
+                            recursive_pane_size(tree, h_split.first, search_pane, left_frame)
+                                .or_else(|| {
+                                    recursive_pane_size(
+                                        tree,
+                                        h_split.second,
+                                        search_pane,
+                                        right_frame.clone(),
+                                    )
+                                })
+                        }
+                    },
+                }
+            }
+        }
+
+        
+        let frame = recursive_pane_size(
+            self,
+            self.root_index,
+            pane_index,
+            EditorFrame {
+                x_col: 0,
+                y_row: 0,
+                rows: root_height,
+                cols: root_width,
+            }
+        ).ok_or_else(|| format!("Failed to find pane size for pane index: {}", pane_index))?;
+
+        Ok(frame)
     }
 
     // TODO: Update with implementation to clean up closed panes

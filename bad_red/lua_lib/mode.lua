@@ -85,6 +85,32 @@ package.preload["mode"] = function(modname, _)
             red.pane:set_top_line(current_line - 1)
         end
 
+        map["C+d"] = function(_)
+            local height = red.pane:root():frame().rows
+            local top_line = red.pane:top_line()
+
+            local new_top_line = top_line + math.floor(height / 2)
+
+            if new_top_line >= 2^16 then
+                new_top_line = 2^16 - 1
+            end
+
+            red.pane:set_top_line(new_top_line)
+        end
+
+        map["C+u"] = function(_)
+            local height = red.pane:root():frame().rows
+            local top_line = red.pane:top_line()
+
+            local new_top_line = top_line - math.floor(height / 2)
+
+            if new_top_line < 0 then
+                new_top_line = 0
+            end
+
+            red.pane:set_top_line(new_top_line)
+        end
+
         map["d"] = (function()
             local delete_map = red.keymap:new_map()
 

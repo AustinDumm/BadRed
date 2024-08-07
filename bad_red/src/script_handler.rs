@@ -90,6 +90,9 @@ pub enum RedCall<'lua> {
         pane_index: usize,
         line: u16,
     },
+    PaneFrame {
+        pane_index: usize,
+    },
 
     SetHook {
         hook_name: HookTypeName,

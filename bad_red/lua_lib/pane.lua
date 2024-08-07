@@ -578,6 +578,23 @@ top_line: non-negative 16-bit integer
 ]]
     )
 
+    P.frame = red.doc.build_fn(
+        function(self)
+            return coroutine.yield(red.call.pane_frame(self:id())).values
+        end,
+        "frame",
+        [[
+Returns the editor frame table for this pane's current size.
+]],
+        nil,
+        [[
+Frame table - Holds all frame information for this pane. 'x_col', 'y_row', 'rows', 'cols'. All non-negative integers maxing at 16 bit values.
+]],
+        [[
+self: Pane Table - The pane table whose frame should be returned. If this table has no pane_id, the active pane will be used.
+]]
+    )
+
     red.doc.document_table(
         P,
         "Pane",

@@ -6,6 +6,7 @@
 
 use std::collections::VecDeque;
 
+use crossterm::terminal;
 use mlua::{Function, IntoLua, Lua, Thread, Value};
 
 use crate::{
@@ -498,15 +499,31 @@ impl<'lua> ScriptScheduler<'lua> {
                             .pane_node_mut_by_index(pane_index)
                             .ok_or_else(|| {
                                 Error::Script(format!(
-                                    "Attempted to get pane top line for invalid pane index"
+                                    "Attempted to get pane top line for invalid pane index."
                                 ))
                             })?;
                         match &mut pane.node_type {
                             PaneNodeType::Leaf(leaf) => leaf.top_line = line,
-                            PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => ()
+                            PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => (),
                         }
 
                         self.run_script(process, hook_map, Value::Nil)
+                    }
+                    RedCall::PaneFrame { pane_index } => {
+                        let window_size = terminal::window_size().map_err(|e| {
+                            Error::Recoverable(format!("Could not retrieve window size: {}", e))
+                        })?;
+
+                        let pane_frame = editor_state
+                            .pane_tree
+                            .pane_size(pane_index, window_size.rows, window_size.columns)
+                            .map_err(|e| {
+                                Error::Script(format!(
+                                    "Attempted to get size of pane for invalid pane index. {}",
+                                    e
+                                ))
+                            })?;
+                        self.run_script(process, hook_map, pane_frame)
                     }
 
                     RedCall::BufferInsert { buffer_id, content } => {
