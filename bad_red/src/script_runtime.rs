@@ -466,12 +466,44 @@ impl<'lua> ScriptScheduler<'lua> {
                             .pane_node_mut_by_index(pane_index)
                             .ok_or_else(|| {
                                 Error::Script(format!(
-                                    "Attempted to get pane wrap flag for invalid pane index"
+                                    "Attempted to set pane wrap flag for invalid pane index"
                                 ))
                             })?;
                         match &mut pane.node_type {
                             PaneNodeType::Leaf(leaf) => leaf.should_wrap = should_wrap,
                             PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => (),
+                        }
+
+                        self.run_script(process, hook_map, Value::Nil)
+                    }
+                    RedCall::PaneTopLine { pane_index } => {
+                        let pane = editor_state
+                            .pane_tree
+                            .pane_node_by_index(pane_index)
+                            .ok_or_else(|| {
+                                Error::Script(format!(
+                                    "Attempted to get pane top line for invalid pane index"
+                                ))
+                            })?;
+                        let top_line = match &pane.node_type {
+                            PaneNodeType::Leaf(leaf) => Some(leaf.top_line),
+                            PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => None,
+                        };
+
+                        self.run_script(process, hook_map, top_line)
+                    }
+                    RedCall::PaneSetTopLine { pane_index, line } => {
+                        let pane = editor_state
+                            .pane_tree
+                            .pane_node_mut_by_index(pane_index)
+                            .ok_or_else(|| {
+                                Error::Script(format!(
+                                    "Attempted to get pane top line for invalid pane index"
+                                ))
+                            })?;
+                        match &mut pane.node_type {
+                            PaneNodeType::Leaf(leaf) => leaf.top_line = line,
+                            PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => ()
                         }
 
                         self.run_script(process, hook_map, Value::Nil)

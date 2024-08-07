@@ -68,6 +68,23 @@ package.preload["mode"] = function(modname, _)
             red.buffer:set_cursor(new_cursor)
         end
 
+        map["C+e"] = function(_)
+            local current_line = red.pane:top_line()
+            if current_line + 1 >= 2^16 then
+                return
+            end
+
+            red.pane:set_top_line(current_line + 1)
+        end
+        map["C+y"] = function(_)
+            local current_line = red.pane:top_line()
+            if current_line <= 0 then
+                return
+            end
+
+            red.pane:set_top_line(current_line - 1)
+        end
+
         map["d"] = (function()
             local delete_map = red.keymap:new_map()
 

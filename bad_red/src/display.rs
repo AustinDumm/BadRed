@@ -277,12 +277,16 @@ impl Display {
     where I: Iterator<Item = char> {
         let mut line_count = 0;
         while let Some(char) = chars.peek() {
+            let char_bytes = char.len_utf8();
             if line_count == pane.top_line {
                 break;
             }
 
             if handle_newline(*char, byte_count, chars) {
                 line_count += 1;
+            } else {
+                *byte_count += char_bytes;
+                _ = chars.next();
             }
         }
     }

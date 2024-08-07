@@ -83,6 +83,13 @@ pub enum RedCall<'lua> {
         pane_index: usize,
         should_wrap: bool,
     },
+    PaneTopLine {
+        pane_index: usize,
+    },
+    PaneSetTopLine {
+        pane_index: usize,
+        line: u16,
+    },
 
     SetHook {
         hook_name: HookTypeName,

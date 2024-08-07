@@ -537,6 +537,47 @@ buffer: Buffer Table - A table representing the buffer that this pane should be 
 ]]
     )
 
+    P.top_line = red.doc.build_fn(
+        function(self)
+            return coroutine.yield(red.call.pane_top_line(self:id()))
+        end,
+        "top_line",
+        [[
+Return top line index of this pane.
+]],
+        [[
+If this pane has no pane_id, will return the top line of the currently active pane.
+]],
+        [[
+non-negative integer (16-bit)
+]],
+        [[
+self: Pane Table - The pane whose top line is returned. If self has no `pane_id` field, uses the currently active pane.
+]]
+    )
+
+    P.set_top_line = red.doc.build_fn(
+        function(self, top_line)
+            coroutine.yield(red.call.pane_set_top_line(self:id(), top_line))
+        end,
+        "set_top_line",
+        [[
+Set a new top line for this pane.
+]],
+        [[
+If this pane has no pane_id, will set the top ilne of the currently active pane.
+]],
+        [[
+nil
+]],
+        [[
+self: Pane Table - The pane whose top line is set. If self as no `pane_id` field, sets the currently active pane.
+]],
+        [[
+top_line: non-negative 16-bit integer
+]]
+    )
+
     red.doc.document_table(
         P,
         "Pane",
