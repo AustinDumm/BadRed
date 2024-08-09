@@ -7,6 +7,8 @@
 package.preload["buffer"] = function(modname, _)
     local P = {}
 
+    local motion = require("motion")
+
     P.new = red.doc.build_fn(
         function(self, id)
             local instance = { _id = id }
@@ -168,18 +170,7 @@ self: Buffer - Buffer object whose cursor is returned. If no buffer ID is set on
 
     P.cursor_right = red.doc.build_fn(
         function(self, count, skip_newlines)
-            local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), count))
-            local cursor_char = self:content_at(new_cursor, 1)
-
-            if skip_newlines then
-                local line_content = self:line_content(self:cursor_line())
-
-                if cursor_char == "\n" and line_content ~= "\n" then
-                    return coroutine.yield(red.call.buffer_index_moved_by_char(self:id(), new_cursor, 1))
-                end
-            end
-
-            return new_cursor
+            return motion.char_move(self, self:cursor(), count, skip_newlines)
         end,
         "cursor_right",
         [[
@@ -192,7 +183,7 @@ Provides options for dealing with newlines.
 nil
 ]],
         [[
-self: Buffer - Buffer object whose cursor should be moved. If no buffer ID is set on this object, returns the byte index of cursor of the active buffer moved by `count` characters.
+self: Buffer - Buffer object whose moved cursor index should be returned. If no buffer ID is set on this object, returns the byte index of cursor of the active buffer moved by `count` characters.
 ]],
         [[
 count: integer - Number of characters to move. Note that it is possible the returned cursor byte index will increase by more bytes than the count provided if moving over utf8 characters that are encoded in more than 1 byte. For this reason, use cursor movement functions instead of manually adding to a cursor byte value. Will stop at the end of the buffer if count moves the cursor more than the remaining number of characters in the buffer.
@@ -204,18 +195,7 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
 
     P.cursor_left = red.doc.build_fn(
         function(self, count, skip_newlines)
-            local new_cursor = coroutine.yield(red.call.buffer_cursor_moved_by_char(self:id(), -count))
-            local cursor_char = self:content_at(new_cursor, 1)
-
-            if skip_newlines then
-                local line_content = self:line_content(self:cursor_line())
-
-                if cursor_char == "\n" and line_content ~= "\n" then
-                    return coroutine.yield(red.call.buffer_index_moved_by_char(self:id(), new_cursor, -1))
-                end
-            end
-
-            return new_cursor
+            return motion.char_move(self, self:cursor(), -count, skip_newlines)
         end,
         "cursor_left",
         [[
@@ -235,52 +215,6 @@ count: integer - Number of characters to move. Note that it is possible the curs
 ]],
         [[
 skip_newlines: bool = false - Should the cursor be allowed to stop over a newline character. If true, will move to the next character to the left if a newline was landed on.
-]]
-    )
-
-    P.index_left = red.doc.build_fn(
-        function(self, index, count)
-            return coroutine.yield(red.call.buffer_index_moved_by_char(self:id(), index, -count))
-        end,
-        [[
-Returns the byte index `count` number of characters to the left of the character at `index`.
-[[
-Errs if `index` is not on a valid character boundary in this buffer. It is recommended that `index` only be retrieved from the return of this function and other character-boundary-respecting functions. `0` is guaranteed to be a valid `index.`
-]],
-        [[
-non-negative integer - The byte index for the character preceeding the character at `index` by `count` characters.
-]],
-        [[
-self: Buffer - Buffer object for which the index should be moved. If no buffer ID is set on this object, runs this function with the active buffer.
-]],
-        [[
-index: non-negative integer - The byte index for the character to start calculating with. Must be on a character boundary.
-]],
-        [[
-count: integer - Number of characters to move. Note that it is possible the cursor will decrease by more bytes than the count provided if moving over utf8 characters that are encoding in more than 1 byte.
-]]
-    )
-
-    P.index_right = red.doc.build_fn(
-        function(self, index, count)
-            return coroutine.yield(red.call.buffer_index_moved_by_char(self:id(), index, count))
-        end,
-        [[
-Returns the byte index `count` number of characters to the right of the character at `index`.
-[[
-Errs if `index` is not on a valid character boundary in this buffer. It is recommended that `index` only be retrieved from the return of this function and other character-boundary-respecting functions. `0` is guaranteed to be a valid `index.`
-]],
-        [[
-non-negative integer - The byte index for the character preceeding the character at `index` by `count` characters.
-]],
-        [[
-self: Buffer - Buffer object for which the index should be moved. If no buffer ID is set on this object, runs this function with the active buffer.
-]],
-        [[
-index: non-negative integer - The byte index for the character to start calculating with. Must be on a character boundary.
-]],
-        [[
-count: integer - Number of characters to move. Note that it is possible the cursor will decrease by more bytes than the count provided if moving over utf8 characters that are encoding in more than 1 byte.
 ]]
     )
 
@@ -395,26 +329,13 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
                 return current_index
             end
 
-            current_index = self:index_right(current_index, shift_char)
+            current_index = motion.char_move(self, current_index, shift_char)
         end
     end
 
     P.cursor_word_start = red.doc.build_fn(
         function(self, only_whitespace)
-            local current_index = self:cursor()
-            current_index = self:index_left(current_index, 1)
-            current_index = move_index_to_word(self, current_index, true)
-
-            local is_alphanumeric_word = is_alphanumeric(self:content_at(current_index, 1))
-            local is_split = get_word_split(only_whitespace, is_alphanumeric_word)
-
-            local character_index = self:index_left(current_index, 1)
-            while current_index ~= 0 and not is_split(self:content_at(character_index, 1)) do
-                current_index = character_index
-                character_index = self:index_left(current_index, 1)
-            end
-
-            return current_index
+            return motion.word_start(self, self:cursor(), -1, only_whitespace)
         end,
         "cursor_word_start",
         [[
@@ -436,7 +357,7 @@ only_whitespace: bool = false - If false, any character of the opposite type (al
             local current_index = self:cursor()
             local content_size = self:length()
 
-            current_index = self:index_right(current_index, 1)
+            current_index = motion.char_move(self, current_index, 1)
             if current_index >= content_size then
                 return current_index
             end
@@ -446,10 +367,10 @@ only_whitespace: bool = false - If false, any character of the opposite type (al
             local is_alphanumeric_word = is_alphanumeric(self:content_at(current_index, 1))
             local is_split = get_word_split(only_whitespace, is_alphanumeric_word)
 
-            local character_index = self:index_right(current_index, 1)
+            local character_index = motion.char_move(self, current_index, 1)
             while character_index < content_size and not is_split(self:content_at(character_index, 1)) do
                 current_index = character_index
-                character_index = self:index_right(current_index, 1)
+                character_index = motion.char_move(self, current_index, 1)
             end
 
             return current_index
@@ -480,13 +401,13 @@ only_whitespace: bool = false - If false, any character of the opposite type (al
             local is_alphanum = is_alphanumeric(self:content_at(index, 1))
             local is_split = get_word_split(only_whitespace, is_alphanum)
 
-            index = self:index_right(index, 1)
+            index = motion.char_move(self, index, 1)
             while index < length and not is_split(self:content_at(index, 1)) do
-                index = self:index_right(index, 1)
+                index = motion.char_move(self, index, 1)
             end
 
             while index < length and is_whitespace(self:content_at(index, 1)) do
-                index = self:index_right(index, 1)
+                index = motion.char_move(self, index, 1)
             end
 
             return index
@@ -525,6 +446,9 @@ self: Buffer - Buffer object whose cursor line is returned. If no buffer ID is s
 
     P.set_cursor = red.doc.build_fn(
         function(self, index, keep_col_index)
+            if index == nil then
+                error("@")
+            end
             coroutine.yield(red.call.buffer_set_cursor(self:id(), index, keep_col_index))
         end,
         "set_cursor",
@@ -647,6 +571,26 @@ byte_index: non-negative integer - Starting index at which to copy the substring
 ]],
         [[
 char_length: non-negative integer - Number of characters to copy.
+]]
+    )
+
+    P.line_for_index = red.doc.build_fn(
+        function(self, byte_index)
+            return coroutine.yield(red.call.buffer_line_containing(self:id(), byte_index))
+        end,
+        "line_for_index",
+        [[
+Returns the line index that the provided byte index is on.
+]],
+        nil,
+        [[
+non-negative integer - The line index containing the provided byte index.
+]],
+        [[
+self: Buffer table - Buffer object used. If no buffer ID is set on this table, runs this function on the currently active buffer.
+]],
+        [[
+byte_index: non-negative integer - The byte index whose line should be returned. Does not need to be on a character boundary.
 ]]
     )
 

@@ -259,6 +259,24 @@ impl ContentBuffer for NaiveBuffer {
         newline_count
     }
 
+    fn line_index_for_byte_index(&self, byte_index: usize) -> usize {
+        let mut line_count = 0;
+        let mut current_byte = 0;
+        for char in self.content.chars() {
+            if current_byte >= byte_index {
+                break;
+            }
+
+            if char == '\n' {
+                line_count += 1;
+            }
+
+            current_byte += char.len_utf8();
+        }
+
+        line_count
+    }
+
     fn cursor_moved_by_char(&self, char_count: isize) -> usize {
         self.shift_byte_cursor_by_character(self.cursor_byte_index, char_count)
             .unwrap_or(0)

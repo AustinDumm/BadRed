@@ -23,6 +23,7 @@ pub trait ContentBuffer {
     fn set_cursor_line_index(&mut self, index: usize);
     fn cursor_byte_index(&self) -> usize;
     fn cursor_line_index(&self) -> usize;
+    fn line_index_for_byte_index(&self, byte_index: usize) -> usize;
 
     fn cursor_moved_by_char(&self, char_count: isize) -> usize;
     fn index_moved_by_char(&self, start_byte_index: usize, char_count: isize) -> usize;

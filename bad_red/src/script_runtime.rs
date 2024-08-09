@@ -673,6 +673,16 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(process, hook_map, buffer.content_line_count())
                     }
+                    RedCall::BufferLineContaining { buffer_id, byte_index } => {
+                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted to retrieve line index containing byte index for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        self.run_script(process, hook_map, buffer.line_index_for_byte_index(byte_index))
+                    }
                     RedCall::BufferCursor { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(

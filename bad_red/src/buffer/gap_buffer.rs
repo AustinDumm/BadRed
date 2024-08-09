@@ -399,6 +399,13 @@ impl ContentBuffer for GapBuffer {
         self.line_index
     }
 
+    fn line_index_for_byte_index(&self, byte_index: usize) -> usize {
+        match self.sorted_newline_indices.binary_search(&byte_index) {
+            Ok(on_newline_index) => on_newline_index,
+            Err(insert_newline_index) => insert_newline_index,
+        }
+    }
+
     fn cursor_moved_by_char(&self, mut char_count: isize) -> usize {
         if char_count == 0 {
             0
@@ -447,8 +454,18 @@ impl ContentBuffer for GapBuffer {
 
         loop {
             let Some(byte) = self.underlying_buf.get(result_byte_index) else {
-                result_byte_index -= 1;
-                continue;
+                let Some(new_result) = result_byte_index.checked_add_signed(char_count.signum())
+                else {
+                    return 0;
+                };
+                result_byte_index = new_result;
+                char_count -= char_count.signum();
+
+                if result_byte_index >= self.underlying_buf.len() {
+                    return self.underlying_buf.len()
+                } else {
+                    continue;
+                }
             };
 
             if let Some(_) = super::expected_byte_length_from_starting(*byte) {
@@ -460,7 +477,7 @@ impl ContentBuffer for GapBuffer {
             }
 
             let Some(new_result) = result_byte_index.checked_add_signed(char_count.signum()) else {
-                return 0
+                return 0;
             };
             result_byte_index = new_result;
 

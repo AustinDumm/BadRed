@@ -161,6 +161,10 @@ pub enum RedCall<'lua> {
         byte_index: usize,
         char_count: usize,
     },
+    BufferLineContaining {
+        buffer_id: usize,
+        byte_index: usize,
+    },
     BufferLineContent {
         buffer_id: usize,
         line_index: usize,

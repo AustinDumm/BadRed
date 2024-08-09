@@ -112,12 +112,22 @@ impl ContentBuffer for EditorBuffer {
         self.content.set_cursor_byte_index(index, keep_col_index);
     }
 
+    fn set_cursor_line_index(&mut self, index: usize) {
+        self.is_render_dirty = true;
+
+        self.content.set_cursor_line_index(index);
+    }
+
     fn cursor_byte_index(&self) -> usize {
         self.content.cursor_byte_index()
     }
 
     fn cursor_line_index(&self) -> usize {
         self.content.cursor_line_index()
+    }
+
+    fn line_index_for_byte_index(&self, byte_index: usize) -> usize {
+        self.content.line_index_for_byte_index(byte_index)
     }
 
     fn cursor_moved_by_char(&self, char_count: isize) -> usize {
@@ -139,11 +149,5 @@ impl ContentBuffer for EditorBuffer {
         self.is_content_dirty = false;
 
         self.content.flush_to_write(write)
-    }
-
-    fn set_cursor_line_index(&mut self, index: usize) {
-        self.is_render_dirty = true;
-
-        self.content.set_cursor_line_index(index);
     }
 }

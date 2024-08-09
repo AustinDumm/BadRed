@@ -231,8 +231,26 @@ The reformat function is called whenever one of its documented value's documenta
 ]],
         [[
 documented Table - The original table along with an updated metatable including __doc information.
+]],
+        [[
+table_to_doc: Table - The table whose metatable needs to be set or extended with __doc information.
+]],
+        [[
+name: String - The documented name of the table.
+]],
+        [[
+short_description: String - Description of the table and its function, preferrably one line.
+]],
+        [[
+long_description: String - Detailed description of the table, its function, edge-cases, and further concerns.
+]],
+        [[
+key_doc: Table - Lookup table for table-specific documentation about each key. Keys in `key_doc` should match the key used in `table_to_doc`. If left empty, short_description will be used for each documented value in `table_to_doc`.
+]],
+        [[
+value_doc_reformat: Function(value_doc: String) -> String - Function called for each documented value and updates the value's documentation with the result of the function. Function is given the original value_doc for each value. Can be used to style, prepend, or append the documentation of each value in `table_to_doc` to link to or otherwise indicate the value's owning table documentation.
 ]]
-    )
+)
 
     local function primitive_doc(primitive)
         return type(primitive)
