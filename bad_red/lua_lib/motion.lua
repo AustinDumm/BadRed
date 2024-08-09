@@ -139,7 +139,7 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
         end
     end
 
-    P.word_start = doc.build_fn(
+    P.to_word_boundary = doc.build_fn(
         function(buffer, start_index, count, only_whitespace)
             return word_start_helper(
                 buffer,
@@ -148,7 +148,7 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
                 only_whitespace
             )
         end,
-        "word_start",
+        "to_word_boundary",
         [[
 Returns the byte index for the starting letter of the word `count` words away from the provided index.
 ]],

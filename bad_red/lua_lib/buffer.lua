@@ -335,7 +335,7 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
 
     P.cursor_word_start = red.doc.build_fn(
         function(self, only_whitespace)
-            return motion.word_start(self, self:cursor(), -1, only_whitespace)
+            return motion.to_word_boundary(self, self:cursor(), -1, only_whitespace)
         end,
         "cursor_word_start",
         [[
@@ -354,7 +354,7 @@ only_whitespace: bool = false - If false, any character of the opposite type (al
 
     P.cursor_word_end = red.doc.build_fn(
         function(self, only_whitespace)
-            return motion.word_start(self, self:cursor(), 1, only_whitespace)
+            return motion.to_word_boundary(self, self:cursor(), 1, only_whitespace)
         end,
         "cursor_word_end",
         [[
@@ -373,7 +373,7 @@ only_whitespace: bool = false - If false, any character of the opposite type (al
 
     P.cursor_next_word_start = red.doc.build_fn(
         function(self, only_whitespace)
-            return motion.word_start(self, self:cursor(), 1, only_whitespace)
+            return motion.to_word_boundary(self, self:cursor(), 1, only_whitespace)
         end,
         "cursor_next_word_start",
         [[
