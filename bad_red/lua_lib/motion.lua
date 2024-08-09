@@ -26,15 +26,15 @@ package.preload["motion"] = function(modname, _)
     end
 
     local function is_whitespace(char)
-        return string == nil or string.match(char, "%s") ~= nil
+        return char == nil or string.match(char, "%s") ~= nil
     end
 
     local function is_non_alphanumeric(char)
-        return string == nil or string.match(char, "%W") ~= nil
+        return char == nil or string.match(char, "%W") ~= nil
     end
 
     local function is_alphanumeric(char)
-        return string == nil or string.match(char, "%w") ~= nil
+        return char == nil or string.match(char, "%w") ~= nil
     end
 
     local function get_word_split(only_whitespace, is_alphanumeric_word)
@@ -67,7 +67,13 @@ package.preload["motion"] = function(modname, _)
                 return current_index
             end
 
-            current_index = P.char_move(self, current_index, shift_char)
+            local new_current_index = P.char_move(self, current_index, shift_char)
+            if new_current_index == current_index then
+                -- Reached the edges of the buffer
+                return new_current_index
+            else
+                current_index = new_current_index
+            end
         end
     end
 
@@ -116,7 +122,7 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
 
 
         local character_index = P.char_move(buffer, current_index, shift)
-        while current_index ~= 0 and not is_split(buffer:content_at(character_index, 1)) do
+        while current_index > 0 and current_index < buffer:length() and not is_split(buffer:content_at(character_index, 1)) do
             current_index = character_index
             character_index = P.char_move(buffer, current_index, shift)
         end
