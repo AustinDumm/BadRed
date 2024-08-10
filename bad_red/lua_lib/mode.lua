@@ -39,8 +39,15 @@ package.preload["mode"] = function(modname, _)
         end
         map["a"] = function(key)
             map._exit_char = key
-            if red.buffer:cursor_content() ~= "\n" then
-                red.buffer:set_cursor(red.buffer:cursor_right(1))
+            local buf = buffer:current()
+            if buf:cursor_content() ~= "\n" then
+                buf:set_cursor(
+                    motion.char_move(
+                        buf,
+                        buf:cursor(),
+                        1
+                    )
+                )
             end
             red.keymap.current = input_map
         end
@@ -96,9 +103,14 @@ package.preload["mode"] = function(modname, _)
                 function() return buffer:current() end,
                 1,
                 function(start, stop, is_inclusive)
-                    buffer:set_cursor(start)
 
+                    if stop < start then
+                        start, stop = stop, start
+                    end
+
+                    buffer:set_cursor(start)
                     local delete_count = stop - start
+
                     if is_inclusive then
                         delete_count = delete_count + 1
                     end
@@ -115,7 +127,7 @@ package.preload["mode"] = function(modname, _)
         function map:did_become_active()
             local line_content = red.buffer:cursor_line_content()
             if (map._exit_char == "a" or map._exit_char == "i") and line_content ~= "\n" then
-                red.buffer:set_cursor(red.buffer:cursor_left(1))
+                red.buffer:set_cursor(motion.char_move(red.buffer:current(), red.buffer:current():cursor(), -1))
             end
 
             map._exit_char = nil

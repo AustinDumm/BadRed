@@ -436,7 +436,12 @@ impl ContentBuffer for GapBuffer {
     fn line_end_byte_index(&self, line_index: usize) -> Option<usize> {
         self.sorted_newline_indices
             .get(line_index)
-            .map(|i| *i + 1)
+            .map(|i| *i)
+            .or_else(|| if line_index == self.sorted_newline_indices.len() {
+                Some(self.underlying_buf.len())
+            } else {
+                None
+            })
     }
 
     fn cursor_moved_by_char(&self, mut char_count: isize) -> usize {

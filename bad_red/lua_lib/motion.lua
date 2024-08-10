@@ -222,8 +222,14 @@ only_whitespace: bool = false - If false, any character of the opposite type of 
             local new_byte_index
             if shift < 0 then
                 new_byte_index = buffer:line_start_index(current_line)
+                if new_byte_index == nil then
+                    error("!")
+                end
             else
                 new_byte_index = buffer:line_end_index(current_line)
+                if new_byte_index == nil then
+                    error("@")
+                end
             end
 
             local result
@@ -233,6 +239,9 @@ only_whitespace: bool = false - If false, any character of the opposite type of 
                 result = move_index_to_word(buffer, new_byte_index, shift > 0)
             end
 
+            if buffer:content_at(result, 1) == "\n" or result == buffer:length() then
+                result = result - 1
+            end
             local next_count = count - shift
 
             if next_count == 0 then
@@ -285,11 +294,13 @@ include_whitespace - If false, does not consider whitespace valid line boundary,
                     return P.char_move(buffer, start, -count, true)
                 end)
             end
+            map["Left"] = map["h"]
             map["l"] = function(_)
                 run_motion(function(buffer, start)
                     return P.char_move(buffer, start, count, true)
                 end)
             end
+            map["Right"] = map["l"]
 
             map["w"] = function(_)
                 run_motion(function(buffer, start)

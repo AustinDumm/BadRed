@@ -13,6 +13,8 @@ package.preload["keymap"] = function(modname, _)
         end
     }
 
+    local motion = require("motion")
+
     P.new_map = red.doc.build_fn(
         function(self)
             local instance = { parent = self }
@@ -131,19 +133,19 @@ key_event: string - The KeyEvent string from the BadRed editor hook being handle
                     return
                 end
 
-                red.buffer:set_cursor(red.buffer:cursor_left(1))
+                red.buffer:set_cursor(
+                    motion.char_move(
+                        red.buffer:current(),
+                        red.buffer:cursor(),
+                        -1
+                    )
+                )
                 _ = red.buffer:delete(1)
             end
             map["Delete"] = function(_)
                 _ = red.buffer:delete(1)
             end
 
-            map["Left"] = function(_)
-                red.buffer:cursor_left(1)
-            end
-            map["Right"] = function(_)
-                red.buffer:cursor_right(1)
-            end
             map["Enter"] = function(_)
                 red.buffer:insert("\n")
             end

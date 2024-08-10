@@ -323,6 +323,7 @@ impl ContentBuffer for NaiveBuffer {
 
     fn line_end_byte_index(&self, line_index: usize) -> Option<usize> {
         self.line_start_byte_index(line_index + 1)
+            .or_else(|| Some(self.content.len()))
     }
 
     fn cursor_moved_by_char(&self, char_count: isize) -> usize {

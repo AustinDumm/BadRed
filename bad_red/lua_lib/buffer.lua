@@ -180,7 +180,7 @@ self: Buffer - Buffer object whose cursor is returned. If no buffer ID is set on
             end
 
             if skip_newlines and self:cursor_content() == "\n" and self:cursor_line_content() ~= "\n" then
-                self:set_cursor(self:cursor_left(1), true)
+                self:set_cursor(motion.char_move(self, self:cursor(), -1, true))
             end
         end,
         "cursor_up",
@@ -217,7 +217,12 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
             end
 
             if skip_newlines and self:cursor_content() == "\n" and self:cursor_line_content() ~= "\n" then
-                self:set_cursor(self:cursor_left(1), true)
+                self:set_cursor(motion.char_move(
+                    self,
+                    self:cursor(),
+                    -1,
+                    true
+                ))
             end
         end,
         "cursor_down",
@@ -265,7 +270,7 @@ line_index: non-negative
 
     P.line_start_index = red.doc.build_fn(
         function(self, line_index)
-            return coroutine.yield(red.call.buffer_line_start_index(self:id(), line_index))
+            return coroutine.yield(red.call.buffer_line_start(self:id(), line_index))
         end,
         "line_start_index",
         [[
@@ -285,7 +290,7 @@ line_index: non-negative integer - The line index whose first character byte ind
 
     P.line_end_index = red.doc.build_fn(
         function(self, line_index)
-            return coroutine.yield(red.call.buffer_line_end_index(self:id(), line_index))
+            return coroutine.yield(red.call.buffer_line_end(self:id(), line_index))
         end,
         "line_end_index",
         [[
@@ -321,9 +326,6 @@ self: Buffer - Buffer object whose cursor line is returned. If no buffer ID is s
 
     P.set_cursor = red.doc.build_fn(
         function(self, index, keep_col_index)
-            if index == nil then
-                error("@")
-            end
             coroutine.yield(red.call.buffer_set_cursor(self:id(), index, keep_col_index))
         end,
         "set_cursor",
