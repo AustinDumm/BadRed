@@ -144,8 +144,20 @@ pub enum RedCall<'lua> {
     BufferLength {
         buffer_id: usize,
     },
+    BufferLineLength {
+        buffer_id: usize,
+        line_index: usize,
+    },
     BufferLineCount {
         buffer_id: usize,
+    },
+    BufferLineStart {
+        buffer_id: usize,
+        line_index: usize,
+    },
+    BufferLineEnd {
+        buffer_id: usize,
+        line_index: usize,
     },
     BufferCursor {
         buffer_id: usize,

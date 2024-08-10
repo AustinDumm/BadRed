@@ -143,6 +143,34 @@ impl ContentBuffer for NaiveBuffer {
         count + 1
     }
 
+    fn content_line_length(&self, mut line_index: usize) -> Option<usize> {
+        let mut char_count = 0;
+        let mut chars = self.content.chars();
+
+        for char in &mut chars {
+            if line_index == 0 {
+                break;
+            }
+
+            if char == '\n' {
+                line_index -= 1;
+            }
+        }
+
+        for char in chars {
+            char_count += 1;
+            if char == '\n' {
+                break;
+            }
+        }
+
+        if line_index == 0 {
+            Some(char_count)
+        } else {
+            None
+        }
+    }
+
     fn content_copy(&self) -> String {
         self.content.clone()
     }
@@ -275,6 +303,26 @@ impl ContentBuffer for NaiveBuffer {
         }
 
         line_count
+    }
+
+    fn line_start_byte_index(&self, mut line_index: usize) -> Option<usize> {
+        let mut byte_count = 0;
+        let mut chars = self.content.chars();
+        for char in &mut chars {
+            if line_index == 0 {
+                break;
+            }
+            byte_count += char.len_utf8();
+            if char == '\n' {
+                line_index -= 1;
+            }
+        }
+
+        Some(byte_count)
+    }
+
+    fn line_end_byte_index(&self, line_index: usize) -> Option<usize> {
+        self.line_start_byte_index(line_index + 1)
     }
 
     fn cursor_moved_by_char(&self, char_count: isize) -> usize {

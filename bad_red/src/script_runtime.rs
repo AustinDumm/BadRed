@@ -663,16 +663,46 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(process, hook_map, buffer.content_byte_length())
                     }
+                    RedCall::BufferLineLength { buffer_id, line_index } => {
+                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferLineLength for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        self.run_script(process, hook_map, buffer.content_line_length(line_index))
+                    }
                     RedCall::BufferLineCount { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
-                                "Attempted BufferLinecount for non-existent buffer: {}",
+                                "Attempted BufferLineCount for non-existent buffer: {}",
                                 buffer_id
                             ))
                         })?;
 
                         self.run_script(process, hook_map, buffer.content_line_count())
                     }
+                    RedCall::BufferLineStart { buffer_id, line_index } => {
+                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferLineStart for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        self.run_script(process, hook_map, buffer.line_start_byte_index(line_index))
+                    }
+                    RedCall::BufferLineEnd { buffer_id, line_index } => {
+                        let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Attempted BufferLineEnd for non-existent buffer: {}",
+                                buffer_id
+                            ))
+                        })?;
+
+                        self.run_script(process, hook_map, buffer.line_end_byte_index(line_index))
+                    },
                     RedCall::BufferLineContaining { buffer_id, byte_index } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(

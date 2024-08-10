@@ -168,56 +168,6 @@ self: Buffer - Buffer object whose cursor is returned. If no buffer ID is set on
 ]]
     )
 
-    P.cursor_right = red.doc.build_fn(
-        function(self, count, skip_newlines)
-            return motion.char_move(self, self:cursor(), count, skip_newlines)
-        end,
-        "cursor_right",
-        [[
-Returns the byte index `count` number of characters to the right of the current cursor for this buffer.
-]],
-        [[
-Provides options for dealing with newlines.
-]],
-        [[
-nil
-]],
-        [[
-self: Buffer - Buffer object whose moved cursor index should be returned. If no buffer ID is set on this object, returns the byte index of cursor of the active buffer moved by `count` characters.
-]],
-        [[
-count: integer - Number of characters to move. Note that it is possible the returned cursor byte index will increase by more bytes than the count provided if moving over utf8 characters that are encoded in more than 1 byte. For this reason, use cursor movement functions instead of manually adding to a cursor byte value. Will stop at the end of the buffer if count moves the cursor more than the remaining number of characters in the buffer.
-]],
-        [[
-skip_newlines: bool = false - Should the cursor be allowed to stop over a newline character. If true, will move to the next character to the right if a newline was landed on.
-]]
-    )
-
-    P.cursor_left = red.doc.build_fn(
-        function(self, count, skip_newlines)
-            return motion.char_move(self, self:cursor(), -count, skip_newlines)
-        end,
-        "cursor_left",
-        [[
-Returns the byte index `count` number of characters to the left of the current cursor for this buffer.
-]],
-        [[
-Provides options for dealing with newlines.
-]],
-        [[
-non-negative integer - The byte index for the character preceeding the current cursor by `count` characters.
-]],
-        [[
-self: Buffer - Buffer object whose cursor should be moved. If no buffer ID is set on this object, returns the byte index of the cursor of the active buffer moved by `count` characters.
-]],
-        [[
-count: integer - Number of characters to move. Note that it is possible the cursor will decrease by more bytes than the count provided if moving over utf8 characters that are encoded in more than 1 byte. For this reason, use cursor movement functions instead of manually adding to a cursor byte value. Will stop at the beginning of the buffer if count would move the cursor past the beginning character.
-]],
-        [[
-skip_newlines: bool = false - Should the cursor be allowed to stop over a newline character. If true, will move to the next character to the left if a newline was landed on.
-]]
-    )
-
     P.cursor_up = red.doc.build_fn(
         function(self, count, skip_newlines)
             local current_line = self:cursor_line()
@@ -291,105 +241,67 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
 ]]
     )
 
-    local function is_whitespace(char)
-        return string.match(char, "%s") ~= nil
-    end
-
-    local function is_non_alphanumeric(char)
-        return string.match(char, "%W") ~= nil
-    end
-
-    local function is_alphanumeric(char)
-        return string.match(char, "%w") ~= nil
-    end
-
-    local function get_word_split(only_whitespace, is_alphanumeric_word)
-        if only_whitespace then
-            return is_whitespace
-        else
-            if is_alphanumeric_word then
-                return is_non_alphanumeric
-            else
-                return is_alphanumeric
-            end
-        end
-    end
-
-    local function move_index_to_word(self, current_index, move_left)
-        local shift_char
-        if move_left then
-            shift_char = -1
-        else
-            shift_char = 1
-        end
-
-        while true do
-            local content = self:content_at(current_index, 1)
-            if content ~= nil and string.match(content, "%s") == nil then
-                return current_index
-            end
-
-            current_index = motion.char_move(self, current_index, shift_char)
-        end
-    end
-
-    P.cursor_word_start = red.doc.build_fn(
-        function(self, only_whitespace)
-            return motion.to_word_boundary(self, self:cursor(), -1, only_whitespace)
+    P.line_length = red.doc.build_fn(
+        function(self, line_index)
+            return coroutine.yield(red.call.buffer_line_length(self:id(), line_index))
         end,
-        "cursor_word_start",
+        "line_length",
         [[
-Returns the byte index for the starting character of the word the cursor is on.
+Returns the number of characters in the line at line_index.
 ]],
         [[
-Provides an option for whether words should be considered split by only whitespace, or by any change in character type. For example, if the word is alphanumeric, the first non-alphanumeric character found to the left marks the first non-word character and vice versa. If the cursor is already on the first character of this word, returns the start index of the preceeding word.
+Returns nil if line_index is out of bounds.
 ]],
         [[
-non-negative integer - The index of the first character of the word the cursor is on.
+non-negative integer - Number of characters in line `line_index`.
 ]],
         [[
-only_whitespace: bool = false - If false, any character of the opposite type (alphanumeric and non-alphanumeric) is considered to split words. If true, only whitespace characters are considered to split words.
+self: Buffer table - The buffer whose line length at `line_index` is returned.
+]],
+        [[
+line_index: non-negative
 ]]
     )
 
-    P.cursor_word_end = red.doc.build_fn(
-        function(self, only_whitespace)
-            return motion.to_word_boundary(self, self:cursor(), 1, only_whitespace)
+    P.line_start_index = red.doc.build_fn(
+        function(self, line_index)
+            return coroutine.yield(red.call.buffer_line_start_index(self:id(), line_index))
         end,
-        "cursor_word_end",
+        "line_start_index",
         [[
-Returns the byte index for the ending character of the word the cursor is on.
+Returns the byte index starting the line at index `line_index`.
+]],
+        nil,
+        [[
+non-negative integer - Byte index starting the line.
 ]],
         [[
-Provides an option for whether words should be considered split by only whitespace, or by any change in character type. For example, if the word is alphanumeric, the first non-alphanumeric character found to the right marks the first non-word character and vice versa. If the cursor is already on the last character of this word, returns the end index of the succeeding word.
+self: Buffer table - Buffer to calculate the line's starting byte index on.
 ]],
         [[
-non-negative integer - The index of the ending character of the word the cursor is on.
-]],
-        [[
-only_whitespace: bool = false - If false, any character of the opposite type (alphanumeric and non-alphanumeric) is considered to split words. If true, only whitespace characters are considered to split words).
+line_index: non-negative integer - The line index whose first character byte index is returned.
 ]]
     )
 
-    P.cursor_next_word_start = red.doc.build_fn(
-        function(self, only_whitespace)
-            return motion.past_word_boundary(self, self:cursor(), 1, only_whitespace)
+    P.line_end_index = red.doc.build_fn(
+        function(self, line_index)
+            return coroutine.yield(red.call.buffer_line_end_index(self:id(), line_index))
         end,
-        "cursor_next_word_start",
+        "line_end_index",
         [[
-Returns the byte index for the starting character of the word following the word the cursor is currently on.
+Returns the byte index ending the line at index `line_index`.
+]],
+        nil,
+        [[
+non-negative integer - Byte index ending the line.
 ]],
         [[
-Provides an option for whether words should be considered split by only whitespace, or by any change in character type. For example, if the word is alphanumeric, the first non-alphanumeric character found to the right marks the first non-word character and vice versa.
+self: Buffer table - Buffer to calculate the line's ending byte index on.
 ]],
         [[
-non-negative integer - The index of the first character in the word following the word the cursor is on.
-]],
-        [[
-only_whitespace: bool = false - If false, any character of the opposite type (alphanumeric and non-alphanumeric) is considered to split words. If true, only whitespace characters are considered to split words).
+line_index: non-negative integer - The line index whose last character byte index is returned.
 ]]
     )
-
     P.cursor_line = red.doc.build_fn(
         function(self)
             return coroutine.yield(red.call.buffer_cursor_line(self:id()))

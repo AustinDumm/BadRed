@@ -214,6 +214,62 @@ only_whitespace: bool = false - If false, any character of the opposite type of 
 ]]
     )
 
+    P.to_line_boundary = doc.build_fn(
+        function(buffer, start_index, count, include_whitespace)
+            local shift = signum(count)
+            local current_line = buffer:line_for_index(start_index)
+
+            local new_byte_index
+            if shift < 0 then
+                new_byte_index = buffer:line_start_index(current_line)
+            else
+                new_byte_index = buffer:line_end_index(current_line)
+            end
+
+            local result
+            if include_whitespace then
+                result = new_byte_index
+            else
+                result = move_index_to_word(buffer, new_byte_index, shift > 0)
+            end
+
+            local next_count = count - shift
+
+            if next_count == 0 then
+                return result
+            else
+                return P.to_line_boundary(
+                    buffer,
+                    move_index_to_word(buffer, result, shift < 0),
+                    count - shift,
+                    include_whitespace
+                )
+            end
+        end,
+        "to_line_boundary",
+        [[
+Return byte index for line_boundary `count` line boundaries away.
+]],
+        [[
+If already on line boundary, does not include that boundary in the count. Negative `count` looks for boundaries to the left. Positive `count` moves for boundaries to the right.
+]],
+        [[
+non-negative integer - The byte index on the line boundary `count` boundaries away.
+]],
+[[
+buffer: Buffer table - Buffer to calculate motion on.
+]],
+        [[
+start_index: non-negative integer - Byte index to start searching from.
+]],
+        [[
+count: integer - Number of boundaries to move. Negative indicates movement to the left, positive indicates movement to the right.
+]],
+        [[
+include_whitespace - If false, does not consider whitespace valid line boundary, treats only non-whitespace characters as boundaries.
+]]
+    )
+
     P.motion_keymap = doc.build_fn(
         function(parent_map, buffer_get, count, callback)
             local map = parent_map:new_map()
@@ -273,6 +329,34 @@ only_whitespace: bool = false - If false, any character of the opposite type of 
                     true
                 )
             end
+
+            map["0"] = function(_)
+                run_motion(
+                    function(buffer, start)
+                        return P.to_line_boundary(buffer, start, -1, true)
+                    end,
+                    false
+                )
+            end
+
+            map["^"] = function(_)
+                run_motion(
+                    function(buffer, start)
+                        return P.to_line_boundary(buffer, start, -1, false)
+                    end,
+                    false
+                )
+            end
+
+            map["$"] = function(_)
+                run_motion(
+                    function(buffer, start)
+                        return P.to_line_boundary(buffer, start, 1, true)
+                    end,
+                    false
+                )
+            end
+
 
             return map
         end,

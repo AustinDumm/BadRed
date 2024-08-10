@@ -96,6 +96,10 @@ impl ContentBuffer for EditorBuffer {
         self.content.content_line_count()
     }
 
+    fn content_line_length(&self, line_index: usize) -> Option<usize> {
+        self.content.content_line_length(line_index)
+    }
+
     fn content_copy(&self) -> String {
         self.content.content_copy()
     }
@@ -128,6 +132,14 @@ impl ContentBuffer for EditorBuffer {
 
     fn line_index_for_byte_index(&self, byte_index: usize) -> usize {
         self.content.line_index_for_byte_index(byte_index)
+    }
+
+    fn line_start_byte_index(&self, line_index: usize) -> Option<usize> {
+        self.content.line_start_byte_index(line_index)
+    }
+
+    fn line_end_byte_index(&self, line_index: usize) -> Option<usize> {
+        self.content.line_end_byte_index(line_index)
     }
 
     fn cursor_moved_by_char(&self, char_count: isize) -> usize {

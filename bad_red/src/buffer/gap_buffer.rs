@@ -272,6 +272,24 @@ impl ContentBuffer for GapBuffer {
         self.sorted_newline_indices.len() + 1
     }
 
+    fn content_line_length(&self, line_index: usize) -> Option<usize> {
+        let line_end = self.sorted_newline_indices.get(line_index)?;
+        let line_start = line_index.checked_sub(1)
+            .map(|index| self.sorted_newline_indices.get(index))
+            .flatten()
+            .map(|prev_line_start| prev_line_start + 1)
+            .unwrap_or_else(|| 0);
+
+        let mut char_count = 0;
+        for i in line_start..=*line_end {
+            if let Some(_) = super::expected_byte_length_from_starting(self.underlying_buf[i]) {
+                char_count += 1;
+            }
+        }
+
+        Some(char_count)
+    }
+
     fn content_copy(&self) -> String {
         let utf8_bytes: Vec<u8> = self.underlying_buf.iter().map(|c| *c).collect();
 
@@ -404,6 +422,21 @@ impl ContentBuffer for GapBuffer {
             Ok(on_newline_index) => on_newline_index,
             Err(insert_newline_index) => insert_newline_index,
         }
+    }
+
+    fn line_start_byte_index(&self, line_index: usize) -> Option<usize> {
+        let Some(previous_line) = line_index.checked_sub(1) else {
+            return Some(0);
+        };
+
+        self.sorted_newline_indices.get(previous_line)
+            .map(|byte_index| byte_index + 1)
+    }
+
+    fn line_end_byte_index(&self, line_index: usize) -> Option<usize> {
+        self.sorted_newline_indices
+            .get(line_index)
+            .map(|i| *i + 1)
     }
 
     fn cursor_moved_by_char(&self, mut char_count: isize) -> usize {

@@ -15,6 +15,7 @@ pub trait ContentBuffer {
     fn chars(&self) -> Box<dyn Iterator<Item = char> + '_>;
     fn content_byte_length(&self) -> usize;
     fn content_line_count(&self) -> usize;
+    fn content_line_length(&self, line_index: usize) -> Option<usize>;
     fn content_copy(&self) -> String;
     fn content_copy_at_byte_index(&self, byte_index: usize, char_count: usize) -> Option<String>;
     fn content_copy_line(&self, line_index: usize) -> Option<String>;
@@ -24,6 +25,8 @@ pub trait ContentBuffer {
     fn cursor_byte_index(&self) -> usize;
     fn cursor_line_index(&self) -> usize;
     fn line_index_for_byte_index(&self, byte_index: usize) -> usize;
+    fn line_start_byte_index(&self, line_index: usize) -> Option<usize>;
+    fn line_end_byte_index(&self, line_index: usize) -> Option<usize>;
 
     fn cursor_moved_by_char(&self, char_count: isize) -> usize;
     fn index_moved_by_char(&self, start_byte_index: usize, char_count: isize) -> usize;
