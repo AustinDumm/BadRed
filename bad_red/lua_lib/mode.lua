@@ -1,8 +1,22 @@
 package.preload["mode"] = function(modname, _)
     local P = {}
 
+    local keymap = require("keymap")
+    local buffer = require("buffer")
+    local motion = require("motion")
+
     local function normal_mode(command_handler, input_map)
-        local map = red.keymap:new_map()
+        local map = keymap:new_map()
+
+        map = motion.motion_keymap(
+            map,
+            function() return buffer:current() end,
+            1,
+            function(_, stop)
+                buffer:set_cursor(stop)
+            end
+        )
+        
         map["C+w"] = (function()
             local pane_map = map:new_map()
             pane_map["v"] = function(_)
@@ -30,43 +44,8 @@ package.preload["mode"] = function(modname, _)
             end
             red.keymap.current = input_map
         end
-        map["h"] = function(_)
-            local new_cursor = red.buffer:cursor_left(1, true)
-            red.buffer:set_cursor(new_cursor)
-        end
-        map["l"] = function(_)
-            local new_cursor = red.buffer:cursor_right(1, true)
-            red.buffer:set_cursor(new_cursor)
-        end
         map["k"] = function(_) red.buffer:cursor_up(1, true) end
         map["j"] = function(_) red.buffer:cursor_down(1, true) end
-
-        map["w"] = function(_)
-            local new_cursor = red.buffer:cursor_next_word_start()
-            red.buffer:set_cursor(new_cursor)
-        end
-        map["W"] = function(_)
-            local new_cursor = red.buffer:cursor_next_word_start(true)
-            red.buffer:set_cursor(new_cursor)
-        end
-
-        map["b"] = function(_)
-            local new_cursor = red.buffer:cursor_word_start()
-            red.buffer:set_cursor(new_cursor)
-        end
-        map["B"] = function(_)
-            local new_cursor = red.buffer:cursor_word_start(true)
-            red.buffer:set_cursor(new_cursor)
-        end
-
-        map["e"] = function(_)
-            local new_cursor = red.buffer:cursor_word_end()
-            red.buffer:set_cursor(new_cursor)
-        end
-        map["E"] = function(_)
-            local new_cursor = red.buffer:cursor_word_end(true)
-            red.buffer:set_cursor(new_cursor)
-        end
 
         map["C+e"] = function(_)
             local current_line = red.pane:top_line()

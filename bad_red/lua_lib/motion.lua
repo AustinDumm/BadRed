@@ -214,6 +214,87 @@ only_whitespace: bool = false - If false, any character of the opposite type of 
 ]]
     )
 
+    P.motion_keymap = doc.build_fn(
+        function(parent_map, buffer_get, count, callback)
+            local map = parent_map:new_map()
+            local function run_motion(motion)
+                local buffer = buffer_get()
+                local start = buffer:cursor()
+                local stop = motion(buffer, start)
+                callback(start, stop)
+            end
+
+            map["h"] = function(_)
+                run_motion(function(buffer, start)
+                    return P.char_move(buffer, start, -count, true)
+                end)
+            end
+            map["l"] = function(_)
+                run_motion(function(buffer, start)
+                    return P.char_move(buffer, start, count, true)
+                end)
+            end
+
+            map["w"] = function(_)
+                run_motion(function(buffer, start)
+                    return P.past_word_boundary(buffer, start, count, false)
+                end)
+            end
+            map["W"] = function(_)
+                run_motion(function(buffer, start)
+                    return P.past_word_boundary(buffer, start, count, true)
+                end)
+            end
+
+            map["b"] = function(_)
+                run_motion(function(buffer, start)
+                    return P.to_word_boundary(buffer, start, -count, false)
+                end)
+            end
+            map["B"] = function(_)
+                run_motion(function(buffer, start)
+                    return P.to_word_boundary(buffer, start, -count, true)
+                end)
+            end
+
+            map["e"] = function(_)
+                run_motion(function(buffer, start)
+                    return P.to_word_boundary(buffer, start, count, false)
+                end)
+            end
+            map["E"] = function(_)
+                run_motion(function(buffer, start)
+                    return P.to_word_boundary(buffer, start, count, true)
+                end)
+            end
+
+            return map
+        end,
+        "motion_keymap",
+        [[
+Returns a keymap object for standard motion keys to run a given action.
+]],
+        [[
+On each motion key, a callback function is given the start and end byte index for the motion.
+]],
+        [[
+Keymap table
+]],
+        [[
+parent_map: Keymap table - The keymap this new motion map should inherit from
+]],
+        [[
+buffer_get: Function() -> Buffer Table - Returns the buffer the motion should be played against
+]],
+        [[
+count: positive integer - The number of times to run the motion.
+]],
+        [[
+callback: Function(non-negative integer, non-negative integer) - run when a motion is entered
+]]
+    )
+
+
     return doc.document_table(
         P,
         modname,
