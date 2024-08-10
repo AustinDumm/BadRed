@@ -112,7 +112,11 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
 ]]
     )
 
-    local function word_start_helper(buffer, current_index, count, only_whitespace)
+    local function to_word_boundary_helper(buffer, current_index, count, only_whitespace)
+        if count == 0 then
+            return current_index
+        end
+
         local shift = signum(count)
 
         current_index = move_index_to_word(buffer, current_index, shift < 0)
@@ -122,26 +126,27 @@ skip_newlines: bool = false - Should the cursor be allowed to stop over a newlin
 
 
         local character_index = P.char_move(buffer, current_index, shift)
-        while current_index > 0 and current_index < buffer:length() and not is_split(buffer:content_at(character_index, 1)) do
+        while not is_split(buffer:content_at(character_index, 1)) do
             current_index = character_index
             character_index = P.char_move(buffer, current_index, shift)
+
+            if current_index == character_index then
+                -- Reached an edge of the buffer
+                break
+            end
         end
 
-        if math.abs(count) == 1 then
-            return current_index
-        else
-            return word_start_helper(
-                buffer,
-                current_index,
-                count - shift,
-                only_whitespace
-            )
-        end
+        return to_word_boundary_helper(
+            buffer,
+            current_index,
+            count - shift,
+            only_whitespace
+        )
     end
 
     P.to_word_boundary = doc.build_fn(
         function(buffer, start_index, count, only_whitespace)
-            return word_start_helper(
+            return to_word_boundary_helper(
                 buffer,
                 P.char_move(buffer, start_index, signum(count)),
                 count,
@@ -163,6 +168,46 @@ buffer: Buffer table - The buffer object to do the word index search on.
 ]],
         [[
 start_index: non-negative integer - The byte index within the buffer table to start the search. Must be on a character byte index.
+]],
+        [[
+count: integer - Number of boundaries to move past before stopping.
+]],
+        [[
+only_whitespace: bool = false - If false, any character of the opposite type of the character on `start_index` is considered to split words. If true, only whitespace characters are considered to split words.
+]]
+    )
+
+    P.past_word_boundary = doc.build_fn(
+        function(buffer, start_index, count, only_whitespace)
+            local boundary = to_word_boundary_helper(buffer, start_index, count, only_whitespace)
+
+            local shift = signum(count)
+            local length = buffer:length()
+            local new_index = boundary
+            repeat
+                new_index = P.char_move(buffer, new_index, shift)
+            until new_index >= length or not is_whitespace(buffer:content_at(new_index, 1))
+
+            return new_index
+        end,
+        "past_word_boundary",
+        [[
+Returns the byte index for the first letter following the word boundary `count` boundaries away from the provided index.
+]],
+        [[
+If `count` is 0, will return `start_index`. If `count` is negative, will return the first non-whitespace character preceeding the `count`th word boundary moving to the left from `start_index`. If `count` is positive, will return the first non-whitespace character succeeding the `count`th word boundary moving ot the right from `start_index`.
+]],
+        [[
+non-negative integer - The byte index of the first non-whitespace character after the `count`th word boundary from `start_index`.
+]],
+        [[
+buffer: Buffer table - The buffer object to do the word index search on.
+]],
+        [[
+start_index: non-negative integer - The byte index within the buffer table to start the search. Must be on a character byte index.
+]],
+        [[
+count: integer - Number of boundaries to move past before stopping.
 ]],
         [[
 only_whitespace: bool = false - If false, any character of the opposite type of the character on `start_index` is considered to split words. If true, only whitespace characters are considered to split words.
