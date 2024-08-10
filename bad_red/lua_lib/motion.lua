@@ -364,7 +364,7 @@ include_whitespace - If false, does not consider whitespace valid line boundary,
                     function(buffer, start)
                         return P.to_line_boundary(buffer, start, 1, true)
                     end,
-                    false
+                    true
                 )
             end
 
