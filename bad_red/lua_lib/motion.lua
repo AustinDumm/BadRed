@@ -217,11 +217,11 @@ only_whitespace: bool = false - If false, any character of the opposite type of 
     P.motion_keymap = doc.build_fn(
         function(parent_map, buffer_get, count, callback)
             local map = parent_map:new_map()
-            local function run_motion(motion)
+            local function run_motion(motion, is_inclusive)
                 local buffer = buffer_get()
                 local start = buffer:cursor()
                 local stop = motion(buffer, start)
-                callback(start, stop)
+                callback(start, stop, is_inclusive)
             end
 
             map["h"] = function(_)
@@ -258,14 +258,20 @@ only_whitespace: bool = false - If false, any character of the opposite type of 
             end
 
             map["e"] = function(_)
-                run_motion(function(buffer, start)
-                    return P.to_word_boundary(buffer, start, count, false)
-                end)
+                run_motion(
+                    function(buffer, start)
+                        return P.to_word_boundary(buffer, start, count, false)
+                    end,
+                    true
+                )
             end
             map["E"] = function(_)
-                run_motion(function(buffer, start)
-                    return P.to_word_boundary(buffer, start, count, true)
-                end)
+                run_motion(
+                    function(buffer, start)
+                        return P.to_word_boundary(buffer, start, count, true)
+                    end,
+                    true
+                )
             end
 
             return map
@@ -290,7 +296,7 @@ buffer_get: Function() -> Buffer Table - Returns the buffer the motion should be
 count: positive integer - The number of times to run the motion.
 ]],
         [[
-callback: Function(non-negative integer, non-negative integer) - run when a motion is entered
+callback: Function(start: non-negative integer, stop: non-negative integer, is_inclusive: bool) - run when a motion is entered. is_inclusive is true only if the motion provided includes the character at index `stop`.
 ]]
     )
 

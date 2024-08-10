@@ -91,7 +91,20 @@ package.preload["mode"] = function(modname, _)
         end
 
         map["d"] = (function()
-            local delete_map = red.keymap:new_map()
+            local delete_map = motion.motion_keymap(
+                map,
+                function() return buffer:current() end,
+                1,
+                function(start, stop, is_inclusive)
+                    buffer:set_cursor(start)
+
+                    local delete_count = stop - start
+                    if is_inclusive then
+                        delete_count = delete_count + 1
+                    end
+                    buffer:delete(delete_count)
+                end
+            )
 
             delete_map["!"] = function(_) red.buffer:clear() end
 
