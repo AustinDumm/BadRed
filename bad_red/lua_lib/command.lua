@@ -5,7 +5,40 @@
 -- BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 package.preload["command"] = function(modname, _)
-    local P = {}
+    local doc = require("doc")
+
+    local P = {
+        shortcuts = {}
+    }
+    
+    local function trim_trailing(s)
+        return s:gsub("%s+$", "")
+    end
+
+    P.set_shortcut = doc.build_fn(
+        function(self, shortcut, call)
+            self.shortcuts[trim_trailing(shortcut)] = call
+        end,
+        "set_shortcut",
+        [[
+Creates a new command shortcut entry.
+]],
+        [[
+Command shortcuts are strings set to be equivalent to running a provided Lua function. If a shortcut is provided to the command buffer, the associated callback is called iwth no arguments. This happens instead of the buffer contents being ran as a Lua script.
+]],
+        [[
+nil
+]],
+        [[
+self: Command package table - The command system to set the shortcut on.
+]],
+        [[
+shortcut: String - The string that must be found in the command entry to run this shortcut. Trailing whitespace will be trimmed from `shortcut` and from entries to the command.
+]],
+        [[
+call: Function() - The function to run if `shortcut` is triggered.
+]]
+    )
 
     local function command_keymap(base_map, origin_pane, root_pane, old_map, command_buffer, trigger_key)
         local new_map = base_map:new_map()
@@ -25,8 +58,15 @@ package.preload["command"] = function(modname, _)
             local command = command_buffer:content()
             command = string.sub(command, trigger_key:len() + 1)
 
-            exit_command()
-            coroutine.yield(red.call.run_script(command))
+
+            local shortcut = P.shortcuts[trim_trailing(command)]
+            if shortcut then
+                exit_command()
+                shortcut()
+            else
+                exit_command()
+                coroutine.yield(red.call.run_script(command))
+            end
         end
 
         return new_map
