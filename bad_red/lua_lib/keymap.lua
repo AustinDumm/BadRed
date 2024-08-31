@@ -14,6 +14,7 @@ package.preload["keymap"] = function(modname, _)
     }
 
     local motion = require("motion")
+    local opts = require("opts")
 
     P.new_map = red.doc.build_fn(
         function(self)
@@ -149,6 +150,28 @@ key_event: string - The KeyEvent string from the BadRed editor hook being handle
             map["Enter"] = function(_)
                 red.buffer:insert("\n")
             end
+
+            map["Tab"] = function(_)
+                if opts.expand_tabs then
+                    local text_insert = ""
+                    for _ = 1, opts.tab_width do
+                        text_insert = text_insert .. " "
+                    end
+                    red.buffer:insert(text_insert)
+                else
+                    red.buffer:insert("\t")
+                end
+            end
+
+            map["Left"] = function(_)
+                local index = motion.char_move(red.buffer:current(), red.buffer:cursor(), -1, true)
+                red.buffer:set_cursor(index)
+            end
+            map["Right"] = function(_)
+                local index = motion.char_move(red.buffer:current(), red.buffer:cursor(), 1, true)
+                red.buffer:set_cursor(index)
+            end
+
             return map
         end)(),
         "raw_input_map",

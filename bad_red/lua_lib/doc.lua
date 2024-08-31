@@ -250,7 +250,10 @@ key_doc: Table - Lookup table for table-specific documentation about each key. K
         [[
 value_doc_reformat: Function(value_doc: String) -> String - Function called for each documented value and updates the value's documentation with the result of the function. Function is given the original value_doc for each value. Can be used to style, prepend, or append the documentation of each value in `table_to_doc` to link to or otherwise indicate the value's owning table documentation.
 ]]
-)
+    )
+
+    P.documented_table_member = function(name, value, short_description, long_description)
+    end
 
     local function primitive_doc(primitive)
         return type(primitive)
@@ -307,6 +310,27 @@ nil
         [[
 red_fn: red_function - The function doc table to show the help information for. To create a red_function, call `build_fn` from the "doc" package.
 ]]
+    )
+
+    P.add_documented_field = build_fn(
+        function(table, name, value, doc_string)
+            table[name] = value
+            local mt = getmetatable(table)
+            local doc = mt.__doc
+            if doc == nil then
+                return
+            end
+
+            doc[name] = doc_string
+        end,
+        "add_documented_field",
+        "Adds a new documented field to the provided table.",
+        "Provided table should already be a documented table as created with the `doc.document_table`",
+        "nil",
+        "table: Documented Table - The table to add the new documented field to.",
+        "name: String - The name of the new field.",
+        "value: Any - The value of the new field.",
+        "doc_string: String - The short description of the value."
     )
 
     P.document_table(
