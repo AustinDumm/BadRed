@@ -333,6 +333,62 @@ red_fn: red_function - The function doc table to show the help information for. 
         "doc_string: String - The short description of the value."
     )
 
+    P.add_computed_field = build_fn(
+        function(table, name, get_function, set_function, doc_string)
+            local mt = getmetatable(table)
+
+            local doc = mt.__doc
+            if doc == nil then
+                return
+            end
+            doc[name] = doc_string
+
+            local compute = mt.__compute
+            if compute == nil then
+                compute = {}
+                mt.__compute = compute
+                mt.__index = function(table, key)
+                    local mt = getmetatable(table)
+                    if mt == nil then
+                        return nil
+                    end
+                    local key_compute = mt.__compute[key]
+                    if key_compute == nil then
+                        return nil
+                    end
+
+                    return key_compute.get()
+                end
+                mt.__newindex = function(table, key, value)
+                    local mt = getmetatable(table)
+                    if mt == nil then
+                        return nil
+                    end
+                    local key_compute = mt.__compute[key]
+                    if key_compute == nil then
+                        return nil
+                    end
+
+                    key_compute.set(value)
+                end
+            end
+
+            compute[name] = {
+                get = get_function,
+                set = set_function
+            }
+        end,
+        "add_computed_field",
+        "Adds a new field to this table which is retrieved and set using callback functions",
+        nil,
+        "nil",
+        "table: Documented Table - The table to add the new documented computed field to.",
+        "name: String - The name of the new computed field.",
+        "get_function: Function() -> Any - The callback function which retrieves the value on access.",
+        "set_function: Function(new_value) - The callback function called with the new value on assignment.",
+        "doc_string: String- The short description of the value."
+    )
+
     P.document_table(
         P,
         "doc",

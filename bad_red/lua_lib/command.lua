@@ -56,8 +56,10 @@ call: Function() - The function to run if `shortcut` is triggered.
         end
         new_map["Enter"] = function(_)
             local command = command_buffer:content()
-            command = string.sub(command, trigger_key:len() + 1)
 
+            if string.sub(command, 1, trigger_key:len()) == trigger_key then
+                command = string.sub(command, trigger_key:len() + 1)
+            end
 
             local shortcut = P.shortcuts[trim_trailing(command)]
             if shortcut then

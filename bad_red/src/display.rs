@@ -268,13 +268,10 @@ impl Display {
         Ok(top_cursor.or(bottom_cursor))
     }
 
-    fn scan_to_first_line<I>(
-        &self,
-        byte_count: &mut usize,
-        pane: &Pane,
-        chars: &mut Peekable<I>,
-    )
-    where I: Iterator<Item = char> {
+    fn scan_to_first_line<I>(&self, byte_count: &mut usize, pane: &Pane, chars: &mut Peekable<I>)
+    where
+        I: Iterator<Item = char>,
+    {
         let mut line_count = 0;
         while let Some(char) = chars.peek() {
             let char_bytes = char.len_utf8();
@@ -342,7 +339,7 @@ impl Display {
                     break;
                 }
 
-                let char_width = width_for(peeked, col);
+                let char_width = width_for(peeked, col, editor_state.options.tab_width);
                 if char_width == 0 {
                     // Print as utf8 code point to handle display
                     let code_point_literal = peeked.escape_unicode().to_string();
@@ -353,7 +350,7 @@ impl Display {
                     queue!(self.stdout, style::Print(code_point_literal))?;
                 } else {
                     col += char_width as u16;
-                    queue!(self.stdout, style::Print(peeked))?;
+                    render_char(&mut self.stdout, char_width, peeked)?;
                 }
 
                 byte_count += peeked.len_utf8();
@@ -372,7 +369,7 @@ impl Display {
                             break;
                         }
 
-                        if byte_count+1 == buffer.cursor_byte_index() {
+                        if byte_count + 1 == buffer.cursor_byte_index() {
                             is_cursor_offscreen = true;
                         }
 
@@ -454,11 +451,7 @@ impl Display {
     }
 }
 
-fn handle_newline<I>(
-    char: char,
-    byte_count: &mut usize,
-    chars: &mut Peekable<I>,
-) -> bool
+fn handle_newline<I>(char: char, byte_count: &mut usize, chars: &mut Peekable<I>) -> bool
 where
     I: Iterator<Item = char>,
 {
@@ -479,14 +472,22 @@ where
     }
 }
 
-fn width_for(character: char, at_col: u16) -> usize {
+fn width_for(character: char, at_col: u16, tab_width: u16) -> usize {
     if character == '\t' {
-        let tab_width = 8;
-
         (tab_width - at_col % tab_width).into()
     } else {
         character.width().unwrap_or(1)
     }
+}
+
+fn render_char(stdout: &mut Stdout, width: usize, character: char) -> io::Result<()> {
+    if character == '\t' {
+        queue!(stdout, style::Print(" ".repeat(width)))?;
+    } else {
+        queue!(stdout, style::Print(character))?;
+    }
+
+    Ok(())
 }
 
 impl Drop for Display {
@@ -494,4 +495,3 @@ impl Drop for Display {
         let _ = self.cleanup_display();
     }
 }
-

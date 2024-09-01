@@ -20,6 +20,8 @@ use etcetera::{AppStrategy, AppStrategyArgs};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
+    #[arg(short = 'd', long)]
+    default_init: bool,
     #[arg(short, long)]
     init_path: Option<String>,
     #[arg(long)]
@@ -46,10 +48,12 @@ fn main() -> io::Result<()> {
         top_level_domain: "me".to_string(),
         author: "adumm".to_string(),
         app_name: "BadRed".to_string(),
-    }).unwrap();
+    })
+    .unwrap();
     let config_dir = strategy.config_dir();
 
     run(
+        args.default_init,
         config_dir,
         args.init_name.unwrap_or(DEFAULT_INIT_SCRIPT.to_string()),
         &mut display,
@@ -59,16 +63,21 @@ fn main() -> io::Result<()> {
 include!(concat!(env!("OUT_DIR"), "/consts_defs.rs"));
 
 fn run(
+    default_init: bool,
     init_path: PathBuf,
     init_file: String,
     display: &mut Display,
 ) -> io::Result<()> {
-    let init_script = load_init_script(&init_path, &init_file, generated::INIT)?;
+    let init_script = load_init_script(&init_path, &init_file, generated::INIT, default_init)?;
 
     let script_handler = ScriptHandler::new(init_path)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to init Lua: {}", e)))?;
-    let mut editor = Editor::new(&script_handler.lua, generated::PRELOAD.to_string(), init_script)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let mut editor = Editor::new(
+        &script_handler.lua,
+        generated::PRELOAD.to_string(),
+        init_script,
+    )
+    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     'editor_loop: loop {
         let var_name = false;
         let mut did_input = var_name;
@@ -110,9 +119,9 @@ fn run(
             Ok(SchedulerYield::Run) => true,
             Ok(SchedulerYield::Skip) => false,
             Ok(SchedulerYield::Quit) => return Ok(()),
-            Err(editor_state::Error::Unrecoverable(message)) |
-                Err(editor_state::Error::Recoverable(message)) |
-                Err(editor_state::Error::Script(message)) => {
+            Err(editor_state::Error::Unrecoverable(message))
+            | Err(editor_state::Error::Recoverable(message))
+            | Err(editor_state::Error::Script(message)) => {
                 Err(io::Error::new(
                     io::ErrorKind::Other,
                     format!("Error found without hook capture: {:#?}", message),
@@ -131,9 +140,16 @@ fn run(
     Ok(())
 }
 
-fn load_init_script(init_path: &PathBuf, init_file: &str, default_content: &str) -> io::Result<String> {
+fn load_init_script(
+    init_path: &PathBuf,
+    init_file: &str,
+    default_content: &str,
+    always_default: bool,
+) -> io::Result<String> {
     let file_path = init_path.join(init_file);
-    if file_path.exists() {
+    if always_default {
+        Ok(default_content.to_string())
+    } else if file_path.exists() {
         fs::read_to_string(file_path)
     } else {
         fs::create_dir_all(init_path)?;

@@ -891,6 +891,14 @@ impl<'lua> ScriptScheduler<'lua> {
                         self.run_script(process, hook_map, buffer.buffer_type)
                     }
                     RedCall::Value { value } => self.run_script(process, hook_map, value),
+                    RedCall::UpdateOptions { option_list } => {
+                        editor_state.options.update(option_list);
+
+                        self.run_script(process, hook_map, Value::Nil)
+                    }
+                    RedCall::EditorOptions => {
+                        self.run_script(process, hook_map, editor_state.options.clone())
+                    }
                 }?;
 
                 if is_script_done {

@@ -23,10 +23,15 @@ package.preload["opts"] = function(_, _)
         "If true, will replace all tabs input with the corresponding number of spaces."
     )
 
-    doc.add_documented_field(
+    doc.add_computed_field(
         P,
         "tab_width",
-        8,
+        function()
+            return coroutine.yield(red.call.editor_options()).values.tab_width
+        end,
+        function(new_width)
+            coroutine.yield(red.call.update_options({tab_width=new_width}))
+        end,
         "The number of spaces a single tab is shown."
     )
 

@@ -4,16 +4,17 @@
 //
 // BadRed is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-use std::{sync::Arc, time::Duration};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
+use bad_red_proc_macros::{auto_lua, auto_script_table};
 use bimap::BiMap;
 use crossterm::event::KeyEvent;
-use mlua::Lua;
+use mlua::{FromLua, IntoLua, Lua};
 
 use crate::{
     buffer::{ContentBuffer, EditorBuffer},
     file_handle::FileHandle,
-    hook_map::{HookType, HookMap, HookTypeName},
+    hook_map::{HookMap, HookType, HookTypeName},
     keymap::RedKeyEvent,
     pane::{self, PaneTree, Split},
     script_runtime::{SchedulerYield, ScriptScheduler},
@@ -80,30 +81,47 @@ impl<'a> Editor<'a> {
         };
 
         for hook_function in function_iter {
-            self.script_scheduler
-                .spawn_hook(hook_function.clone(), HookType::KeyEvent(red_key_event.clone()))?;
+            self.script_scheduler.spawn_hook(
+                hook_function.clone(),
+                HookType::KeyEvent(red_key_event.clone()),
+            )?;
         }
         Ok(())
     }
 
     pub fn handle_error(&mut self, error_description: String) -> Result<()> {
-        let function_iter = self.hook_map.function_iter(HookTypeName::Error, None)
-            .ok_or_else(|| Error::Recoverable(format!("No error hook set for {}", error_description)))?;
+        let function_iter = self
+            .hook_map
+            .function_iter(HookTypeName::Error, None)
+            .ok_or_else(|| {
+                Error::Recoverable(format!("No error hook set for {}", error_description))
+            })?;
 
         for hook_function in function_iter {
-            self.script_scheduler
-                .spawn_hook(hook_function.clone(), HookType::Error(error_description.clone()))?;
+            self.script_scheduler.spawn_hook(
+                hook_function.clone(),
+                HookType::Error(error_description.clone()),
+            )?;
         }
         Ok(())
     }
 
     pub fn handle_secondary_error(&mut self, error_description: String) -> Result<()> {
-        let function_iter = self.hook_map.function_iter(HookTypeName::SecondaryError, None)
-            .ok_or_else(|| Error::Unrecoverable(format!("No secondary error hook set for {}", error_description)))?;
+        let function_iter = self
+            .hook_map
+            .function_iter(HookTypeName::SecondaryError, None)
+            .ok_or_else(|| {
+                Error::Unrecoverable(format!(
+                    "No secondary error hook set for {}",
+                    error_description
+                ))
+            })?;
 
         for hook_function in function_iter {
-            self.script_scheduler
-                .spawn_hook(hook_function.clone(), HookType::Error(error_description.clone()))?;
+            self.script_scheduler.spawn_hook(
+                hook_function.clone(),
+                HookType::Error(error_description.clone()),
+            )?;
         }
         Ok(())
     }
@@ -120,6 +138,7 @@ pub struct EditorState {
     pub buffers: Vec<Option<EditorBuffer>>,
     pub files: Vec<Option<FileHandle>>,
     pub pane_tree: PaneTree,
+    pub options: EditorOptions,
 
     pub buffer_file_map: BiMap<usize, usize>,
 }
@@ -134,6 +153,7 @@ impl EditorState {
             pane_tree: PaneTree::new(0),
 
             buffer_file_map: BiMap::new(),
+            options: EditorOptions { tab_width: 8 },
         }
     }
 
@@ -226,8 +246,7 @@ impl EditorState {
             let buffer_id = *buffer_id;
             if let Some(buffer) = self.mut_buffer_by_id(buffer_id) {
                 if buffer.is_content_dirty && !should_force {
-                        return Err(Error::Recoverable(format!("Attempted to close file with dirty buffer unforced. File id: {}, buffer id: {}", file_id, buffer_id)));
-
+                    return Err(Error::Recoverable(format!("Attempted to close file with dirty buffer unforced. File id: {}, buffer id: {}", file_id, buffer_id)));
                 }
 
                 buffer.is_content_dirty = false;
@@ -535,5 +554,82 @@ impl EditorState {
             .flatten();
 
         Ok(parity)
+    }
+}
+
+#[auto_lua]
+#[derive(Clone)]
+pub struct EditorOptions {
+    pub tab_width: u16,
+}
+
+impl EditorOptions {
+    pub fn update(&mut self, update_list: EditorOptionList) {
+        for update in update_list.0 {
+            match update {
+                EditorOptionType::TabWidth(new_width) => self.tab_width = new_width,
+            }
+        }
+    }
+}
+
+#[auto_lua]
+pub enum EditorOptionType {
+    TabWidth(u16),
+}
+
+pub struct EditorOptionList(Vec<EditorOptionType>);
+
+impl<'lua> FromLua<'lua> for EditorOptionList {
+    fn from_lua(value: mlua::Value<'lua>, lua: &'lua Lua) -> mlua::Result<Self> {
+        let mut option_list = vec![];
+
+        for pair in value
+            .as_table()
+            .ok_or_else(|| mlua::Error::FromLuaConversionError {
+                from: "Value",
+                to: "EditorOptionList",
+                message: Some(format!(
+                    "Expected lua table as representation of EditorOptionList"
+                )),
+            })?
+            .clone()
+            .pairs::<mlua::Value, mlua::Value>()
+        {
+            let (option_key, option_value) = pair?;
+            let Some(key_str) = option_key.as_str() else {
+                continue;
+            };
+            let Ok(key) = EditorOptionTypeName::from_str(key_str) else {
+                continue;
+            };
+
+            match key {
+                EditorOptionTypeName::TabWidth => {
+                    let Some(value) = option_value.as_u32() else {
+                        continue;
+                    };
+
+                    option_list.push(EditorOptionType::TabWidth(value as u16));
+                }
+            }
+        }
+
+        Ok(EditorOptionList(option_list))
+    }
+}
+
+impl<'lua> IntoLua<'lua> for EditorOptionList {
+    fn into_lua(self, lua: &'lua Lua) -> mlua::Result<mlua::Value<'lua>> {
+        let table = lua.create_table()?;
+        for item in self.0 {
+            match item {
+                EditorOptionType::TabWidth(width) => {
+                    table.set(EditorOptionTypeName::TabWidth, width)?
+                }
+            }
+        }
+
+        table.into_lua(lua)
     }
 }
