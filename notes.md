@@ -14,7 +14,6 @@
     a. If a script returns a callable, call it?
     b. Alternatively could have a special lookup for shortcuts?
     c. Could make this specific only to command input to allow for easier calling of arg-less functions
-7. Better tab/spaces support
 8. Invisible character render mode?
 9. Concept-level documentation
 10. Interactive style functions (could hook in nicely with #9)
@@ -32,3 +31,14 @@
         reacted to. This would allow scripts that return literal values where command uses the resulting
         value to run a following script.
 16. Add arrow key motions while in insert mode.
+17. Add more pane render modes
+    a. Floating
+    b. Stacked
+18. Add files as unflagged input arguments to be opened automatically.
+19. Screen offset follow cursor
+20. Decide on how to do associated pane/buffer connections supporting:
+    a. Line number gutter
+    b. Modeline
+    c. Bufferline
+21. Copy/Paste
+22. Grep/Search/Replace

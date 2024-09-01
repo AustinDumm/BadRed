@@ -628,11 +628,11 @@ self: Buffer - Buffer object to be unlinked from its current file. If no buffer 
 ]]
     )
 
-    P.write_to_file = red.doc.build_fn(
+    P.write = red.doc.build_fn(
         function(self)
             coroutine.yield(red.call.buffer_write_to_file(self:id()))
         end,
-        "write_to_file",
+        "write",
         [[
 Overwrites the on-disk content of this Buffer's linked file with the current content of this Buffer.
 ]],

@@ -44,10 +44,10 @@ Top-level table containing all built-in interfaces with the BadRed text editor
     function(_, value_doc) return value_doc end
 )
 
-red.command:set_shortcut("w", function() red.buffer:write_to_file() end)
+red.command:set_shortcut("w", function() red.buffer:write() end)
 red.command:set_shortcut("q", function() red.exit() end)
 red.command:set_shortcut("wq", function()
-    red.buffer:write_to_file()
+    red.buffer:write()
     red.exit()
 end)
 
