@@ -119,6 +119,18 @@ key_event: string - The KeyEvent string from the BadRed editor hook being handle
 ]]
     )
 
+    function P.empty_map()
+        local map = P:new_map()
+        map.__index = function(_, _)
+            return function(key)
+                red.buffer:insert(key)
+            end
+        end
+        map.new = P.new_map
+        setmetatable(map, map)
+        return map
+    end
+
     P.raw_input_map = red.doc.document_table((function()
             local map = P:new_map()
             map.__index = function(_, _)

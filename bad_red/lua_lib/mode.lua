@@ -6,6 +6,32 @@ package.preload["mode"] = function(modname, _)
     local motion = require("motion")
     local registers = require("registers")
 
+    function P.delete_mode_map(map)
+        local delete_map = motion.motion_keymap(
+            map,
+            function() return buffer:current() end,
+            1,
+            function(start, stop, is_inclusive)
+                if stop < start then
+                    start, stop = stop, start
+                end
+
+                buffer:set_cursor(start)
+                local delete_count = stop - start
+
+                if is_inclusive then
+                    delete_count = delete_count + 1
+                end
+                local content = buffer:delete(delete_count)
+                registers.set_register(nil, content)
+            end
+        )
+
+        delete_map["!"] = function(_) red.buffer:clear() end
+
+        return delete_map
+    end
+
     local function normal_mode(command_handler, input_map)
         local map = keymap:new_map()
 
@@ -57,7 +83,7 @@ package.preload["mode"] = function(modname, _)
 
         map["C+e"] = function(_)
             local current_line = red.pane:top_line()
-            if current_line + 1 >= 2^16 then
+            if current_line + 1 >= 2 ^ 16 then
                 return
             end
 
@@ -78,8 +104,8 @@ package.preload["mode"] = function(modname, _)
 
             local new_top_line = top_line + math.floor(height / 2)
 
-            if new_top_line >= 2^16 then
-                new_top_line = 2^16 - 1
+            if new_top_line >= 2 ^ 16 then
+                new_top_line = 2 ^ 16 - 1
             end
 
             red.pane:set_top_line(new_top_line)
@@ -98,30 +124,13 @@ package.preload["mode"] = function(modname, _)
             red.pane:set_top_line(new_top_line)
         end
 
-        map["d"] = (function()
-            local delete_map = motion.motion_keymap(
-                map,
-                function() return buffer:current() end,
-                1,
-                function(start, stop, is_inclusive)
-                    if stop < start then
-                        start, stop = stop, start
-                    end
-
-                    buffer:set_cursor(start)
-                    local delete_count = stop - start
-
-                    if is_inclusive then
-                        delete_count = delete_count + 1
-                    end
-                    buffer:delete(delete_count)
-                end
-            )
-
-            delete_map["!"] = function(_) red.buffer:clear() end
-
-            return delete_map
-        end)()
+        map["d"] = P.delete_mode_map(map)
+        map["p"] = function(_)
+            registers.append(red.buffer:current(), nil)
+        end
+        map["P"] = function(_)
+            registers.insert(red.buffer:current(), nil)
+        end
 
         map["\""] = registers.register_map()
 
