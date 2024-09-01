@@ -99,7 +99,7 @@ update_function: (Keymap table) -> Keymap table - Callback build the new map as 
             elseif type(event_handler) == "table" then
                 P.sequence = event_handler
             elseif event_handler == nil then
-                return
+                P.sequence = nil
             else
                 error("Can only treat function and table as key event handlers. Found: " .. tostring(event_handler))
             end
