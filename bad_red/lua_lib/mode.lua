@@ -4,6 +4,7 @@ package.preload["mode"] = function(modname, _)
     local keymap = require("keymap")
     local buffer = require("buffer")
     local motion = require("motion")
+    local registers = require("registers")
 
     local function normal_mode(command_handler, input_map)
         local map = keymap:new_map()
@@ -121,6 +122,8 @@ package.preload["mode"] = function(modname, _)
 
             return delete_map
         end)()
+
+        map["\""] = registers.register_map()
 
         map["_exit_char"] = nil
         function map:did_become_active()
