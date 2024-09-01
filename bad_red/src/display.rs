@@ -342,7 +342,7 @@ impl Display {
                     break;
                 }
 
-                let char_width = peeked.width().unwrap_or(1);
+                let char_width = width_for(peeked, col);
                 if char_width == 0 {
                     // Print as utf8 code point to handle display
                     let code_point_literal = peeked.escape_unicode().to_string();
@@ -479,8 +479,19 @@ where
     }
 }
 
+fn width_for(character: char, at_col: u16) -> usize {
+    if character == '\t' {
+        let tab_width = 8;
+
+        (tab_width - at_col % tab_width).into()
+    } else {
+        character.width().unwrap_or(1)
+    }
+}
+
 impl Drop for Display {
     fn drop(&mut self) {
         let _ = self.cleanup_display();
     }
 }
+
