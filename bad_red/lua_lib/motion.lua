@@ -222,14 +222,8 @@ only_whitespace: bool = false - If false, any character of the opposite type of 
             local new_byte_index
             if shift < 0 then
                 new_byte_index = buffer:line_start_index(current_line)
-                if new_byte_index == nil then
-                    error("!")
-                end
             else
                 new_byte_index = buffer:line_end_index(current_line)
-                if new_byte_index == nil then
-                    error("@")
-                end
             end
 
             local result
@@ -283,10 +277,19 @@ include_whitespace - If false, does not consider whitespace valid line boundary,
         function(parent_map, buffer_get, count, callback)
             local map = parent_map:new_map()
             local function run_motion(motion, is_inclusive)
+                if motion == nil then
+                    return
+                end
+
                 local buffer = buffer_get()
                 local start = buffer:cursor()
                 local stop = motion(buffer, start)
-                callback(start, stop, is_inclusive)
+
+                if stop == nil then
+                    return
+                else
+                    callback(start, stop, is_inclusive)
+                end
             end
 
             map["h"] = function(_)
@@ -365,6 +368,14 @@ include_whitespace - If false, does not consider whitespace valid line boundary,
                         return P.to_line_boundary(buffer, start, 1, true)
                     end,
                     true
+                )
+            end
+
+            map["Esc"] = function(_)
+                run_motion(
+                    function(_, _)
+                        return nil
+                    end
                 )
             end
 

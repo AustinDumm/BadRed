@@ -16,7 +16,7 @@ package.preload["mode"] = function(modname, _)
                 buffer:set_cursor(stop)
             end
         )
-        
+
         map["C+w"] = (function()
             local pane_map = map:new_map()
             pane_map["v"] = function(_)
@@ -103,7 +103,6 @@ package.preload["mode"] = function(modname, _)
                 function() return buffer:current() end,
                 1,
                 function(start, stop, is_inclusive)
-
                     if stop < start then
                         start, stop = stop, start
                     end
