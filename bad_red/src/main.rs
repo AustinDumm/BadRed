@@ -26,6 +26,8 @@ struct Args {
     init_path: Option<String>,
     #[arg(long)]
     init_name: Option<String>,
+    #[arg()]
+    files: Vec<String>,
 }
 
 const DEFAULT_INIT_SCRIPT: &'static str = "init.lua";
@@ -56,6 +58,7 @@ fn main() -> io::Result<()> {
         args.default_init,
         config_dir,
         args.init_name.unwrap_or(DEFAULT_INIT_SCRIPT.to_string()),
+        args.files,
         &mut display,
     )
 }
@@ -66,6 +69,7 @@ fn run(
     default_init: bool,
     init_path: PathBuf,
     init_file: String,
+    starting_file_paths: Vec<String>,
     display: &mut Display,
 ) -> io::Result<()> {
     let init_script = load_init_script(&init_path, &init_file, generated::INIT, default_init)?;
@@ -76,6 +80,7 @@ fn run(
         &script_handler.lua,
         generated::PRELOAD.to_string(),
         init_script,
+        starting_file_paths,
     )
     .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     'editor_loop: loop {

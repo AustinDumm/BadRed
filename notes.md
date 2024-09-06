@@ -34,7 +34,6 @@
 17. Add more pane render modes
     a. Floating
     b. Stacked
-18. Add files as unflagged input arguments to be opened automatically.
 19. Screen offset follow cursor
 20. Decide on how to do associated pane/buffer connections supporting:
     a. Line number gutter

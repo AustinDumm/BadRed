@@ -55,7 +55,12 @@ pub struct Editor<'a> {
 }
 
 impl<'a> Editor<'a> {
-    pub fn new(lua: &'a Lua, preload_script: String, init_script: String) -> Result<Self> {
+    pub fn new(
+        lua: &'a Lua,
+        preload_script: String,
+        init_script: String,
+        starting_file_paths: Vec<String>,
+    ) -> Result<Self> {
         let preload_function = lua
             .load(preload_script)
             .into_function()
@@ -66,7 +71,16 @@ impl<'a> Editor<'a> {
             .into_function()
             .map_err(|e| Error::Unrecoverable(format!("Failed to load init script: {}", e)))?;
 
-        let state = EditorState::new(Duration::from_millis(10));
+        let mut state = EditorState::new(Duration::from_millis(10));
+
+        let has_files = !starting_file_paths.is_empty();
+        for path in starting_file_paths.into_iter() {
+            state.open_file(path)?;
+        }
+        if has_files {
+            state.link_buffer(0, 0, true)?;
+        }
+
         Ok(Self {
             state,
             script_scheduler: ScriptScheduler::new(lua, preload_function, init_function)?,
