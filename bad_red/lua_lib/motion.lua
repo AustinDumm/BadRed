@@ -463,6 +463,51 @@ search_right: boolean - True if search should move to the right, towards the end
                 return keymap
             end)()
 
+            map["t"] = (function(_)
+                local keymap = {}
+                local mt = {
+                    __index = function(_, _)
+                        return function(search_key)
+                            run_motion(
+                                function(buffer, start)
+                                    local found = P.to_character_find(buffer, start, search_key, 1, true)
+                                    if found == nil then
+                                        return nil
+                                    end
+                                    return P.char_move(buffer, found, -1, false)
+                                end,
+                                true
+                            )
+                        end
+                    end
+                }
+                setmetatable(keymap, mt)
+
+                return keymap
+            end)()
+            map["T"] = (function(_)
+                local keymap = {}
+                local mt = {
+                    __index = function(_, _)
+                        return function(search_key)
+                            run_motion(
+                                function(buffer, start)
+                                    local found = P.to_character_find(buffer, start, search_key, 1, false)
+                                    if found == nil then
+                                        return nil
+                                    end
+                                    return P.char_move(buffer, found, 1, false)
+                                end,
+                                true
+                            )
+                        end
+                    end
+                }
+                setmetatable(keymap, mt)
+
+                return keymap
+            end)()
+
             map["Esc"] = function(_)
                 run_motion(
                     function(_, _)
