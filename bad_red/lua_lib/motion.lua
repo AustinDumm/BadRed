@@ -259,7 +259,7 @@ If already on line boundary, does not include that boundary in the count. Negati
         [[
 non-negative integer - The byte index on the line boundary `count` boundaries away.
 ]],
-[[
+        [[
 buffer: Buffer table - Buffer to calculate motion on.
 ]],
         [[
@@ -270,6 +270,59 @@ count: integer - Number of boundaries to move. Negative indicates movement to th
 ]],
         [[
 include_whitespace - If false, does not consider whitespace valid line boundary, treats only non-whitespace characters as boundaries.
+]]
+    )
+
+    P.to_character_find = doc.build_fn(
+        function(buffer, start, search_char, count, search_right)
+            local shift
+            if search_right then
+                shift = 1
+            else
+                shift = -1
+            end
+
+            local index = P.char_move(buffer, start, shift, false)
+            while 0 <= index and index < buffer:length() do
+                local search_length = string.len(search_char)
+
+                local content = buffer:content_at(index, search_length)
+                if content == search_char then
+                    count = count - 1
+                end
+                if content == "\n" then
+                    return nil
+                end
+                if count == 0 then
+                    break
+                end
+
+                index = P.char_move(buffer, index, shift, false)
+            end
+
+            return index
+        end,
+        "to_character_find",
+        [[
+Returns the character index for the `count`'th occurrence of `search_char` on line containing `start`.
+]],
+        nil,
+        [[
+optional non-negative integer - The character byte index for the `count`'th occurrence of `search_char`. Nil if none found]],
+        [[
+buffer: Buffer table - The buffer to search for character in.
+]],
+        [[
+start: non-negative integer - The byte char index to begin the search from.
+]],
+        [[
+search_char: character - The character to match on.
+]],
+        [[
+count: positive integer - The number of occurrences of `search_char` to skip before returning.
+]],
+        [[
+search_right: boolean - True if search should move to the right, towards the end of the buffer. False if search should move left towards the start of the buffer.
 ]]
     )
 
@@ -362,6 +415,8 @@ include_whitespace - If false, does not consider whitespace valid line boundary,
                 )
             end
 
+            map["_"] = map["^"]
+
             map["$"] = function(_)
                 run_motion(
                     function(buffer, start)
@@ -370,6 +425,43 @@ include_whitespace - If false, does not consider whitespace valid line boundary,
                     true
                 )
             end
+
+            map["f"] = (function(_)
+                local keymap = {}
+                local mt = {
+                    __index = function(_, _)
+                        return function(search_key)
+                            run_motion(
+                                function(buffer, start)
+                                    return P.to_character_find(buffer, start, search_key, 1, true)
+                                end,
+                                true
+                            )
+                        end
+                    end
+                }
+                setmetatable(keymap, mt)
+
+                return keymap
+            end)()
+            map["F"] = (function(_)
+                local keymap = {}
+                local mt = {
+                    __index = function(_, _)
+                        return function(search_key)
+                            run_motion(
+                                function(buffer, start)
+                                    return P.to_character_find(buffer, start, search_key, 1, false)
+                                end,
+                                true
+                            )
+                        end
+                    end
+                }
+                setmetatable(keymap, mt)
+
+                return keymap
+            end)()
 
             map["Esc"] = function(_)
                 run_motion(
