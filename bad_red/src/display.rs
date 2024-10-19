@@ -327,7 +327,7 @@ impl Display {
         let mut cursor_position: Option<(u16, u16)> = None;
         for row in editor_frame.y_row..(editor_frame.y_row + editor_frame.rows) {
             let mut col = editor_frame.x_col;
-            'col_loop: while col < editor_frame.x_col + editor_frame.cols {
+            while col < editor_frame.x_col + editor_frame.cols {
                 if byte_count == buffer.cursor_byte_index() && cursor_position.is_none() {
                     cursor_position = Some((row, col));
                 }
@@ -335,7 +335,7 @@ impl Display {
                 let mut render_string = String::new();
                 let style_name: Option<&str> = 'char_pull: loop {
                     let Some(peeked) = chars.peek().map(|c| *c) else {
-                        break 'col_loop;
+                        break None;
                     };
                     render_string.push(peeked);
                     if handle_newline(peeked, &mut byte_count, &mut chars) {
@@ -350,6 +350,10 @@ impl Display {
                     }
                 };
                 let text_style = style_name.map(|name| editor_state.style_map.get(name)).flatten();
+
+                if render_string.is_empty() {
+                    break;
+                }
 
                 for peeked in render_string.chars() {
                     let char_width = width_for(peeked, col, editor_state.options.tab_width);

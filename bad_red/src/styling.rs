@@ -36,7 +36,7 @@ impl Styling {
     }
 
     fn with_default_style(mut self) -> Self {
-        self.push_style(Self::DEFAULT_NAME.to_string(), r".*".to_string())
+        self.push_style(Self::DEFAULT_NAME.to_string(), r".*\n".to_string())
             .unwrap();
         self
     }

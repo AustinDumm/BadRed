@@ -7,12 +7,12 @@
 use std::collections::VecDeque;
 
 use crossterm::terminal;
-use mlua::{Function, IntoLua, Lua, Thread, Value};
+use mlua::{Function, IntoLua, Lua, Table, Thread, Value};
 
 use crate::{
     buffer::ContentBuffer,
     editor_state::{EditorState, Error, Result},
-    hook_map::{HookMap, HookType, HookTypeName},
+    hook_map::{BufferFileLink, BufferFileLinkType, HookMap, HookType, HookTypeName, PaneBufferChange},
     pane::{PaneNodeType, Split, SplitType},
     script_handler::RedCall,
 };
@@ -430,6 +430,16 @@ impl<'lua> ScriptScheduler<'lua> {
                         match pane.node_type {
                             PaneNodeType::Leaf(ref mut pane) => {
                                 pane.buffer_id = buffer_index;
+
+                                self.spawn_all_hooks(
+                                    hook_map,
+                                    HookType::PaneBufferChanged(PaneBufferChange {
+                                        pane_id: pane_index,
+                                        buffer_id: buffer_index,
+                                    }),
+                                    None,
+                                )?;
+                                
                                 self.run_script(process, hook_map, Value::Nil)
                             }
                             PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => {
@@ -568,6 +578,12 @@ impl<'lua> ScriptScheduler<'lua> {
                         }
                         HookType::PaneClosed { pane_id } => {
                             self.run_script(process, hook_map, pane_id)
+                        }
+                        HookType::PaneBufferChanged(pane_buffer_change) => {
+                            self.run_script(process, hook_map, pane_buffer_change)
+                        }
+                        HookType::BufferFileLinked(buffer_file_link) => {
+                            self.run_script(process, hook_map, buffer_file_link)
                         }
                     },
 
@@ -788,6 +804,16 @@ impl<'lua> ScriptScheduler<'lua> {
                         should_overwrite_buffer,
                     } => {
                         editor_state.link_buffer(buffer_id, file_id, should_overwrite_buffer)?;
+
+                        self.spawn_all_hooks(
+                            hook_map,
+                            HookType::BufferFileLinked(BufferFileLink {
+                                link_type: BufferFileLinkType::Link,
+                                buffer_id,
+                                file_id,
+                            }),
+                            None,
+                        )?;
                         self.run_script(process, hook_map, Value::Nil)
                     }
                     RedCall::BufferUnlinkFile {
@@ -795,6 +821,16 @@ impl<'lua> ScriptScheduler<'lua> {
                         should_force,
                     } => {
                         let file_id = editor_state.unlink_buffer(buffer_id, should_force)?;
+
+                        self.spawn_all_hooks(
+                            hook_map,
+                            HookType::BufferFileLinked(BufferFileLink {
+                                link_type: BufferFileLinkType::Unlink,
+                                buffer_id,
+                                file_id,
+                            }),
+                            None,
+                        )?;
                         self.run_script(process, hook_map, file_id)
                     }
                     RedCall::BufferWriteToFile { buffer_id } => {

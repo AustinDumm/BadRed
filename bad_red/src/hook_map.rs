@@ -15,9 +15,33 @@ use crate::keymap::RedKeyEvent;
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub enum HookType {
     KeyEvent(RedKeyEvent),
+    PaneBufferChanged(PaneBufferChange),
+    BufferFileLinked(BufferFileLink),
     Error(String),
     SecondaryError(String),
     PaneClosed { pane_id: usize },
+}
+
+#[auto_lua]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+pub struct PaneBufferChange {
+    pub pane_id: usize,
+    pub buffer_id: usize,
+}
+
+#[auto_lua]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+pub enum BufferFileLinkType {
+    Link,
+    Unlink,
+}
+
+#[auto_lua]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+pub struct BufferFileLink {
+    pub link_type: BufferFileLinkType,
+    pub buffer_id: usize,
+    pub file_id: usize,
 }
 
 struct HookMapEntry<'lua> {
