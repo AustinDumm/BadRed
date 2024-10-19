@@ -28,8 +28,9 @@ clap = { version = "4.5.4", features = ["derive"] }
 bad_red_proc_macros = { path = "../bad_red_proc_macros/" }
 bad_gap = { path = "../bad_gap/" }
 bimap = "0.6.3"
-unicode-width = "0.1.13"
+unicode-width = "0.1.14"
 shellexpand = "3.1.0"
+regex = "1.11.0"
 
 [dependencies.mlua]
 version = "0.9.8"

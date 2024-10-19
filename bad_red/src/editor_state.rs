@@ -18,6 +18,7 @@ use crate::{
     keymap::RedKeyEvent,
     pane::{self, PaneTree, Split},
     script_runtime::{SchedulerYield, ScriptScheduler},
+    styling::{Styling, TextStyleMap},
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -154,6 +155,9 @@ pub struct EditorState {
     pub pane_tree: PaneTree,
     pub options: EditorOptions,
 
+    pub styling: Styling,
+    pub style_map: TextStyleMap,
+
     pub buffer_file_map: BiMap<usize, usize>,
 }
 
@@ -168,6 +172,9 @@ impl EditorState {
 
             buffer_file_map: BiMap::new(),
             options: EditorOptions { tab_width: 8 },
+
+            styling: Styling::new(),
+            style_map: TextStyleMap::new(),
         }
     }
 

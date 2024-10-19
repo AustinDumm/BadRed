@@ -6,7 +6,7 @@
 
 use crossterm::{
     cursor, queue,
-    style::{self, Color},
+    style::{self, Color, Stylize},
     terminal::{self, *},
 };
 use std::{
@@ -20,6 +20,7 @@ use crate::{
     editor_frame::EditorFrame,
     editor_state::{Editor, EditorState},
     pane::{Pane, PaneNode, PaneNodeType, PaneTree, Split},
+    styling,
 };
 
 pub struct Display {
@@ -326,35 +327,47 @@ impl Display {
         let mut cursor_position: Option<(u16, u16)> = None;
         for row in editor_frame.y_row..(editor_frame.y_row + editor_frame.rows) {
             let mut col = editor_frame.x_col;
-            while col < editor_frame.x_col + editor_frame.cols {
+            'col_loop: while col < editor_frame.x_col + editor_frame.cols {
                 if byte_count == buffer.cursor_byte_index() && cursor_position.is_none() {
                     cursor_position = Some((row, col));
                 }
 
-                let Some(peeked) = chars.peek().map(|c| *c) else {
-                    break;
+                let mut render_string = String::new();
+                let style_name: Option<&str> = 'char_pull: loop {
+                    let Some(peeked) = chars.peek().map(|c| *c) else {
+                        break 'col_loop;
+                    };
+                    render_string.push(peeked);
+                    if handle_newline(peeked, &mut byte_count, &mut chars) {
+                        break None;
+                    }
+                    _ = chars.next();
+
+                    for style in &editor_state.styling.style_list {
+                        if style.regex.find(&render_string).is_some() {
+                            break 'char_pull Some(&style.name);
+                        }
+                    }
                 };
+                let text_style = style_name.map(|name| editor_state.style_map.get(name)).flatten();
 
-                if handle_newline(peeked, &mut byte_count, &mut chars) {
-                    break;
+                for peeked in render_string.chars() {
+                    let char_width = width_for(peeked, col, editor_state.options.tab_width);
+                    if char_width == 0 {
+                        // Print as utf8 code point to handle display
+                        let code_point_literal = peeked.escape_unicode().to_string();
+                        col += code_point_literal
+                            .chars()
+                            .map(|c| c.width().unwrap_or(1) as u16)
+                            .sum::<u16>();
+                        queue!(self.stdout, style::Print(code_point_literal))?;
+                    } else {
+                        col += char_width as u16;
+                        render_char(&mut self.stdout, char_width, peeked, text_style)?;
+                    }
+
+                    byte_count += peeked.len_utf8();
                 }
-
-                let char_width = width_for(peeked, col, editor_state.options.tab_width);
-                if char_width == 0 {
-                    // Print as utf8 code point to handle display
-                    let code_point_literal = peeked.escape_unicode().to_string();
-                    col += code_point_literal
-                        .chars()
-                        .map(|c| c.width().unwrap_or(1) as u16)
-                        .sum::<u16>();
-                    queue!(self.stdout, style::Print(code_point_literal))?;
-                } else {
-                    col += char_width as u16;
-                    render_char(&mut self.stdout, char_width, peeked)?;
-                }
-
-                byte_count += peeked.len_utf8();
-                _ = chars.next();
             }
 
             let line_clear = if col < (editor_frame.x_col + editor_frame.cols) {
@@ -480,11 +493,39 @@ fn width_for(character: char, at_col: u16, tab_width: u16) -> usize {
     }
 }
 
-fn render_char(stdout: &mut Stdout, width: usize, character: char) -> io::Result<()> {
+fn render_char(
+    stdout: &mut Stdout,
+    width: usize,
+    character: char,
+    text_style: Option<&styling::TextStyle>,
+) -> io::Result<()> {
     if character == '\t' {
-        queue!(stdout, style::Print(" ".repeat(width)))?;
+        if let Some(text_style) = text_style {
+            queue!(
+                stdout,
+                style::PrintStyledContent(
+                    " "
+                        .repeat(width)
+                        .with(Color::from(&text_style.foreground))
+                        .on(Color::from(&text_style.background))
+                )
+            )?;
+        } else {
+            queue!(stdout, style::Print(" ".repeat(width)))?;
+        }
     } else {
-        queue!(stdout, style::Print(character))?;
+        if let Some(text_style) = text_style {
+            queue!(
+                stdout,
+                style::PrintStyledContent(
+                    character
+                        .with(Color::from(&text_style.foreground))
+                        .on(Color::from(&text_style.background))
+                )
+            )?;
+        } else {
+            queue!(stdout, style::Print(character))?;
+        }
     }
 
     Ok(())

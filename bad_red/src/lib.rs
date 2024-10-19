@@ -16,4 +16,5 @@ pub mod script_runtime;
 pub mod keymap;
 pub mod hook_map;
 pub mod file_handle;
+pub mod styling;
 
