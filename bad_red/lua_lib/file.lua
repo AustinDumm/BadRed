@@ -8,6 +8,16 @@ package.preload["file"] = function(modname, _)
         return instance
     end
 
+    P.new = red.doc.build_fn(
+        function(id)
+            return from_id(id)
+        end,
+        "new",
+        "Creates a new file from given file ID",
+        nil,
+        "File Object Table",
+        "id: non-negative integer - Must be an existing file ID known to the editor currently."
+    )
 
     P.open = red.doc.build_fn(
         function(self, path)
@@ -87,9 +97,26 @@ Get the File id that this file object table represents.
 non-negative integer
 ]],
         [[
-self: File Object table - The object whose id should be returned
+self: File Object table - The object whose id should be returned.
 ]]
     )
+
+    P.extension = red.doc.build_fn(
+        function(self)
+            return coroutine.yield(red.call.file_extension(self._id))
+        end,
+        "extension",
+        [[
+Get the current file's extension.
+]],
+nil,
+[[
+Optional String - The extension of this file.
+]],
+[[
+self: File Object table - The object whose file extension should be returned.
+]]
+)
 
     red.doc.document_table(
         P,

@@ -10,7 +10,7 @@ use bad_red_proc_macros::{auto_lua_defaulting, auto_script_table};
 use mlua::{Function, Lua, Table, Value};
 
 use crate::{
-    buffer::EditorBufferType, editor_state::{EditorOptionList, EditorOptionType}, hook_map::{HookType, HookTypeName}
+    buffer::EditorBufferType, editor_state::{EditorOptionList, EditorOptionType}, hook_map::{HookType, HookTypeName}, styling::Color
 };
 
 pub struct ScriptHandler {
@@ -199,6 +199,20 @@ pub enum RedCall<'lua> {
     BufferCurrentFile {
         buffer_id: usize,
     },
+    BufferClearStyle {
+        buffer_id: usize,
+    },
+    BufferPushStyle {
+        buffer_id: usize,
+        name: String,
+        regex: String,
+    },
+
+    SetTextStyle {
+        name: String,
+        background: Color,
+        foreground: Color,
+    },
 
     FileOpen {
         path_string: String,
@@ -208,6 +222,9 @@ pub enum RedCall<'lua> {
         should_force_close: bool,
     },
     FileCurrentBuffer {
+        file_id: usize,
+    },
+    FileExtension {
         file_id: usize,
     },
 

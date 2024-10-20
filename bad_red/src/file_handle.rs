@@ -54,4 +54,11 @@ impl FileHandle {
             path: expanded_path.into_boxed_str(),
         })
     }
+
+    pub fn extension(&self) -> Option<String> {
+        let path: &str = &self.path;
+        Path::new(path)
+            .extension()
+            .map(|e| e.to_string_lossy().into_owned())
+    }
 }

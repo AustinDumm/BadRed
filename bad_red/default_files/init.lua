@@ -13,6 +13,7 @@ red.command = require("command")
 red.mode = require("mode")
 red.file = require("file")
 red.message = require("message")
+red.styling = require("styling")
 
 for k,v in pairs(require("editor")) do
     red[k] = v
@@ -32,6 +33,12 @@ coroutine.yield(red.call.set_hook("error", function(message)
     red.message:send(message)
     red.message:open()
 end))
+
+red.styling:init()
+red.styling:register("t", {
+    { name = "test", regex = "test" }
+})
+red.set_text_style("test", red.rgb(25, 25, 0), red.rgb(255, 0, 0))
 
 red.doc.document_table(
     red,

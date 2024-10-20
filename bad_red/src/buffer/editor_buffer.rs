@@ -8,7 +8,7 @@ use std::io::Read;
 
 use bad_red_proc_macros::auto_lua;
 
-use crate::file_handle::FileWrite;
+use crate::{file_handle::FileWrite, styling::Styling};
 
 use super::{content_buffer::ContentBuffer, gap_buffer::GapBuffer, naive_buffer::NaiveBuffer};
 
@@ -19,6 +19,8 @@ pub struct EditorBuffer {
     pub is_content_dirty: bool,
 
     pub buffer_type: EditorBufferType,
+
+    pub styling: Styling,
 }
 
 #[auto_lua]
@@ -44,6 +46,7 @@ impl EditorBuffer {
             is_render_dirty: false,
             is_content_dirty: false,
             buffer_type,
+            styling: Styling::new(),
         }
     }
 

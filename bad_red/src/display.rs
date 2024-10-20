@@ -327,11 +327,7 @@ impl Display {
         let mut cursor_position: Option<(u16, u16)> = None;
         for row in editor_frame.y_row..(editor_frame.y_row + editor_frame.rows) {
             let mut col = editor_frame.x_col;
-            while col < editor_frame.x_col + editor_frame.cols {
-                if byte_count == buffer.cursor_byte_index() && cursor_position.is_none() {
-                    cursor_position = Some((row, col));
-                }
-
+            'col_loop: while col < editor_frame.x_col + editor_frame.cols {
                 let mut render_string = String::new();
                 let style_name: Option<&str> = 'char_pull: loop {
                     let Some(peeked) = chars.peek().map(|c| *c) else {
@@ -339,11 +335,12 @@ impl Display {
                     };
                     render_string.push(peeked);
                     if handle_newline(peeked, &mut byte_count, &mut chars) {
+                        render_string.push_str("\n");
                         break None;
                     }
                     _ = chars.next();
 
-                    for style in &editor_state.styling.style_list {
+                    for style in buffer.styling.style_list.iter().rev() {
                         if style.regex.find(&render_string).is_some() {
                             break 'char_pull Some(&style.name);
                         }
@@ -351,11 +348,11 @@ impl Display {
                 };
                 let text_style = style_name.map(|name| editor_state.style_map.get(name)).flatten();
 
-                if render_string.is_empty() {
-                    break;
-                }
-
                 for peeked in render_string.chars() {
+                    if byte_count == buffer.cursor_byte_index() && cursor_position.is_none() {
+                        cursor_position = Some((row, col));
+                    }
+
                     let char_width = width_for(peeked, col, editor_state.options.tab_width);
                     if char_width == 0 {
                         // Print as utf8 code point to handle display
@@ -365,12 +362,20 @@ impl Display {
                             .map(|c| c.width().unwrap_or(1) as u16)
                             .sum::<u16>();
                         queue!(self.stdout, style::Print(code_point_literal))?;
+                    } else if peeked == '\n' {
+                        break 'col_loop;
                     } else {
                         col += char_width as u16;
                         render_char(&mut self.stdout, char_width, peeked, text_style)?;
                     }
 
                     byte_count += peeked.len_utf8();
+                    if !(col < editor_frame.x_col + editor_frame.cols) {
+                        break;
+                    }
+                }
+                if render_string.is_empty() {
+                    break;
                 }
             }
 

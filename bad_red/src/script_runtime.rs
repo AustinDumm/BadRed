@@ -12,9 +12,11 @@ use mlua::{Function, IntoLua, Lua, Table, Thread, Value};
 use crate::{
     buffer::ContentBuffer,
     editor_state::{EditorState, Error, Result},
-    hook_map::{BufferFileLink, BufferFileLinkType, HookMap, HookType, HookTypeName, PaneBufferChange},
+    hook_map::{
+        BufferFileLink, BufferFileLinkType, HookMap, HookType, HookTypeName, PaneBufferChange,
+    },
     pane::{PaneNodeType, Split, SplitType},
-    script_handler::RedCall,
+    script_handler::RedCall, styling::{Style, TextStyle},
 };
 
 pub struct ScriptScheduler<'lua> {
@@ -439,7 +441,7 @@ impl<'lua> ScriptScheduler<'lua> {
                                     }),
                                     None,
                                 )?;
-                                
+
                                 self.run_script(process, hook_map, Value::Nil)
                             }
                             PaneNodeType::VSplit(_) | PaneNodeType::HSplit(_) => {
@@ -679,7 +681,10 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(process, hook_map, buffer.content_byte_length())
                     }
-                    RedCall::BufferLineLength { buffer_id, line_index } => {
+                    RedCall::BufferLineLength {
+                        buffer_id,
+                        line_index,
+                    } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
                                 "Attempted BufferLineLength for non-existent buffer: {}",
@@ -699,7 +704,10 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(process, hook_map, buffer.content_line_count())
                     }
-                    RedCall::BufferLineStart { buffer_id, line_index } => {
+                    RedCall::BufferLineStart {
+                        buffer_id,
+                        line_index,
+                    } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
                                 "Attempted BufferLineStart for non-existent buffer: {}",
@@ -709,7 +717,10 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(process, hook_map, buffer.line_start_byte_index(line_index))
                     }
-                    RedCall::BufferLineEnd { buffer_id, line_index } => {
+                    RedCall::BufferLineEnd {
+                        buffer_id,
+                        line_index,
+                    } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
                                 "Attempted BufferLineEnd for non-existent buffer: {}",
@@ -718,8 +729,11 @@ impl<'lua> ScriptScheduler<'lua> {
                         })?;
 
                         self.run_script(process, hook_map, buffer.line_end_byte_index(line_index))
-                    },
-                    RedCall::BufferLineContaining { buffer_id, byte_index } => {
+                    }
+                    RedCall::BufferLineContaining {
+                        buffer_id,
+                        byte_index,
+                    } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
                             Error::Script(format!(
                                 "Attempted to retrieve line index containing byte index for non-existent buffer: {}",
@@ -727,7 +741,11 @@ impl<'lua> ScriptScheduler<'lua> {
                             ))
                         })?;
 
-                        self.run_script(process, hook_map, buffer.line_index_for_byte_index(byte_index))
+                        self.run_script(
+                            process,
+                            hook_map,
+                            buffer.line_index_for_byte_index(byte_index),
+                        )
                     }
                     RedCall::BufferCursor { buffer_id } => {
                         let buffer = editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
@@ -844,6 +862,52 @@ impl<'lua> ScriptScheduler<'lua> {
 
                         self.run_script(process, hook_map, *file_id)
                     }
+                    RedCall::BufferClearStyle { buffer_id } => {
+                        let buffer =
+                            editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
+                                Error::Script(format!(
+                                    "Failed to retrieve buffer for id: {} during BufferClearStyle.",
+                                    buffer_id
+                                ))
+                            })?;
+                        buffer.styling.clear();
+                        self.run_script(process, hook_map, Value::Nil)
+                    }
+                    RedCall::BufferPushStyle {
+                        buffer_id,
+                        name,
+                        regex,
+                    } => {
+                        let mut buffer =
+                            editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
+                                Error::Script(format!(
+                                    "Failed to retrieve buffer for id: {} during BufferPushStyle.",
+                                    buffer_id
+                                ))
+                            })?;
+                        buffer.styling.push_style(
+                            name,
+                            regex
+                        );
+                        self.run_script(process, hook_map, Value::Nil)
+                    }
+
+                    RedCall::SetTextStyle {
+                        name,
+                        background,
+                        foreground,
+                    } => {
+                        editor_state.style_map.insert(
+                            name,
+                            TextStyle {
+                                background,
+                                foreground,
+                            },
+                        );
+
+                        self.run_script(process, hook_map, Value::Nil)
+                    }
+
                     RedCall::FileOpen { path_string } => {
                         let id = editor_state.open_file(path_string)?;
 
@@ -869,6 +933,16 @@ impl<'lua> ScriptScheduler<'lua> {
                             })?;
 
                         self.run_script(process, hook_map, *buffer_id)
+                    }
+                    RedCall::FileExtension { file_id } => {
+                        let file = editor_state
+                            .files
+                            .get(file_id)
+                            .map(|f| f.as_ref())
+                            .flatten()
+                            .ok_or_else(|| Error::Script(format!("Failed to get file for id: {}", file_id)))?;
+
+                        self.run_script(process, hook_map, file.extension())
                     }
                     RedCall::BufferContentAt {
                         buffer_id,

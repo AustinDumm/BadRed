@@ -691,6 +691,46 @@ type: EditorBufferType table (RedEnum) - Type of buffer to change this buffer to
 ]]
     )
 
+    P.clear_styles = red.doc.build_fn(
+        function(self)
+            coroutine.yield(red.call.buffer_clear_style(self:id()))
+        end,
+        "clear_styles",
+        [[
+Removes all styles attached to this buffer.
+]],
+        nil,
+        nil,
+        [[
+self: Buffer Table - Lua table representing the editor buffer whose styles should be cleared.
+]]
+    )
+
+    P.push_style = red.doc.build_fn(
+        function(self, name, regex)
+            coroutine.yield(red.call.buffer_push_style(self:id(), name, regex))
+        end,
+        "push_style",
+        [[
+Adds a new style to the front of the stack of styles for this buffer.
+]],
+        [[
+Styles nearer the top of the stack will be applied first. The name set should match a TextStyle name available in the editor's TextStyleMap. See: "red.set_text_style"
+]],
+        [[
+nil
+]],
+        [[
+self: Buffer Table - Object representing the buffer where the given style should be pushed.
+]],
+        [[
+name: String - The TextStyle name that should be used on any text that matches this style.
+]],
+        [[
+regex: String - The regex string that matches any text that should be styled with the given style name.
+]]
+    )
+
     P.naive = {
         type = "EditorBufferType",
         variant = "naive"
