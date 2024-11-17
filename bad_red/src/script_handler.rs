@@ -87,7 +87,7 @@ pub enum RedCall<'lua> {
     },
     PaneSetTopLine {
         pane_index: usize,
-        line: u16,
+        line: usize,
     },
     PaneFrame {
         pane_index: usize,

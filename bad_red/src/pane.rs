@@ -401,7 +401,7 @@ pub enum SplitType {
 #[auto_lua]
 #[derive(Clone, Debug)]
 pub struct Pane {
-    pub top_line: u16,
+    pub top_line: usize,
     pub buffer_id: usize,
     pub should_wrap: bool,
 }

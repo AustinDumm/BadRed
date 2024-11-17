@@ -327,11 +327,13 @@ impl ContentBuffer for GapBuffer {
                     .get(newline_index)
                     .map(|newline| newline + 1)
             })
-            .flatten()?;
+            .flatten()
+            .unwrap_or(0);
         let end_index = self
             .sorted_newline_indices
             .get(line_index)
-            .map(|newline| newline + 1)?;
+            .map(|newline| newline + 1)
+            .unwrap_or_else(|| self.underlying_buf.len());
 
         let mut bytes = vec![];
         while start_index < end_index {
