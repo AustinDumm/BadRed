@@ -17,9 +17,7 @@ impl Styling {
     pub const DEFAULT_NAME: &str = "default";
 
     pub fn new() -> Self {
-        let mut styling = Self { style_list: vec![] };
-        styling.set_default_style();
-        styling
+        Self { style_list: vec![] }
     }
 
     pub fn push_style(&mut self, name: String, regex: String) -> Result<(), String> {
@@ -37,14 +35,8 @@ impl Styling {
         Ok(())
     }
 
-    fn set_default_style(&mut self) {
-        self.push_style(Self::DEFAULT_NAME.to_string(), r"\S*\s".to_string())
-            .unwrap();
-    }
-
     pub fn clear(&mut self) {
         self.style_list.clear();
-        self.set_default_style();
     }
 
     pub fn push(&mut self, style: Style) {
