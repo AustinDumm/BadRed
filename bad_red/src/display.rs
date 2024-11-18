@@ -279,7 +279,7 @@ impl Display {
         let mut cursor_screen_location: Option<(u16, u16)> = None;
         let buffer = buffer_by_id(editor_state, pane.buffer_id)?;
 
-        if needs_render(buffer, pane_node, editor_state, pane_id) {
+        if !needs_render(buffer, pane_node, editor_state, pane_id) {
             return Ok(None);
         }
 
