@@ -270,27 +270,7 @@ impl Display {
         Ok(top_cursor.or(bottom_cursor))
     }
 
-    fn scan_to_first_line<I>(&self, byte_count: &mut usize, pane: &Pane, chars: &mut Peekable<I>)
-    where
-        I: Iterator<Item = char>,
-    {
-        let mut line_count = 0;
-        while let Some(char) = chars.peek() {
-            let char_bytes = char.len_utf8();
-            if line_count == pane.top_line {
-                break;
-            }
-
-            if handle_newline(*char, byte_count, chars) {
-                line_count += 1;
-            } else {
-                *byte_count += char_bytes;
-                _ = chars.next();
-            }
-        }
-    }
-
-    const DEFAULT_STYLE_MATCH: &str = r"^\S*\s*";
+    const DEFAULT_STYLE_MATCH: &str = r"^(\W)|(\w*)|(\S*\s*)";
     fn new_render_leaf_pane(
         &mut self,
         pane_node: &PaneNode,
@@ -425,7 +405,7 @@ impl Display {
             crossterm::queue!(
                 self.stdout,
                 style::Print(
-                    vec![" "; (editor_frame.x_col + editor_frame.cols - column_index).into()]
+                    vec![" "; (editor_frame.x_col + editor_frame.cols).saturating_sub(column_index).into()]
                         .join("")
                 ),
                 cursor::MoveDown(1),
@@ -530,27 +510,26 @@ fn render_char(
 ) -> io::Result<()> {
     if character == '\t' {
         if let Some(text_style) = text_style {
-            queue!(
-                stdout,
-                style::PrintStyledContent(
-                    " ".repeat(width)
-                        .with(Color::from(&text_style.foreground))
-                        .on(Color::from(&text_style.background))
-                )
-            )?;
+            let spacing = " ".repeat(width).with(Color::from(&text_style.foreground));
+
+            let spacing = if let Some(ref background) = &text_style.background {
+                spacing.on(Color::from(background))
+            } else {
+                spacing
+            };
+
+            queue!(stdout, style::PrintStyledContent(spacing))?;
         } else {
             queue!(stdout, style::Print(" ".repeat(width)))?;
         }
     } else {
         if let Some(text_style) = text_style {
-            queue!(
-                stdout,
-                style::PrintStyledContent(
-                    character
-                        .with(Color::from(&text_style.foreground))
-                        .on(Color::from(&text_style.background))
-                )
-            )?;
+            let character = character.with(Color::from(&text_style.foreground));
+            if let Some(background) = &text_style.background {
+                character.on(Color::from(background));
+            }
+
+            queue!(stdout, style::PrintStyledContent(character))?;
         } else {
             queue!(stdout, style::Print(character))?;
         }

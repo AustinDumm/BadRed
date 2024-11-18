@@ -210,7 +210,7 @@ pub enum RedCall<'lua> {
 
     SetTextStyle {
         name: String,
-        background: Color,
+        background: Option<Color>,
         foreground: Color,
     },
 

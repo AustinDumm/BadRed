@@ -78,13 +78,15 @@ impl<'a> Editor<'a> {
         for path in starting_file_paths.into_iter() {
             state.open_file(path)?;
         }
-        if has_files {
-            state.link_buffer(0, 0, true)?;
-        }
+        let initial_file_id = if has_files {
+            Some(0)
+        } else {
+            None
+        };
 
         Ok(Self {
             state,
-            script_scheduler: ScriptScheduler::new(lua, preload_function, init_function)?,
+            script_scheduler: ScriptScheduler::new(lua, preload_function, init_function, initial_file_id)?,
             hook_map: HookMap::new(),
         })
     }

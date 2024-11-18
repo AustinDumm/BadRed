@@ -23,7 +23,7 @@ impl Styling {
     pub fn push_style(&mut self, name: String, regex: String) -> Result<(), String> {
         self.style_list.push(Style {
             name,
-            regex: Regex::new(&("^".to_string() + &regex)).map_err(|e| match e {
+            regex: Regex::new(&format!("^({})", &regex)).map_err(|e| match e {
                 regex::Error::Syntax(reason) => reason,
                 regex::Error::CompiledTooBig(size) => {
                     format!("Could not compile regex to size: {}", size)
@@ -67,7 +67,7 @@ impl From<&Color> for crossterm::style::Color {
 #[auto_lua]
 #[derive(Debug)]
 pub struct TextStyle {
-    pub background: Color,
+    pub background: Option<Color>,
     pub foreground: Color,
 }
 

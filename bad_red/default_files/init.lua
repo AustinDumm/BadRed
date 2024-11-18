@@ -35,10 +35,6 @@ coroutine.yield(red.call.set_hook("error", function(message)
 end))
 
 red.styling:init()
-red.styling:register("t", {
-    { name = "test", regex = "test" }
-})
-red.set_text_style("test", red.rgb(25, 25, 0), red.rgb(255, 0, 0))
 
 red.doc.document_table(
     red,

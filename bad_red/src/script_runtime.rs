@@ -16,7 +16,8 @@ use crate::{
         BufferFileLink, BufferFileLinkType, HookMap, HookType, HookTypeName, PaneBufferChange,
     },
     pane::{PaneNodeType, Split, SplitType},
-    script_handler::RedCall, styling::{Style, TextStyle},
+    script_handler::RedCall,
+    styling::{Style, TextStyle},
 };
 
 pub struct ScriptScheduler<'lua> {
@@ -41,7 +42,12 @@ pub enum SchedulerYield {
 }
 
 impl<'lua> ScriptScheduler<'lua> {
-    pub fn new(lua: &'lua Lua, preload: Function<'lua>, init: Function<'lua>) -> Result<Self> {
+    pub fn new(
+        lua: &'lua Lua,
+        preload: Function<'lua>,
+        init: Function<'lua>,
+        initial_buffer_file: Option<usize>,
+    ) -> Result<Self> {
         let preload_thread = lua.create_thread(preload).map_err(|e| {
             Error::Unrecoverable(format!("Failed to initialize init thread: {}", e))
         })?;
@@ -49,6 +55,7 @@ impl<'lua> ScriptScheduler<'lua> {
         let init_thread = lua.create_thread(init).map_err(|e| {
             Error::Unrecoverable(format!("Failed to initialize init thread: {}", e))
         })?;
+
         let mut active = VecDeque::new();
         active.push_back(ProcessAwaiting {
             process: ScriptProcess {
@@ -65,6 +72,34 @@ impl<'lua> ScriptScheduler<'lua> {
             },
             awaiting: RedCall::None,
         });
+
+        if let Some(initial_file_id) = initial_buffer_file {
+            let initial_buffer_function = lua
+                .create_function(move |_, _: ()| {
+                    return Ok(RedCall::BufferLinkFile {
+                        buffer_id: 0,
+                        file_id: initial_file_id,
+                        should_overwrite_buffer: true,
+                    });
+                })
+                .map_err(|e| {
+                    Error::Unrecoverable(format!("Failed to initialize file link function: {}", e))
+                })?;
+            
+            let initial_buffer_thread = lua
+                .create_thread(initial_buffer_function)
+                .map_err(|e| {
+                    Error::Unrecoverable(format!("Failed to initialize file link function: {}", e))
+                })?;
+
+            active.push_back(ProcessAwaiting {
+                process: ScriptProcess {
+                    thread: initial_buffer_thread,
+                    cause: None,
+                },
+                awaiting: RedCall::None,
+            });
+        }
 
         Ok(Self { lua, active })
     }
@@ -863,13 +898,12 @@ impl<'lua> ScriptScheduler<'lua> {
                         self.run_script(process, hook_map, *file_id)
                     }
                     RedCall::BufferClearStyle { buffer_id } => {
-                        let buffer =
-                            editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
-                                Error::Script(format!(
-                                    "Failed to retrieve buffer for id: {} during BufferClearStyle.",
-                                    buffer_id
-                                ))
-                            })?;
+                        let buffer = editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
+                            Error::Script(format!(
+                                "Failed to retrieve buffer for id: {} during BufferClearStyle.",
+                                buffer_id
+                            ))
+                        })?;
                         buffer.styling.clear();
                         self.run_script(process, hook_map, Value::Nil)
                     }
@@ -885,10 +919,7 @@ impl<'lua> ScriptScheduler<'lua> {
                                     buffer_id
                                 ))
                             })?;
-                        buffer.styling.push_style(
-                            name,
-                            regex
-                        );
+                        buffer.styling.push_style(name, regex);
                         self.run_script(process, hook_map, Value::Nil)
                     }
 
@@ -940,7 +971,9 @@ impl<'lua> ScriptScheduler<'lua> {
                             .get(file_id)
                             .map(|f| f.as_ref())
                             .flatten()
-                            .ok_or_else(|| Error::Script(format!("Failed to get file for id: {}", file_id)))?;
+                            .ok_or_else(|| {
+                                Error::Script(format!("Failed to get file for id: {}", file_id))
+                            })?;
 
                         self.run_script(process, hook_map, file.extension())
                     }
