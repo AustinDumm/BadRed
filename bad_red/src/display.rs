@@ -10,18 +10,15 @@ use crossterm::{
     terminal::{self, *},
 };
 use regex::{Match, Regex};
-use std::{
-    io::{self, ErrorKind, Stdout, Write},
-    iter::Peekable,
-};
+use std::io::{self, ErrorKind, Stdout, Write};
 use unicode_width::UnicodeWidthChar;
 
 use crate::{
-    buffer::ContentBuffer,
+    buffer::{ContentBuffer, EditorBuffer},
     editor_frame::EditorFrame,
     editor_state::{Editor, EditorState},
     pane::{Pane, PaneNode, PaneNodeType, PaneTree, Split},
-    styling::{self, Styling, TextStyle},
+    styling::{self, Styling},
 };
 
 pub struct Display {
@@ -280,32 +277,17 @@ impl Display {
         editor_frame: &EditorFrame,
     ) -> io::Result<Option<(u16, u16)>> {
         let mut cursor_screen_location: Option<(u16, u16)> = None;
-        let buffer = editor_state.buffer_by_id(pane.buffer_id).ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "Failed to find buffer id {} associated with leaf pane",
-                    pane.buffer_id
-                ),
-            )
-        })?;
+        let buffer = buffer_by_id(editor_state, pane.buffer_id)?;
 
-        if !buffer.is_render_dirty
-            && !pane_node.is_dirty
-            && editor_state.active_pane_index != pane_id
-        {
+        if needs_render(buffer, pane_node, editor_state, pane_id) {
             return Ok(None);
         }
 
         let mut current_buffer_line_index = pane.top_line;
         let mut pane_lines_remaining = editor_frame.rows;
 
-        let default_regex = Regex::new(Self::DEFAULT_STYLE_MATCH).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("Failed to create default regex. {}", e),
-            )
-        })?;
+        let default_regex = Self::default_style_regex()?;
+
         crossterm::queue!(
             self.stdout,
             cursor::MoveTo(editor_frame.x_col, editor_frame.y_row)
@@ -313,87 +295,23 @@ impl Display {
 
         while pane_lines_remaining > 0 {
             let mut column_index = editor_frame.x_col;
-            if let Some(mut buffer_line_copy) = buffer.content_copy_line(current_buffer_line_index)
+            if let Some(buffer_line_copy) = buffer.content_copy_line(current_buffer_line_index)
             {
                 if let Some(mut current_byte_index) =
                     buffer.line_start_byte_index(current_buffer_line_index)
                 {
-                    'line_render: while !buffer_line_copy.is_empty() {
-                        let mut matched_style: Option<(Match, &str)> = None;
-                        for style in buffer.styling.style_list.iter().rev() {
-                            if let Some(found) = style.regex.find(&buffer_line_copy) {
-                                matched_style = Some((found, &style.name));
-                            }
-                        }
-                        let (found, style) = matched_style.unwrap_or_else(|| {
-                            (
-                                default_regex.find(&buffer_line_copy).unwrap(),
-                                Styling::DEFAULT_NAME,
-                            )
-                        });
-                        let text_style = editor_state.style_map.get(style);
-                        let rest = buffer_line_copy.split_off(found.end());
-                        let matched_text = buffer_line_copy;
-                        buffer_line_copy = rest;
-
-                        for matched_char in matched_text.chars() {
-                            if current_byte_index == buffer.cursor_byte_index()
-                                && cursor_screen_location.is_none()
-                            {
-                                cursor_screen_location = Some((
-                                    editor_frame.y_row + editor_frame.rows - pane_lines_remaining,
-                                    column_index,
-                                ));
-                            }
-
-                            let char_width = width_for(
-                                matched_char,
-                                column_index,
-                                editor_state.options.tab_width,
-                            );
-                            if char_width == 0 {
-                                // Print as utf8 code point to handle display
-                                let code_point_literal = matched_char.escape_unicode().to_string();
-                                column_index += code_point_literal
-                                    .chars()
-                                    .map(|c| c.width().unwrap_or(1) as u16)
-                                    .sum::<u16>();
-                                crossterm::queue!(self.stdout, style::Print(code_point_literal))?;
-                            } else if matched_char == '\n' {
-                                break 'line_render;
-                            } else {
-                                column_index += char_width as u16;
-                                render_char(
-                                    &mut self.stdout,
-                                    char_width,
-                                    matched_char,
-                                    text_style,
-                                )?;
-                            }
-
-                            current_byte_index += matched_char.len_utf8();
-                            if column_index >= (editor_frame.x_col + editor_frame.cols) {
-                                if !pane.should_wrap {
-                                    break;
-                                } else {
-                                    let Some(new_pane_lines_remaining) =
-                                        pane_lines_remaining.checked_sub(1)
-                                    else {
-                                        break 'line_render;
-                                    };
-                                    pane_lines_remaining = new_pane_lines_remaining;
-                                    column_index = 0;
-                                }
-                            }
-                        }
-                    }
-
-                    if current_byte_index == buffer.cursor_byte_index() {
-                        cursor_screen_location = Some((
-                            editor_frame.y_row + editor_frame.rows - pane_lines_remaining,
-                            column_index,
-                        ));
-                    }
+                    self.render_line(
+                        buffer_line_copy,
+                        buffer,
+                        &default_regex,
+                        editor_state,
+                        editor_frame,
+                        pane,
+                        &mut current_byte_index,
+                        &mut cursor_screen_location,
+                        &mut pane_lines_remaining,
+                        &mut column_index,
+                    )?;
                 } else {
                     if cursor_screen_location.is_none() {
                         cursor_screen_location =
@@ -405,8 +323,13 @@ impl Display {
             crossterm::queue!(
                 self.stdout,
                 style::Print(
-                    vec![" "; (editor_frame.x_col + editor_frame.cols).saturating_sub(column_index).into()]
-                        .join("")
+                    vec![
+                        " ";
+                        (editor_frame.x_col + editor_frame.cols)
+                            .saturating_sub(column_index)
+                            .into()
+                    ]
+                    .join("")
                 ),
                 cursor::MoveDown(1),
                 cursor::MoveToColumn(editor_frame.x_col),
@@ -416,6 +339,99 @@ impl Display {
         }
 
         return Ok(cursor_screen_location);
+    }
+
+    fn default_style_regex() -> io::Result<Regex> {
+        Regex::new(Self::DEFAULT_STYLE_MATCH).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to create default regex. {}", e),
+            )
+        })
+    }
+
+    fn render_line(
+        &mut self,
+        mut buffer_line_copy: String,
+        buffer: &EditorBuffer,
+        default_regex: &Regex,
+        editor_state: &EditorState,
+        editor_frame: &EditorFrame,
+        pane: &Pane,
+        current_byte_index: &mut usize,
+        cursor_screen_location: &mut Option<(u16, u16)>,
+        pane_lines_remaining: &mut u16,
+        column_index: &mut u16,
+    ) -> io::Result<()> {
+        'line_render: while !buffer_line_copy.is_empty() {
+            let mut matched_style: Option<(Match, &str)> = None;
+            for style in buffer.styling.style_list.iter().rev() {
+                if let Some(found) = style.regex.find(&buffer_line_copy) {
+                    matched_style = Some((found, &style.name));
+                }
+            }
+            let (found, style) = matched_style.unwrap_or_else(|| {
+                (
+                    default_regex.find(&buffer_line_copy).unwrap(),
+                    Styling::DEFAULT_NAME,
+                )
+            });
+            let text_style = editor_state.style_map.get(style);
+            let rest = buffer_line_copy.split_off(found.end());
+            let matched_text = buffer_line_copy;
+            buffer_line_copy = rest;
+
+            for matched_char in matched_text.chars() {
+                if *current_byte_index == buffer.cursor_byte_index()
+                    && cursor_screen_location.is_none()
+                {
+                    *cursor_screen_location = Some((
+                        editor_frame.y_row + editor_frame.rows - *pane_lines_remaining,
+                        *column_index,
+                    ));
+                }
+
+                let char_width =
+                    width_for(matched_char, *column_index, editor_state.options.tab_width);
+                if char_width == 0 {
+                    // Print as utf8 code point to handle display
+                    let code_point_literal = matched_char.escape_unicode().to_string();
+                    *column_index += code_point_literal
+                        .chars()
+                        .map(|c| c.width().unwrap_or(1) as u16)
+                        .sum::<u16>();
+                    crossterm::queue!(self.stdout, style::Print(code_point_literal))?;
+                } else if matched_char == '\n' {
+                    break 'line_render;
+                } else {
+                    *column_index += char_width as u16;
+                    render_char(&mut self.stdout, char_width, matched_char, text_style)?;
+                }
+
+                *current_byte_index += matched_char.len_utf8();
+                if *column_index >= (editor_frame.x_col + editor_frame.cols) {
+                    if !pane.should_wrap {
+                        break;
+                    } else {
+                        let Some(new_pane_lines_remaining) = pane_lines_remaining.checked_sub(1)
+                        else {
+                            break 'line_render;
+                        };
+                        *pane_lines_remaining = new_pane_lines_remaining;
+                        *column_index = 0;
+                    }
+                }
+            }
+        }
+
+        if *current_byte_index == buffer.cursor_byte_index() {
+            *cursor_screen_location = Some((
+                editor_frame.y_row + editor_frame.rows - *pane_lines_remaining,
+                *column_index,
+            ));
+        }
+
+        Ok(())
     }
 
     fn render_frame_v_gap(
@@ -473,27 +489,6 @@ impl Display {
     }
 }
 
-fn handle_newline<I>(char: char, byte_count: &mut usize, chars: &mut Peekable<I>) -> bool
-where
-    I: Iterator<Item = char>,
-{
-    if char == '\r' {
-        _ = chars.next();
-        *byte_count += 1;
-        if chars.peek() == Some(&'\n') {
-            *byte_count += 1;
-            _ = chars.next();
-        }
-        true
-    } else if char == '\n' {
-        *byte_count += 1;
-        _ = chars.next();
-        true
-    } else {
-        false
-    }
-}
-
 fn width_for(character: char, at_col: u16, tab_width: u16) -> usize {
     if character == '\t' {
         (tab_width - at_col % tab_width).into()
@@ -536,6 +531,27 @@ fn render_char(
     }
 
     Ok(())
+}
+
+fn buffer_by_id(editor_state: &EditorState, buffer_id: usize) -> io::Result<&EditorBuffer> {
+    editor_state.buffer_by_id(buffer_id).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!(
+                "Failed to find buffer id {} associated with leaf pane",
+                buffer_id
+            ),
+        )
+    })
+}
+
+fn needs_render(
+    buffer: &EditorBuffer,
+    pane_node: &PaneNode,
+    editor_state: &EditorState,
+    pane_id: usize,
+) -> bool {
+    buffer.is_render_dirty || pane_node.is_dirty || editor_state.active_pane_index == pane_id
 }
 
 impl Drop for Display {
