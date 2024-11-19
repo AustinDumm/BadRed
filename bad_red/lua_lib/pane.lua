@@ -595,6 +595,66 @@ self: Pane Table - The pane table whose frame should be returned. If this table 
 ]]
     )
 
+    local function nested_leaf_child(pane, to_first)
+        while pane:type().variant ~= "leaf" do
+            pane = pane:child(to_first)
+        end
+        return pane
+    end
+    local function directional_nested_sibling(pane, variant, first)
+        local is_first = pane:is_first_child()
+        while pane:type().variant ~= variant do
+            pane = pane:parent()
+            if pane == nil then
+                return
+            end
+        end
+        pane = pane:child(first)
+
+        return nested_leaf_child(pane, is_first)
+    end
+    P.horizontal_child = red.doc.build_fn(
+        function(pane, left)
+            return directional_nested_sibling(pane, "v_split", left)
+        end,
+        "horizontal_child",
+        [[
+Returns a leaf sibling pane in the given left/right direction
+]],
+        [[
+Travels up the pane tree until a vertical split is found. If none found, returns nil. Once vertical split is found, travels down the tree exclusively to the given direction (true=left) until a leaf is found. Returns the leaf.
+]],
+        [[
+Pane table object.
+]],
+        [[
+self: Pane Table Object - The pane to start the traversal from.
+]],
+        [[
+left: boolean - True if the traversal should move left. Otherwise right.
+]]
+    )
+    P.vertical_child = red.doc.build_fn(
+        function(pane, top)
+            return directional_nested_sibling(pane, "h_split", top)
+        end,
+        "vertical_child",
+        [[
+Returns a leaf sibling pane in the given up/down direction
+]],
+        [[
+Travels up the pane tree until a vertical split is found. If none found, returns nil. Once vertical split is found, travels down the tree exclusively to the given direction (true=up) until a leaf is found. Returns the leaf.
+]],
+        [[
+Pane table object.
+]],
+        [[
+self: Pane Table Object - The pane to start the traversal from.
+]],
+        [[
+up: boolean - True if the traversal should move left. Otherwise right.
+]]
+    )
     red.doc.document_table(
         P,
         "Pane",

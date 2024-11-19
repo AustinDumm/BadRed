@@ -57,6 +57,30 @@ package.preload["mode"] = function(modname, _)
             pane_map["q"] = function(_)
                 red.pane:close()
             end
+            pane_map["h"] = function(_)
+                local pane = red.pane:current():horizontal_child(true)
+                if pane ~= nil then 
+                    pane:set_active()
+                end
+            end
+            pane_map["l"] = function(_)
+                local pane = red.pane:current():horizontal_child(false)
+                if pane ~= nil then 
+                    pane:set_active()
+                end
+            end
+            pane_map["k"] = function(_)
+                local pane = red.pane:current():vertical_child(true)
+                if pane ~= nil then 
+                    pane:set_active()
+                end
+            end
+            pane_map["j"] = function(_)
+                local pane = red.pane:current():vertical_child(false)
+                if pane ~= nil then 
+                    pane:set_active()
+                end
+            end
             return pane_map
         end)()
         map[":"] = function(key) command_handler:start_command(key) end

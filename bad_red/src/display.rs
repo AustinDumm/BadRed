@@ -334,7 +334,7 @@ impl Display {
                 cursor::MoveDown(1),
                 cursor::MoveToColumn(editor_frame.x_col),
             )?;
-            pane_lines_remaining -= 1;
+            pane_lines_remaining = pane_lines_remaining.saturating_sub(1);
             current_buffer_line_index += 1;
         }
 
