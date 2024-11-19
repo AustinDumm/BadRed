@@ -235,7 +235,7 @@ impl Display {
                 editor_state,
                 editor_frame,
                 split,
-                editor_frame.rows - size - 1,
+                editor_frame.rows.saturating_sub(size).saturating_sub(1),
             ),
         }
     }
