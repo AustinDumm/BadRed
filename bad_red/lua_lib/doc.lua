@@ -265,6 +265,7 @@ value_doc_reformat: Function(value_doc: String) -> String - Function called for 
         function(doc_to_show)
             if P._help_buffer == nil then
                 P._help_buffer = red.buffer:open()
+                red.styling:set_buffer_type(P._help_buffer, red.styling.help_style)
             end
 
             local doc_string

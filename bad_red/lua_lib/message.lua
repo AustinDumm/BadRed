@@ -49,7 +49,7 @@ message_text: String - The message to add to the buffer.
                 root:h_split()
                 local new_root = root:parent()
 
-                new_root:fix_size(3, false)
+                new_root:fix_size(10, false)
                 self.pane = new_root:child(false)
                 self.pane:set_wrap(true)
                 self.pane:on_close(function()

@@ -92,6 +92,7 @@ call: Function() - The function to run if `shortcut` is triggered.
                 local command_buffer = red.buffer:open()
                 command_buffer:insert(trigger_key)
                 command_pane:set_buffer(command_buffer)
+                red.styling:set_buffer_type(command_buffer, "lua")
 
                 red.keymap.current = command_keymap(
                     command_entry_map,
