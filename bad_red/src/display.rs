@@ -363,6 +363,8 @@ impl Display {
         pane_lines_remaining: &mut u16,
         column_index: &mut u16,
     ) -> io::Result<()> {
+        let starting_column = *column_index;
+
         'line_render: while !buffer_line_copy.is_empty() {
             let mut matched_style: Option<(Match, &str)> = None;
             for style in buffer.styling.style_list.iter().rev() {
@@ -418,7 +420,11 @@ impl Display {
                             break 'line_render;
                         };
                         *pane_lines_remaining = new_pane_lines_remaining;
-                        *column_index = 0;
+                        *column_index = starting_column;
+                        crossterm::queue!(
+                            self.stdout,
+                            cursor::MoveToColumn(starting_column)
+                        )?;
                     }
                 }
             }
