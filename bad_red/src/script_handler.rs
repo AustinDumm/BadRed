@@ -10,7 +10,7 @@ use bad_red_proc_macros::{auto_lua_defaulting, auto_script_table};
 use mlua::{Function, Lua, Table, Value};
 
 use crate::{
-    buffer::EditorBufferType, editor_state::{EditorOptionList, EditorOptionType}, hook_map::{HookType, HookTypeName}, styling::Color
+    buffer::EditorBufferType, editor_state::EditorOptionList, hook_map::{HookType, HookTypeName}, styling::Color
 };
 
 pub struct ScriptHandler {

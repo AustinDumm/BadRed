@@ -7,7 +7,7 @@
 use std::collections::VecDeque;
 
 use crossterm::terminal;
-use mlua::{Function, IntoLua, Lua, Table, Thread, Value};
+use mlua::{Function, IntoLua, Lua, Thread, Value};
 
 use crate::{
     buffer::ContentBuffer,
@@ -17,7 +17,7 @@ use crate::{
     },
     pane::{PaneNodeType, Split, SplitType},
     script_handler::RedCall,
-    styling::{Style, TextStyle},
+    styling::TextStyle,
 };
 
 pub struct ScriptScheduler<'lua> {
@@ -912,14 +912,17 @@ impl<'lua> ScriptScheduler<'lua> {
                         name,
                         regex,
                     } => {
-                        let mut buffer =
+                        let buffer =
                             editor_state.mut_buffer_by_id(buffer_id).ok_or_else(|| {
                                 Error::Script(format!(
                                     "Failed to retrieve buffer for id: {} during BufferPushStyle.",
                                     buffer_id
                                 ))
                             })?;
-                        buffer.styling.push_style(name, regex);
+                        buffer.styling.push_style(name, regex)
+                            .map_err(|e| Error::Script(format!(
+                                "Failed to create Regex for styling: {:?}", e
+                            )))?;
                         self.run_script(process, hook_map, Value::Nil)
                     }
 

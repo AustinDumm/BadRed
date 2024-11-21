@@ -6,7 +6,7 @@
 
 use std::{str::FromStr, sync::Arc, time::Duration};
 
-use bad_red_proc_macros::{auto_lua, auto_script_table};
+use bad_red_proc_macros::auto_lua;
 use bimap::BiMap;
 use crossterm::event::KeyEvent;
 use mlua::{FromLua, IntoLua, Lua};
@@ -18,7 +18,7 @@ use crate::{
     keymap::RedKeyEvent,
     pane::{self, PaneTree, Split},
     script_runtime::{SchedulerYield, ScriptScheduler},
-    styling::{Styling, TextStyleMap},
+    styling::TextStyleMap,
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -602,7 +602,7 @@ pub enum EditorOptionType {
 pub struct EditorOptionList(Vec<EditorOptionType>);
 
 impl<'lua> FromLua<'lua> for EditorOptionList {
-    fn from_lua(value: mlua::Value<'lua>, lua: &'lua Lua) -> mlua::Result<Self> {
+    fn from_lua(value: mlua::Value<'lua>, _lua: &'lua Lua) -> mlua::Result<Self> {
         let mut option_list = vec![];
 
         for pair in value
