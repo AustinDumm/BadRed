@@ -104,7 +104,7 @@ impl Display {
         match &node.node_type {
             PaneNodeType::Leaf(ref pane) => {
                 let pane_cursor =
-                    self.new_render_leaf_pane(node, pane, node_index, editor_state, editor_frame)?;
+                    self.render_leaf_pane(node, pane, node_index, editor_state, editor_frame)?;
                 if editor_state.active_pane_index == node_index {
                     Ok(pane_cursor)
                 } else {
@@ -268,7 +268,7 @@ impl Display {
     }
 
     const DEFAULT_STYLE_MATCH: &str = r"^(\W)|(\w*)|(\S*\s*)";
-    fn new_render_leaf_pane(
+    fn render_leaf_pane(
         &mut self,
         pane_node: &PaneNode,
         pane: &Pane,
@@ -413,7 +413,7 @@ impl Display {
                 *current_byte_index += matched_char.len_utf8();
                 if *column_index >= (editor_frame.x_col + editor_frame.cols) {
                     if !pane.should_wrap {
-                        break;
+                        break 'line_render;
                     } else {
                         let Some(new_pane_lines_remaining) = pane_lines_remaining.checked_sub(1)
                         else {
@@ -423,6 +423,7 @@ impl Display {
                         *column_index = starting_column;
                         crossterm::queue!(
                             self.stdout,
+                            cursor::MoveDown(1),
                             cursor::MoveToColumn(starting_column)
                         )?;
                     }

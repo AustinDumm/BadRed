@@ -2,9 +2,6 @@
 
 1. Undo/Redo
 2. More VIMish bindings
-3. Text color maps?
-    a. Look into how other editors handle this
-    b. Ranges with colors?
 4. Text linking maps?
     a. Look into how other editors handle this
     b. Ranges with destinations?
@@ -16,7 +13,7 @@
     c. Could make this specific only to command input to allow for easier calling of arg-less functions
 8. Invisible character render mode?
 9. Concept-level documentation
-10. Interactive style functions (could hook in nicely with #9)
+10. Interactive functions (could hook in nicely with #9)
     a. Wrap in a callable table with a interactive runtime that uses a list of parameter names to prompt the user for
 11. Macros
 12. Built-ins Documentation
@@ -39,5 +36,9 @@
     a. Line number gutter
     b. Modeline
     c. Bufferline
+    d. Something like a "virtual buffer" that calls a lua delegate for its line-by-line content? How to know when to update? Manual updates to start via hook?
 21. Copy/Paste
 22. Grep/Search/Replace
+23. Profiling mode with logs for RedCall count and times.
+    a. Use for picking which lua calls need to be moved into their own Built-in implementation
+    b. Cleanup built-in implementation to make it not the world's largest match

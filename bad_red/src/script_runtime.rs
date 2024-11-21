@@ -161,7 +161,7 @@ impl<'lua> ScriptScheduler<'lua> {
         Ok(())
     }
 
-    const MAX_SCRIPT_CALLS: u8 = std::u8::MAX;
+    const MAX_SCRIPT_CALLS: u16 = std::u16::MAX;
     pub fn run_schedule(
         &mut self,
         editor_state: &mut EditorState,

@@ -71,7 +71,7 @@ impl EditorFrame {
         let mut new = self.clone();
         let unfilled_height = (percent * self.rows as f32) as u16;
         let y_row = unfilled_height.saturating_add_signed(-shift) + self.y_row;
-        let rows = self.rows - y_row;
+        let rows = self.rows.saturating_sub(y_row);
 
         new.y_row = y_row;
         new.rows = rows;
